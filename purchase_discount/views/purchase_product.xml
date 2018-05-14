@@ -1,0 +1,69 @@
+<odoo>
+	<data>
+		<record id="product_template_inherited_form_view_pcte" model="ir.ui.view">
+	        <field name="name">Product Template Inherited Form View</field>
+	        <field name="model">product.template</field>
+	        <field name="inherit_id" ref="purchase.view_product_supplier_inherit"/>
+	        <field name="priority" eval="100"/>
+	        <field name="arch" type="xml">
+	            <xpath expr="//page[@name='purchase']" position="inside">
+	            	<group string="Discount (%)">
+	                	<field name="supplier_discount"/>
+	                </group>
+	            </xpath>
+	            <xpath expr="//div[@name='standard_price_uom']" position="after">
+                	<field name="default_landed_cost_actual"/>
+                	<field name="default_shipping_info_id"/>
+	            </xpath>
+	        </field>
+	    </record>
+
+
+	    <record id="purchase_order_inherited_form_view_pcte" model="ir.ui.view">
+	        <field name="name">Purchase Order Inherited Form View PCTE</field>
+	        <field name="model">purchase.order</field>
+	        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+	        <field name="priority" eval="100"/>
+	        <field name="arch" type="xml">
+	            <xpath expr="//field[@name='order_line']/tree/field[@name='price_unit']" position="after">
+	                 <field name="discount"/>
+	            </xpath>
+	        </field>
+	    </record>
+
+	    <record id="product_supplierinfo_inherited_tree_view" model="ir.ui.view">
+	        <field name="name">Product Supplier Info Inherited Tree View</field>
+	        <field name="model">product.supplierinfo</field>
+	        <field name="inherit_id" ref="product.product_supplierinfo_tree_view"/>
+	        <field name="priority" eval="100"/>
+	        <field name="arch" type="xml">
+	            <xpath expr="//field[@name='date_end']" position="after">
+	            	<field name="landed_cost_actual"/>
+	                <field name="shipping_info_id"/>
+	            </xpath>
+	        </field>
+	    </record>
+
+	    <record id="product_supplierinfo_inherited_form_view" model="ir.ui.view">
+	        <field name="name">Product Supplier Info Inherited Form View</field>
+	        <field name="model">product.supplierinfo</field>
+	        <field name="inherit_id" ref="product.product_supplierinfo_form_view"/>
+	        <field name="priority" eval="100"/>
+	        <field name="arch" type="xml">
+	            <xpath expr="//form/group" position="inside">
+	            	<group>
+	            		<field name="landed_cost_actual"/>
+	            	</group>
+	            	<group string="Shipping Information">
+	            		<field name="shipping_info_id"/>
+	            	</group>
+	            </xpath>
+	        </field>
+	    </record>
+	</data>
+</odoo>
+
+
+
+
+	

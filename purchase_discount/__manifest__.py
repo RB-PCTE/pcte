@@ -19,11 +19,14 @@
     'version': '0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['purchase'],
+    'depends': ['purchase', 'sale_management'],
 
     # always loaded
     'data': [
         'views/purchase_product.xml',
+        'views/sale.xml',
+        'views/shipping_info.xml',
+        'security/ir.model.access.csv',
     ],
     'installable': True,
     'application': True,
