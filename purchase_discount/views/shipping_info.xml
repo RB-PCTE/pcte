@@ -1,0 +1,37 @@
+<odoo>
+	<data>
+		<record id="shipping_info_form_view_pcte" model="ir.ui.view">
+	        <field name="name">Shipping Info Form View</field>
+	        <field name="model">shipping.info</field>
+	        <field name="priority" eval="100"/>
+	        <field name="arch" type="xml">
+	            <form>
+	            	<sheet>
+	            		<field name="currency_id" invisible="1"/>
+	            		<group string="Range 1">
+	            			<field name="range_1_min"/>
+	            			<field name="range_1_max"/>
+	            		</group>
+	            		<group string="Range 2">
+	            			<field name="range_2_min"/>
+	            			<field name="range_2_max"/>
+	            		</group>
+	            		<group string="Range 3">
+	            			<field name="range_3_min"/>
+	            			<field name="range_3_max"/>
+	            		</group>
+	            		<field name="shipping_lines_ids">
+	            			<tree editable="bottom">
+	            				<field name="currency_id" invisible="1"/>
+	            				<field name="shipping_type"/>
+	            				<field name="range_1_amount"/>
+	            				<field name="range_2_amount"/>
+	            				<field name="range_3_amount"/>
+	            			</tree>
+	            		</field>
+	            	</sheet>
+	            </form>
+	        </field>
+	    </record>
+	</data>
+</odoo>

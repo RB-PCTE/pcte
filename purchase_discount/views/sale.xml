@@ -1,0 +1,16 @@
+<odoo>
+	<data>
+		<record id="sale_order_inherited_form_view_pcte" model="ir.ui.view">
+	        <field name="name">Sale Order Inherited Form View</field>
+	        <field name="model">sale.order</field>
+	        <field name="inherit_id" ref="sale.view_order_form"/>
+	        <field name="priority" eval="100"/>
+	        <field name="arch" type="xml">
+	            <xpath expr="//field[@name='order_line']/tree/field[@name='price_unit']" position="after">
+	            	<field name="product_lca" invisible="1"/>
+	                <field name="shipping_type" attrs="{'invisible':[('product_lca','=',True)]}"/>
+	            </xpath>
+	        </field>
+	    </record>
+	</data>
+</odoo>
