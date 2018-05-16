@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 {
-    'name': "PCTE Purchase discount",
+    'name': "PCTE Purchase discount and compute selling price",
 
     'summary': """
-        PCTE Purchase discount""",
+        PCTE Purchase discount and compute selling price""",
 
     'description': """
-        PCTE Purchase discount
+        PCTE Purchase discount and compute selling price 
     """,
 
     'author': "Odoo",
