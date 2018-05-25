@@ -83,9 +83,10 @@ class SaleOrderLine(models.Model):
     def get_selling_price(self):
         if self.product_id and self.shipping_type:
             PI = self.product_id.seller_ids and self.product_id.seller_ids[0].price or self.product_id.standard_price
+            currency = self.product_id.seller_ids and self.product_id.seller_ids[0].currency_id
             D = self.product_id.supplier_discount
-            if self.product_id.currency_id and self.currency_id and self.product_id.currency_id != self.currency_id:
-                DPC = self.product_id.currency_id.compute(PI * (100.0 - D) / 100.0, self.currency_id)
+            if currency and self.currency_id and currency != self.currency_id:
+                DPC = currency.compute(PI * (100.0 - D) / 100.0, self.currency_id)
             else:
                 DPC = PI * (100.0 - D) / 100.0
             if self.product_id.default_landed_cost_actual or self.product_id.seller_ids and self.product_id.seller_ids[0].landed_cost_actual:
