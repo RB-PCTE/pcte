@@ -11,17 +11,42 @@ class ShippingInformationLine(models.Model):
     range_1_amount = fields.Monetary(currency_field='currency_id')
     range_2_amount = fields.Monetary(currency_field='currency_id')
     range_3_amount = fields.Monetary(currency_field='currency_id')
+    range_4_amount = fields.Monetary(currency_field='currency_id')
 
 
 class ShippingInformation(models.Model):
     _name = 'shipping.info'
 
-    range_1_min = fields.Float()
-    range_1_max = fields.Float()
-    range_2_min = fields.Float()
-    range_2_max = fields.Float()
-    range_3_min = fields.Float()
-    range_3_max = fields.Float()
+    name = fields.Char()
+    air_range_1_min = fields.Float()
+    air_range_1_max = fields.Float()
+    air_range_2_min = fields.Float()
+    air_range_2_max = fields.Float()
+    air_range_3_min = fields.Float()
+    air_range_3_max = fields.Float()
+    air_range_4_min = fields.Float()
+    air_range_4_max = fields.Float()
+
+    parcel_range_1_min = fields.Float()
+    parcel_range_1_max = fields.Float()
+    parcel_range_2_min = fields.Float()
+    parcel_range_2_max = fields.Float()
+    parcel_range_3_min = fields.Float()
+    parcel_range_3_max = fields.Float()
+    parcel_range_4_min = fields.Float()
+    parcel_range_4_max = fields.Float()
+
+    sea_range_1_min = fields.Float()
+    sea_range_1_max = fields.Float()
+    sea_range_2_min = fields.Float()
+    sea_range_2_max = fields.Float()
+    sea_range_3_min = fields.Float()
+    sea_range_3_max = fields.Float()
+    sea_range_4_min = fields.Float()
+    sea_range_4_max = fields.Float()
+
+
+
     shipping_lines_ids = fields.One2many('shipping.info.line', 'shipping_info_id')
     supplier_info_id = fields.Many2one('product.supplierinfo')
     currency_id = fields.Many2one('res.currency', related='supplier_info_id.currency_id')
@@ -34,15 +59,35 @@ class ShippingInformation(models.Model):
         res.write({'supplier_info_id': supplier_info.id})
         return res
 
-    @api.constrains('range_1_min', 'range_1_max', 'range_2_min', 'range_2_max,', 'range_3_min', 'range_3_max')
-    def check_ranges(self):
-        ranges = ['range_1_min', 'range_1_max', 'range_2_min', 'range_2_max', 'range_3_min', 'range_3_max']
+    @api.constrains('air_range_1_min', 'air_range_1_max', 'air_range_2_min', 'air_range_2_max,', 'air_range_3_min', 'air_range_3_max', 'air_range_4_min', 'air_range_4_max')
+    def air_check_ranges(self):
+        ranges = ['air_range_1_min', 'air_range_1_max', 'air_range_2_min', 'air_range_2_max', 'air_range_3_min', 'air_range_3_max', 'air_range_4_min', 'air_range_4_max']
         for info in self:
-            if info.range_1_min < 0:
+            if info.air_range_1_min < 0:
                 raise exceptions.ValidationError("Cannot have a negative value for range")
             for i in range(1, len(ranges)):
                 if info[ranges[i - 1]] and info[ranges[i]] and info[ranges[i - 1]] > info[ranges[i]]:
-                    raise exceptions.ValidationError("Cannot have overlapping ranges")
+                    raise exceptions.ValidationError("Cannot have overlapping ranges (Air)")
+
+    @api.constrains('parcel_range_1_min', 'parcel_range_1_max', 'parcel_range_2_min', 'parcel_range_2_max,', 'parcel_range_3_min', 'parcel_range_3_max', 'parcel_range_4_min', 'parcel_range_4_max')
+    def parcel_check_ranges(self):
+        ranges = ['parcel_range_1_min', 'parcel_range_1_max', 'parcel_range_2_min', 'parcel_range_2_max', 'parcel_range_3_min', 'parcel_range_3_max', 'parcel_range_4_min', 'parcel_range_4_max']
+        for info in self:
+            if info.parcel_range_1_min < 0:
+                raise exceptions.ValidationError("Cannot have a negative value for range")
+            for i in range(1, len(ranges)):
+                if info[ranges[i - 1]] and info[ranges[i]] and info[ranges[i - 1]] > info[ranges[i]]:
+                    raise exceptions.ValidationError("Cannot have overlapping ranges (parcel)")
+
+    @api.constrains('sea_range_1_min', 'sea_range_1_max', 'sea_range_2_min', 'sea_range_2_max,', 'sea_range_3_min', 'sea_range_3_max', 'sea_range_4_min', 'sea_range_4_max')
+    def sea_check_ranges(self):
+        ranges = ['sea_range_1_min', 'sea_range_1_max', 'sea_range_2_min', 'sea_range_2_max', 'sea_range_3_min', 'sea_range_3_max', 'sea_range_4_min', 'sea_range_4_max']
+        for info in self:
+            if info.sea_range_1_min < 0:
+                raise exceptions.ValidationError("Cannot have a negative value for range")
+            for i in range(1, len(ranges)):
+                if info[ranges[i - 1]] and info[ranges[i]] and info[ranges[i - 1]] > info[ranges[i]]:
+                    raise exceptions.ValidationError("Cannot have overlapping ranges (sea)")
 
     @api.constrains('shipping_lines_ids.shipping_type')
     @api.onchange('shipping_lines_ids')
@@ -58,12 +103,14 @@ class ShippingInformation(models.Model):
         if not line:
             return 0
 
-        if qty >= line.shipping_info_id.range_1_min and qty <= line.shipping_info_id.range_1_max:
+        if qty >= line.shipping_info_id[shipping_type + '_range_1_min'] and qty <= line.shipping_info_id[shipping_type + '_range_1_max']:
             return line.range_1_amount
-        if qty >= line.shipping_info_id.range_2_min and qty <= line.shipping_info_id.range_2_max:
+        if qty >= line.shipping_info_id[shipping_type + '_range_2_min'] and qty <= line.shipping_info_id[shipping_type + '_range_2_max']:
             return line.range_2_amount
-        if qty >= line.shipping_info_id.range_3_min and qty <= line.shipping_info_id.range_3_max:
+        if qty >= line.shipping_info_id[shipping_type + '_range_3_min'] and qty <= line.shipping_info_id[shipping_type + '_range_3_max']:
             return line.range_3_amount
+        if qty >= line.shipping_info_id[shipping_type + '_range_4_min'] and qty <= line.shipping_info_id[shipping_type + '_range_4_max']:
+            return line.range_4_amount
         return 0
 
 

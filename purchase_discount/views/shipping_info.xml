@@ -8,18 +8,62 @@
 	            <form>
 	            	<sheet>
 	            		<field name="currency_id" invisible="1"/>
-	            		<group string="Range 1">
-	            			<field name="range_1_min"/>
-	            			<field name="range_1_max"/>
+	            		<field name="name"/>
+	            		<group string="Air" colspan="3">
+		            		<group string="Range 1">
+		            			<field name="air_range_1_min"/>
+		            			<field name="air_range_1_max"/>
+		            		</group>
+		            		<group string="Range 2">
+		            			<field name="air_range_2_min"/>
+		            			<field name="air_range_2_max"/>
+		            		</group>
+		            		<group string="Range 3">
+		            			<field name="air_range_3_min"/>
+		            			<field name="air_range_3_max"/>
+		            		</group>
+		            		<group string="Range 4">
+		            			<field name="air_range_4_min"/>
+		            			<field name="air_range_4_max"/>
+		            		</group>
 	            		</group>
-	            		<group string="Range 2">
-	            			<field name="range_2_min"/>
-	            			<field name="range_2_max"/>
+	            		<group string="Parcel" colspan="3">
+		            		<group string="Range 1">
+		            			<field name="parcel_range_1_min"/>
+		            			<field name="parcel_range_1_max"/>
+		            		</group>
+		            		<group string="Range 2">
+		            			<field name="parcel_range_2_min"/>
+		            			<field name="parcel_range_2_max"/>
+		            		</group>
+		            		<group string="Range 3">
+		            			<field name="parcel_range_3_min"/>
+		            			<field name="parcel_range_3_max"/>
+		            		</group>
+		            		<group string="Range 4">
+		            			<field name="parcel_range_4_min"/>
+		            			<field name="parcel_range_4_max"/>
+		            		</group>
 	            		</group>
-	            		<group string="Range 3">
-	            			<field name="range_3_min"/>
-	            			<field name="range_3_max"/>
+	            		<group string="Sea" colspan="3">
+		            		<group string="Range 1">
+		            			<field name="sea_range_1_min"/>
+		            			<field name="sea_range_1_max"/>
+		            		</group>
+		            		<group string="Range 2">
+		            			<field name="sea_range_2_min"/>
+		            			<field name="sea_range_2_max"/>
+		            		</group>
+		            		<group string="Range 3">
+		            			<field name="sea_range_3_min"/>
+		            			<field name="sea_range_3_max"/>
+		            		</group>
+		            		<group string="Range 4">
+		            			<field name="sea_range_4_min"/>
+		            			<field name="sea_range_4_max"/>
+		            		</group>
 	            		</group>
+
 	            		<field name="shipping_lines_ids">
 	            			<tree editable="bottom">
 	            				<field name="currency_id" invisible="1"/>
@@ -27,6 +71,7 @@
 	            				<field name="range_1_amount"/>
 	            				<field name="range_2_amount"/>
 	            				<field name="range_3_amount"/>
+	            				<field name="range_4_amount"/>
 	            			</tree>
 	            		</field>
 	            	</sheet>
