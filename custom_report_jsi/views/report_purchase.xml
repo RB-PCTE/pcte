@@ -27,7 +27,7 @@
                     <tr>
                         <th class="text-right">QUANTITY</th>
                         <th>ITEM NAME</th>
-                        <th>DESCRIPTION</th>
+                        <th>SUPPLIER ITEM CODE</th>
                         <th class="text-center">UNIT PRICE</th>
                         <th class="text-center">TOTAL PRICE</th>
                     </tr>
@@ -39,7 +39,9 @@
                                 <span t-field="l.product_qty"/>
                             </td>
                             <td><span t-field="l.product_id"/></td>
-                            <td><span t-field="l.name"/></td>
+                            <td>
+                                <t t-esc="l.product_id.product_tmpl_id.seller_ids and l.product_id.product_tmpl_id.seller_ids[0].product_name or ''"/>
+                            </td>
                             <td class="text-right">
                                 <span t-field="l.price_unit"/>
                             </td>
@@ -80,8 +82,8 @@
                     <div t-field="res_company.name"/>
                     <div t-field="res_company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
                     <div class="mt16" t-field="doc.notes"/>
-                    <div class="mb8">Yours Sincerely</div>
-                    <!-- <span t-field="doc.user_id"/> --><br/><br/><br/><br/>Managing Director
+                    <div>Yours Sincerely</div>
+                    <!-- <span t-field="doc.user_id"/> --><br/><br/><br/>Managing Director
                 </div>
                 <div class="col-xs-6">
                     <strong>Packing Information:</strong><br/>

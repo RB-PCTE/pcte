@@ -24,7 +24,7 @@
                     <div><strong>Payment Terms:</strong> <span t-field="doc.payment_term_id"/></div>
                 </div>
             </div>
-            <div class="mt8">ABN : ???</div>
+            <div class="mt8">ABN : <span t-field="doc.partner_id.vat"/></div>
 
             <table class="table custom-table mt16">
                 <thead>

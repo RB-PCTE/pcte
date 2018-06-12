@@ -12,6 +12,7 @@
         'views/reports.xml',
         'views/layout_templates.xml',
         'views/report_sale_quote.xml',
+        'views/report_invoice.xml',
         'views/report_purchase.xml',
         'views/report_delivery.xml',
         ],

@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<template id="report_invoice_document_jsi">
+    <t t-call="custom_report_jsi.external_layout_custom_jsi">
+        <t t-set="doc" t-value="doc.with_context({'lang':doc.partner_id.lang})" />
+        <div class="page">
+            <link rel="stylesheet" type="text/css" href="/custom_report_jsi/static/src/css/sale_report.css"/>
+            <div class="oe_structure"/>
+            <h1 class="text-center"><strong>Invoice</strong></h1>
+            <div class="row">
+                <div class="col-xs-6">
+                    <div>Invoice to:</div>
+                    <div class="mt8">Customer details:</div>
+                    <div t-field="doc.partner_id.commercial_partner_id"
+                        t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True, "phone_icons": True}'/>
+                    <div>Attn. <span t-field="doc.partner_id.name"/></div>
+                    <div t-field="doc.partner_id.email"/>
+                    <div t-field="doc.partner_id.phone"/>
+                </div>
+                <div class="col-xs-5 col-xs-offset-1">
+                    <div><strong>Invoice No.:</strong> <span t-field="doc.name"/></div>
+                    <div><strong>Date:</strong> <span t-field="doc.date_invoice"/></div>
+                    <div><strong>Due Date:</strong> <span t-field="doc.date_due"/></div>
+                    <div><strong>Payment Terms:</strong> <span t-field="doc.payment_term_id"/></div>
+                </div>
+            </div>
+            <div class="mt8">ABN : <span t-field="doc.partner_id.vat"/></div>
+
+            <table class="table custom-table mt16">
+                <thead>
+                    <tr>
+                        <th class="text-right">QUANTITY</th>
+                        <th>ITEM NAME</th>
+                        <th>DESCRIPTION</th>
+                        <th class="text-center">UNIT PRICE<br/>(ex GST)</th>
+                        <th class="text-right">DISC.(%)</th>
+                        <th class="text-center">TOTAL PRICE<br/>(ex- GST)</th>
+                    </tr>
+               </thead>
+               <tbody class="sale_tbody">
+                    <t t-foreach="doc.invoice_line_ids" t-as="l">
+                        <tr>
+                            <td class="text-right">
+                                <span t-field="l.quantity"/>
+                                <span t-field="l.uom_id" groups="product.group_uom"/>
+                            </td>
+                            <td><span t-field="l.product_id"/></td>
+                            <td><span t-field="l.name"/></td>
+                            <td class="text-right">
+                                <span t-field="l.price_unit"/>
+                            </td>
+                            <td class="text-right">
+                                <span t-field="l.discount"/>
+                            </td>
+                            <td class="text-right">
+                                <span t-field="l.price_subtotal"
+                                    t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                            </td>
+                        </tr>
+                    </t>
+                </tbody>
+            </table>
+
+            <div class="clearfix">
+                <div class="row" name="total">
+                    <div class="col-xs-6">
+                        <table class="table" style="min-width: 200px;max-width: 350px;border:1px solid #dddddd;">
+                            <tr>
+                                <td><strong>Salesperson:</strong></td>
+                                <td>
+                                    <span t-field="doc.create_uid"/>
+                                </td>
+                            </tr>
+                            <tr style="border-top:hidden;">
+                                <td></td>
+                                <td style="min-height:25px;">
+                                    <span t-field="doc.comment"/>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-xs-4 col-xs-offset-2 pull-right">
+                        <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
+                            <tr>
+                                <td><strong>Subtotal:</strong></td>
+                                <td class="text-right">
+                                    <span t-field="doc.amount_untaxed"
+                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                </td>
+                            </tr>
+                            <tr >
+                                <td style="border-top:hidden;"><strong>Freight (ex-GST):</strong></td>
+                                <td style="border-top:hidden;" class="text-right">
+                                    <!-- <span t-field="doc.amount_untaxed"
+                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/> -->
+                                </td>
+                            </tr>
+                            <tr >
+                                <td style="border-top:hidden;"><strong>GST:</strong></td>
+                                <td style="border-top:hidden;" class="text-right">
+                                    <span t-field="doc.amount_tax"
+                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                </td>
+                            </tr>
+                            <tr class="border-black">
+                                <td><strong>Total (inc-GST)</strong></td>
+                                <td class="text-right">
+                                    <span t-field="doc.amount_total"
+                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                </td>
+                            </tr>
+                            <tr class="border-black">
+                                <td><strong>Balance Due</strong></td>
+                                <td class="text-right">
+                                    <span t-field="doc.residual"
+                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-xs-6 mb16"><strong>How to Pay</strong><br/>
+                    <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: 00004772<br/>
+                    BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;Account No: 813207500<br/>
+                    BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA
+                    Account: Papworth Construction Testing Equipment Pty Ltd
+                </div>
+                <div class="col-xs-6 text-right">
+                    <div class="mb32">Yours Sincerely</div>
+                    <span t-field="doc.create_uid"/>
+                </div>
+            </div>
+        </div>
+    </t>
+</template>
+
+<template id="report_invoice_jsi">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-call="custom_report_jsi.report_invoice_document_jsi" t-lang="doc.partner_id.lang"/>
+        </t>
+    </t>
+</template>
+
+</odoo>
