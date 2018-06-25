@@ -109,7 +109,7 @@ class SaleOrderLine(models.Model):
             else:
                 raise exceptions.ValidationError("Customer doesn't have a sale pricelist!")
 
-            M = pricelist_item[0].price_min_margin
+            M = pricelist_item[0].margin_pcte
 
             self.price_unit = (DPC + LC) * (1 + M / 100.0)
         else:
@@ -131,3 +131,9 @@ class SaleOrderLine(models.Model):
     @api.onchange('product_uom', 'product_uom_qty')
     def product_uom_change(self):
         pass
+
+
+class PricelistItem(models.Model):
+    _inherit = "product.pricelist.item"
+
+    margin_pcte = fields.Float("Margin PCTE")

@@ -12,5 +12,19 @@
 	            </xpath>
 	        </field>
 	    </record>
+
+	    <record id="pricelist_item_inherited_form_view_pcte" model="ir.ui.view">
+	        <field name="name">Pricelist Item Inherited Form View</field>
+	        <field name="model">product.pricelist.item</field>
+	        <field name="inherit_id" ref="product.product_pricelist_item_form_view"/>
+	        <field name="priority" eval="100"/>
+	        <field name="arch" type="xml">
+	            <xpath expr="//field[@name='price_min_margin']" position="before">
+	            	<field name="margin_pcte"/>
+	            </xpath>
+	        </field>
+	    </record>
+
+	    
 	</data>
 </odoo>
