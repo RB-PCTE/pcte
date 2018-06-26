@@ -10,8 +10,7 @@
             <div class="row">
                 <div class="col-xs-6">
                     <div>Supplier details:</div>
-                    <div t-field="doc.partner_id.commercial_partner_id"
-                        t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True, "phone_icons": True}'/>
+                    <div t-field="doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                     <div t-field="doc.partner_id.phone"/>
@@ -46,8 +45,7 @@
                                 <span t-field="l.price_unit"/>
                             </td>
                             <td class="text-right">
-                                <span t-field="l.price_subtotal"
-                                    t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                <span t-field="l.price_subtotal" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
                             </td>
                         </tr>
                     </t>
@@ -61,8 +59,7 @@
                             <tr class="border-black">
                                 <td class="text-center"><strong>Total</strong></td>
                                 <td class="text-right">
-                                    <span t-field="doc.amount_total"
-                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                    <span t-field="doc.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
                                 </td>
                             </tr>
                             <tr class="border-black">
@@ -79,16 +76,20 @@
             <div class="row">
                 <div class="mb16 col-xs-6">
                     <strong>Delivery to:</strong><br/>
-                    <div t-field="res_company.name"/>
-                    <div t-field="res_company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
+                    <div t-field="doc.picking_type_id.warehouse_id.partner_id.name"/>
+                    <div t-field="doc.picking_type_id.warehouse_id.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
+                    <!-- <div t-field="res_company.name"/>
+                    <div t-field="res_company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/> -->
                     <div class="mt16" t-field="doc.notes"/>
-                    <div>Yours Sincerely</div>
-                    <!-- <span t-field="doc.user_id"/> --><br/><br/><br/>Managing Director
+                    Yours Sincerely<br/>
+                    <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
+                    Reuben Barnes<br/>
+                    Managing Director
                 </div>
                 <div class="col-xs-6">
                     <strong>Packing Information:</strong><br/>
                     <p>
-                        Please send package using our <!-- <shipping method> --><br/>
+                        Please refer to the shipping method indicated on accompanying email.<br/>
                         Please provide invoices by email to
                         Papworths Construction Testing Equipment Pty Ltd at 
                         r.barnes@pcte.com.au<br/>

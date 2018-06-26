@@ -11,8 +11,7 @@
                 <div class="col-xs-6">
                     <div>Quote to:</div>
                     <div class="mt8">Customer details:</div>
-                    <div t-field="doc.partner_id.commercial_partner_id"
-                        t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True, "phone_icons": True}'/>
+                    <div t-field="doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                     <div t-field="doc.partner_id.phone"/>
@@ -53,8 +52,7 @@
                                 <span t-field="l.discount"/>
                             </td>
                             <td class="text-right">
-                                <span t-field="l.price_subtotal"
-                                    t-options='{"widget": "monetary", "display_currency": doc.pricelist_id.currency_id}'/>
+                                <span t-field="l.price_subtotal" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
                             </td>
                         </tr>
                     </t>
@@ -68,30 +66,19 @@
                             <tr>
                                 <td><strong>Subtotal:</strong></td>
                                 <td class="text-right">
-                                    <span t-field="doc.amount_untaxed"
-                                        t-options='{"widget": "monetary", "display_currency": doc.pricelist_id.currency_id}'/>
+                                    <span t-field="doc.amount_untaxed" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
                                 </td>
                             </tr>
-                            <tr >
-                                <td style="border-top:hidden;"><strong>Freight (ex-GST):</strong></td>
-                                <td style="border-top:hidden;" class="text-right">
-                                    ???
-                                    <!-- <span t-field="doc.amount_untaxed"
-                                        t-options='{"widget": "monetary", "display_currency": doc.pricelist_id.currency_id}'/> -->
-                                </td>
-                            </tr>
-                            <tr >
+                            <tr>
                                 <td style="border-top:hidden;"><strong>GST:</strong></td>
                                 <td style="border-top:hidden;" class="text-right">
-                                    <span t-field="doc.amount_tax"
-                                        t-options='{"widget": "monetary", "display_currency": doc.pricelist_id.currency_id}'/>
+                                    <span t-field="doc.amount_tax" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
                                 </td>
                             </tr>
                             <tr class="border-black">
                                 <td><strong>Total (inc-GST)</strong></td>
                                 <td class="text-right">
-                                    <span t-field="doc.amount_total"
-                                        t-options='{"widget": "monetary", "display_currency": doc.pricelist_id.currency_id}'/>
+                                    <span t-field="doc.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
                                 </td>
                             </tr>
                         </table>
@@ -100,12 +87,26 @@
             </div>
 
             <div class="row">
-                <div class="mb16"><strong>Delivery</strong><br/><span t-field="doc.delivery"/></div>
-                <div>
-                    <strong>Foreign Currency:</strong><br/>
-                    <div class="mb16">The offer is based the exchange rate for the date of this offer,<br/>as found on oanda.com PCTE reserves the right to refuse<br/>orders based on the offer price where the exchange rate has<br/>changed more than 5%</div>
-                    <div class="mb8">Yours Sincerely</div>
-                    <span t-field="doc.user_id"/>
+                <div class="mb16 col-xs-6">
+                    <strong>Delivery</strong>
+                    <div name="delivery_term">
+                        - Delivery Included
+                    </div>
+                    <div name="foreign_currency">
+                        <strong>Foreign Currency:</strong><br/>
+                        The offer is based the exchange rate for the date of this offer,<br/>as found on oanda.com PCTE reserves the right to refuse<br/>orders based on the offer price where the exchange rate has<br/>changed more than 5%
+                    </div>
+                    <br/>Yours Sincerely<br/><br/><br/>
+                    <!-- <img src="/custom_report_jsi/static/src/img/signature.png"/><br/> -->
+                    <span t-field="doc.user_id"/><br/>
+                    PCTE <span t-field="res_company.state_id"/><br/><span t-field="res_company.phone"/>
+                </div>
+                <div class="col-xs-4 col-xs-offset-2">
+                    Room for notes to be added:<br/>
+                    -Expected delivery<br/>
+                    -Notes about calibration and install<br/>
+                    -any required deposit<br/>
+                    Can we have these headings?<br/>
                 </div>
             </div>
 
@@ -177,6 +178,10 @@
     <xpath expr="//div[hasclass('col-xs-5')]/div/strong" position="replace">
         <strong>Sales Order No.:</strong>
     </xpath>
+    <div name="delivery_term" position="replace">
+         <div t-field="doc.delivery" style="padding-left:10px;"/>
+    </div>
+    <div name="foreign_currency" position="replace"/>
     <xpath expr="//div[@name='terms']" position="replace"/>
 </template>
 
@@ -185,6 +190,41 @@
     <t t-call="web.html_container">
         <t t-foreach="docs" t-as="doc">
             <t t-call="custom_report_jsi.report_order_document_jsi" t-lang="doc.partner_id.lang"/>
+        </t>
+    </t>
+</template>
+
+<template id="report_order_document_del_not_inc_jsi" inherit_id="custom_report_jsi.report_quotation_document_jsi" primary="True">
+    <div name="delivery_term" position="replace">
+        <div name="delivery_term">
+            - Delivery Not Included
+        </div>
+    </div>
+</template>
+
+
+<template id="report_order_del_not_inc_jsi">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-call="custom_report_jsi.report_order_document_del_not_inc_jsi" t-lang="doc.partner_id.lang"/>
+        </t>
+    </t>
+</template>
+
+
+<template id="report_order_document_del_not_ret_inc_jsi" inherit_id="custom_report_jsi.report_quotation_document_jsi" primary="True">
+    <div name="delivery_term" position="replace">
+        <div name="delivery_term">
+            - Delivery but Not Return Included
+        </div>
+    </div>
+</template>
+
+
+<template id="report_order_del_not_ret_inc_jsi">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-call="custom_report_jsi.report_order_document_del_not_ret_inc_jsi" t-lang="doc.partner_id.lang"/>
         </t>
     </t>
 </template>

@@ -18,11 +18,31 @@
 
         <report
             id="action_report_quotation_jsi"
-            string="Quote - PCTE"
+            string="Quote(Delivery Included)"
             model="sale.order"
             report_type="qweb-pdf"
             name="custom_report_jsi.report_quotation_jsi"
             file="custom_report_jsi.report_quotation_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_quotation_del_not_inc_jsi"
+            string="Quote(Delivery Not Included)"
+            model="sale.order"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_order_del_not_inc_jsi"
+            file="custom_report_jsi.report_order_del_not_inc_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_quotation_del_not_ret_inc_jsi"
+            string="Quote(Delivery But Not Return Included)"
+            model="sale.order"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_order_del_not_ret_inc_jsi"
+            file="custom_report_jsi.report_order_del_not_ret_inc_jsi"
             paperformat="custom_report_jsi.paperformat_for_sales_jsi"
         />
 
@@ -43,6 +63,16 @@
             report_type="qweb-pdf"
             name="custom_report_jsi.report_invoice_jsi"
             file="custom_report_jsi.report_invoice_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_invoice_pre_paid_jsi"
+            string="Pre-Paid"
+            model="account.invoice"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_invoice_pre_paid_jsi"
+            file="custom_report_jsi.report_invoice_pre_paid_jsi"
             paperformat="custom_report_jsi.paperformat_for_sales_jsi"
         />
 

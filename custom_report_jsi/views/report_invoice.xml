@@ -11,14 +11,13 @@
                 <div class="col-xs-6">
                     <div>Invoice to:</div>
                     <div class="mt8">Customer details:</div>
-                    <div t-field="doc.partner_id.commercial_partner_id"
-                        t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True, "phone_icons": True}'/>
+                    <div t-field="doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                     <div t-field="doc.partner_id.phone"/>
                 </div>
                 <div class="col-xs-5 col-xs-offset-1">
-                    <div><strong>Invoice No.:</strong> <span t-field="doc.name"/></div>
+                    <div><strong>Invoice No.:</strong> <span t-field="doc.number"/></div>
                     <div><strong>Date:</strong> <span t-field="doc.date_invoice"/></div>
                     <div><strong>Due Date:</strong> <span t-field="doc.date_due"/></div>
                     <div><strong>Payment Terms:</strong> <span t-field="doc.payment_term_id"/></div>
@@ -53,8 +52,7 @@
                                 <span t-field="l.discount"/>
                             </td>
                             <td class="text-right">
-                                <span t-field="l.price_subtotal"
-                                    t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                <span t-field="l.price_subtotal" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
                             </td>
                         </tr>
                     </t>
@@ -72,7 +70,7 @@
                                 </td>
                             </tr>
                             <tr style="border-top:hidden;">
-                                <td></td>
+                                <td/>
                                 <td style="min-height:25px;">
                                     <span t-field="doc.comment"/>
                                 </td>
@@ -84,36 +82,25 @@
                             <tr>
                                 <td><strong>Subtotal:</strong></td>
                                 <td class="text-right">
-                                    <span t-field="doc.amount_untaxed"
-                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                    <span t-field="doc.amount_untaxed" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
                                 </td>
                             </tr>
-                            <tr >
-                                <td style="border-top:hidden;"><strong>Freight (ex-GST):</strong></td>
-                                <td style="border-top:hidden;" class="text-right">
-                                    <!-- <span t-field="doc.amount_untaxed"
-                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/> -->
-                                </td>
-                            </tr>
-                            <tr >
+                            <tr>
                                 <td style="border-top:hidden;"><strong>GST:</strong></td>
                                 <td style="border-top:hidden;" class="text-right">
-                                    <span t-field="doc.amount_tax"
-                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                    <span t-field="doc.amount_tax" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
                                 </td>
                             </tr>
                             <tr class="border-black">
                                 <td><strong>Total (inc-GST)</strong></td>
                                 <td class="text-right">
-                                    <span t-field="doc.amount_total"
-                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                    <span t-field="doc.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
                                 </td>
                             </tr>
                             <tr class="border-black">
                                 <td><strong>Balance Due</strong></td>
                                 <td class="text-right">
-                                    <span t-field="doc.residual"
-                                        t-options='{"widget": "monetary", "display_currency": doc.currency_id}'/>
+                                    <span t-field="doc.residual" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
                                 </td>
                             </tr>
                         </table>
@@ -123,13 +110,15 @@
 
             <div class="row">
                 <div class="col-xs-6 mb16"><strong>How to Pay</strong><br/>
-                    <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: 00004772<br/>
-                    BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;Account No: 813207500<br/>
+                    <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/><br/>
+                    BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>?Account No: 813207500<br/>
                     BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA
                     Account: Papworth Construction Testing Equipment Pty Ltd
                 </div>
                 <div class="col-xs-6 text-right">
-                    <div class="mb32">Yours Sincerely</div>
+                    <div name="pay_info"></div>
+                    Yours Sincerely<br/>
+                    <img src="/custom_report_jsi/static/src/img/signature.png"/>
                     <span t-field="doc.create_uid"/>
                 </div>
             </div>
@@ -141,6 +130,21 @@
     <t t-call="web.html_container">
         <t t-foreach="docs" t-as="doc">
             <t t-call="custom_report_jsi.report_invoice_document_jsi" t-lang="doc.partner_id.lang"/>
+        </t>
+    </t>
+</template>
+
+<template id="report_invoice_document_pre_paid_jsi" inherit_id="custom_report_jsi.report_invoice_document_jsi" primary="True">
+    <div name="pay_info" position="inside">
+        To pay via credit card (only Visa or Mastercard will be accepted) please call 08 9322 4020.<br/>
+Payment via this method incurs a 1.5% surcharge
+    </div>
+</template>
+
+<template id="report_invoice_pre_paid_jsi">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="doc">
+            <t t-call="custom_report_jsi.report_invoice_document_pre_paid_jsi" t-lang="doc.partner_id.lang"/>
         </t>
     </t>
 </template>
