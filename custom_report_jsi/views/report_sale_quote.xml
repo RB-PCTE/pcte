@@ -96,7 +96,7 @@
                         <strong>Foreign Currency:</strong><br/>
                         The offer is based the exchange rate for the date of this offer,<br/>as found on oanda.com PCTE reserves the right to refuse<br/>orders based on the offer price where the exchange rate has<br/>changed more than 5%
                     </div>
-                    <br/>Yours Sincerely<br/><br/><br/>
+                    <br/>Yours Sincerely,<br/><br/><br/>
                     <!-- <img src="/custom_report_jsi/static/src/img/signature.png"/><br/> -->
                     <span t-field="doc.user_id"/><br/>
                     PCTE <span t-field="res_company.state_id"/><br/><span t-field="res_company.phone"/>

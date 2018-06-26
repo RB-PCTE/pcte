@@ -70,7 +70,7 @@
                                 </td>
                             </tr>
                             <tr style="border-top:hidden;">
-                                <td/>
+                                <td><strong>Notes: </strong></td>
                                 <td style="min-height:25px;">
                                     <span t-field="doc.comment"/>
                                 </td>
@@ -111,15 +111,16 @@
             <div class="row">
                 <div class="col-xs-6 mb16"><strong>How to Pay</strong><br/>
                     <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/><br/>
-                    BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>?Account No: 813207500<br/>
+                    BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>
                     BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA
                     Account: Papworth Construction Testing Equipment Pty Ltd
                 </div>
-                <div class="col-xs-6 text-right">
+                <div class="col-xs-4 col-xs-offset-2">
                     <div name="pay_info"></div>
-                    Yours Sincerely<br/>
-                    <img src="/custom_report_jsi/static/src/img/signature.png"/>
-                    <span t-field="doc.create_uid"/>
+                    <br/>Yours Sincerely,<br/>
+                    <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
+                    Reuben Barnes<br/>
+                    Managing Director
                 </div>
             </div>
         </div>
