@@ -102,11 +102,7 @@
                     PCTE <span t-field="res_company.state_id"/><br/><span t-field="res_company.phone"/>
                 </div>
                 <div class="col-xs-4 col-xs-offset-2">
-                    Room for notes to be added:<br/>
-                    -Expected delivery<br/>
-                    -Notes about calibration and install<br/>
-                    -any required deposit<br/>
-                    Can we have these headings?<br/>
+                    <strong>Notes: </strong> <span t-field="doc.note"/>
                 </div>
             </div>
 
