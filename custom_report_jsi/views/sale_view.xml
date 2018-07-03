@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+     <record id="view_order_form_inherited_jsi" model="ir.ui.view">
+        <field name="name">sale.order.form.view.inherited_jsi</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <data>
+                <xpath expr="//field[@name='user_id']" position="before">
+                    <field name="delivery" attrs="{'readonly': [('state','in',('sale', 'done'))]}"/>
+                </xpath>
+            </data>
+        </field>
+    </record>
+
+</odoo>

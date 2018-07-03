@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="external_layout_hf_custom_jsi">
+        <div class="header">
+            <div class="row">
+                <div class="col-xs-6">
+                    <img t-if="company.logo" t-att-src="'data:image/png;base64,%s' %to_text(company.logo)" style="max-height: 90px;"/>
+                </div>
+                <div class="col-xs-5 col-xs-offset-1">
+                    <div>Street Address:</div>
+                    <div t-field="company.street"/>
+                    <div>Postal Address:<br/>PO Box 972 West Perth WA 6872</div>
+                    <div>Tel: <span t-field="company.phone"/></div>
+                    <div>Email: <span t-field="company.email"/></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="article">
+            <t t-raw="0"/>
+        </div>
+    </template>
+
+
+    <template id="external_layout_custom_jsi">
+        <!-- Multicompany -->
+        <t t-if="not o and doc">
+            <t t-set="o" t-value="doc"/>
+        </t>
+        <t t-if="o and 'company_id' in o">
+            <t t-set="company" t-value="o.company_id.sudo()"/>
+        </t>
+        <t t-if="not o or not 'company_id' in o">
+            <t t-set="company" t-value="res_company"/>
+        </t>
+        <t t-call="custom_report_jsi.external_layout_hf_custom_jsi"><t t-raw="0"/></t>
+    </template>
+</odoo>

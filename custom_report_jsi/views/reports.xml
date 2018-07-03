@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<odoo>
+    <data>
+
+        <record id="paperformat_for_sales_jsi" model="report.paperformat">
+            <field name="name">Custom A4(JSI)</field>
+            <field name="default" eval="True"/>
+            <field name="format">A4</field>
+            <field name="orientation">Portrait</field>
+            <field name="margin_top">40</field>
+            <field name="margin_bottom">5</field>
+            <field name="margin_left">7</field>
+            <field name="margin_right">7</field>
+            <field name="header_line" eval="False"/>
+            <field name="header_spacing">35</field>
+            <field name="dpi">90</field>
+        </record>
+
+        <report
+            id="action_report_quotation_jsi"
+            string="Quote(Delivery Included)"
+            model="sale.order"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_quotation_jsi"
+            file="custom_report_jsi.report_quotation_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_quotation_del_not_inc_jsi"
+            string="Quote(Delivery Not Included)"
+            model="sale.order"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_order_del_not_inc_jsi"
+            file="custom_report_jsi.report_order_del_not_inc_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_quotation_del_not_ret_inc_jsi"
+            string="Quote(Delivery But Not Return Included)"
+            model="sale.order"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_order_del_not_ret_inc_jsi"
+            file="custom_report_jsi.report_order_del_not_ret_inc_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_order_jsi"
+            string="Sales Order - PCTE"
+            model="sale.order"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_order_jsi"
+            file="custom_report_jsi.report_order_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_invoice_jsi"
+            string="Invoice - PCTE"
+            model="account.invoice"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_invoice_jsi"
+            file="custom_report_jsi.report_invoice_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_invoice_pre_paid_jsi"
+            string="Pre-Paid"
+            model="account.invoice"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_invoice_pre_paid_jsi"
+            file="custom_report_jsi.report_invoice_pre_paid_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_purchase_jsi"
+            string="Purchase Order - PCTE"
+            model="purchase.order"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_purchase_jsi"
+            file="custom_report_jsi.report_purchase_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+        <report
+            id="action_report_delivery_jsi"
+            string="Delivery Docket - PCTE"
+            model="stock.picking"
+            report_type="qweb-pdf"
+            name="custom_report_jsi.report_delivery_jsi"
+            file="custom_report_jsi.report_delivery_jsi"
+            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
+        />
+
+    </data>
+</odoo>
