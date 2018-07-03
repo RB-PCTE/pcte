@@ -39,7 +39,7 @@
                             </td>
                             <td><span t-field="l.product_id"/></td>
                             <td>
-                                <t t-esc="l.product_id.product_tmpl_id.seller_ids and l.product_id.product_tmpl_id.seller_ids[0].product_name or ''"/>
+                                <t t-esc="l.product_id.product_tmpl_id.seller_ids and l.product_id.product_tmpl_id.seller_ids[0].product_code or ''"/>
                             </td>
                             <td class="text-right">
                                 <span t-field="l.price_unit"/>
