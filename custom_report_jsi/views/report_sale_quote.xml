@@ -99,7 +99,7 @@
                     <br/>Yours Sincerely,<br/><br/><br/>
                     <!-- <img src="/custom_report_jsi/static/src/img/signature.png"/><br/> -->
                     <span t-field="doc.user_id"/><br/>
-                    PCTE <span t-field="res_company.state_id"/><br/><span t-field="res_company.phone"/>
+                    PCTE <span t-field="doc.user_id.state_id"/><br/><span t-field="doc.user_id.phone"/>
                 </div>
                 <div class="col-xs-4 col-xs-offset-2">
                     <strong>Notes: </strong> <span t-field="doc.note"/>

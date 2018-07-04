@@ -28,6 +28,7 @@
                         <th>ITEM NAME</th>
                         <th>SUPPLIER ITEM CODE</th>
                         <th class="text-center">UNIT PRICE</th>
+                        <th class="text-center">DISCOUNT(%)</th>
                         <th class="text-center">TOTAL PRICE</th>
                     </tr>
                </thead>
@@ -43,6 +44,9 @@
                             </td>
                             <td class="text-right">
                                 <span t-field="l.price_unit"/>
+                            </td>
+                            <td class="text-right">
+                                <span t-field="l.discount"/>
                             </td>
                             <td class="text-right">
                                 <span t-field="l.price_subtotal" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
