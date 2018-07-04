@@ -20,7 +20,7 @@ class SaleOrderLine(models.Model):
 
     def get_landed_cost_predicted(self):
         product = self.product_id
-        qty = self.product_uom_qty * self.product_id.weight
+        qty = self.product_uom_qty * max(self.product_id.weight, self.product_id.volume * 200)
         ship_info = product.seller_ids and product.seller_ids[0].shipping_info_id
         if ship_info:
             amount = ship_info.get_amount(qty, self.shipping_type)

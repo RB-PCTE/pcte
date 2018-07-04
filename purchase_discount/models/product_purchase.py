@@ -136,6 +136,12 @@ class PurchaseOrderLine(models.Model):
     def onchange_product_discount(self):
         self.discount = self.product_id and self.product_id.supplier_discount
 
+    @api.model
+    def create(self, vals):
+        if not vals.get('discount'):
+            vals['discount'] = vals.get('product_id') and self.env['product.product'].browse(vals.get('product_id')).supplier_discount
+        return super(PurchaseOrderLine, self).create(vals)
+
     @api.depends('product_qty', 'price_unit', 'taxes_id', 'discount')
     def _compute_amount(self):
         for line in self:
