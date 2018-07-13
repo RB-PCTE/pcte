@@ -58,51 +58,52 @@
                     </t>
                 </tbody>
             </table>
-
-            <div class="clearfix">
-                <div class="row" name="total">
-                    <div class="col-xs-4 pull-right">
-                        <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
-                            <tr>
-                                <td><strong>Subtotal:</strong></td>
-                                <td class="text-right">
-                                    <span t-field="doc.amount_untaxed" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="border-top:hidden;"><strong>GST:</strong></td>
-                                <td style="border-top:hidden;" class="text-right">
-                                    <span t-field="doc.amount_tax" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
-                                </td>
-                            </tr>
-                            <tr class="border-black">
-                                <td><strong>Total (inc-GST)</strong></td>
-                                <td class="text-right">
-                                    <span t-field="doc.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
-                                </td>
-                            </tr>
-                        </table>
+            <div style="page-break-inside: avoid !important;">
+                <div class="clearfix">
+                    <div class="row" name="total">
+                        <div class="col-xs-4 pull-right">
+                            <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
+                                <tr>
+                                    <td><strong>Subtotal:</strong></td>
+                                    <td class="text-right">
+                                        <span t-field="doc.amount_untaxed" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="border-top:hidden;"><strong>GST:</strong></td>
+                                    <td style="border-top:hidden;" class="text-right">
+                                        <span t-field="doc.amount_tax" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
+                                    </td>
+                                </tr>
+                                <tr class="border-black">
+                                    <td><strong>Total (inc-GST)</strong></td>
+                                    <td class="text-right">
+                                        <span t-field="doc.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="row">
-                <div class="mb16 col-xs-6">
-                    <strong>Delivery</strong>
-                    <div name="delivery_term">
-                        - Delivery Included
+                <div class="row">
+                    <div class="mb16 col-xs-6">
+                        <strong>Delivery</strong>
+                        <div name="delivery_term">
+                            - Delivery Included
+                        </div>
+                        <div name="foreign_currency">
+                            <strong>Foreign Currency:</strong><br/>
+                            The offer is based the exchange rate for the date of this offer,<br/>as found on oanda.com PCTE reserves the right to refuse<br/>orders based on the offer price where the exchange rate has<br/>changed more than 5%
+                        </div>
+                        <br/>Yours Sincerely,<br/><br/><br/>
+                        <!-- <img src="/custom_report_jsi/static/src/img/signature.png"/><br/> -->
+                        <span t-field="doc.user_id"/><br/>
+                        PCTE <span t-field="doc.user_id.state_id"/><br/><span t-field="doc.user_id.phone"/>
                     </div>
-                    <div name="foreign_currency">
-                        <strong>Foreign Currency:</strong><br/>
-                        The offer is based the exchange rate for the date of this offer,<br/>as found on oanda.com PCTE reserves the right to refuse<br/>orders based on the offer price where the exchange rate has<br/>changed more than 5%
+                    <div class="col-xs-4 col-xs-offset-2">
+                        <strong>Notes: </strong> <span t-field="doc.note"/>
                     </div>
-                    <br/>Yours Sincerely,<br/><br/><br/>
-                    <!-- <img src="/custom_report_jsi/static/src/img/signature.png"/><br/> -->
-                    <span t-field="doc.user_id"/><br/>
-                    PCTE <span t-field="doc.user_id.state_id"/><br/><span t-field="doc.user_id.phone"/>
-                </div>
-                <div class="col-xs-4 col-xs-offset-2">
-                    <strong>Notes: </strong> <span t-field="doc.note"/>
                 </div>
             </div>
 

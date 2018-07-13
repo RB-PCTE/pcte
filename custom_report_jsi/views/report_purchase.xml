@@ -56,49 +56,51 @@
                 </tbody>
             </table>
 
-            <div class="clearfix">
-                <div class="row" name="total">
-                    <div class="col-xs-4 pull-right">
-                        <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
-                            <tr class="border-black">
-                                <td class="text-center"><strong>Total</strong></td>
-                                <td class="text-right">
-                                    <span t-field="doc.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
-                                </td>
-                            </tr>
-                            <tr class="border-black">
-                                <td class="text-center"><strong>Currency</strong></td>
-                                <td class="text-right">
-                                    <span t-field="doc.currency_id"/>
-                                </td>
-                            </tr>
-                        </table>
+            <div style="page-break-inside: avoid !important;">
+                <div class="clearfix">
+                    <div class="row" name="total">
+                        <div class="col-xs-4 pull-right">
+                            <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
+                                <tr class="border-black">
+                                    <td class="text-center"><strong>Total</strong></td>
+                                    <td class="text-right">
+                                        <span t-field="doc.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
+                                    </td>
+                                </tr>
+                                <tr class="border-black">
+                                    <td class="text-center"><strong>Currency</strong></td>
+                                    <td class="text-right">
+                                        <span t-field="doc.currency_id"/>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="row">
-                <div class="mb16 col-xs-6">
-                    <strong>Delivery to:</strong><br/>
-                    <div t-field="doc.picking_type_id.warehouse_id.partner_id.name"/>
-                    <div t-field="doc.picking_type_id.warehouse_id.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
-                    <!-- <div t-field="res_company.name"/>
-                    <div t-field="res_company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/> -->
-                    <div class="mt16" t-field="doc.notes"/>
-                    Yours Sincerely,<br/>
-                    <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
-                    Reuben Barnes<br/>
-                    Managing Director
-                </div>
-                <div class="col-xs-6">
-                    <strong>Packing Information:</strong><br/>
-                    <p>
-                        Please refer to the shipping method indicated on accompanying email.<br/>
-                        Please provide invoices by email to
-                        Papworths Construction Testing Equipment Pty Ltd at 
-                        r.barnes@pcte.com.au<br/>
-                        Prices EX GST for Australian Dollar Orders
-                    </p>
+                <div class="row">
+                    <div class="mb16 col-xs-6">
+                        <strong>Delivery to:</strong><br/>
+                        <div t-field="doc.picking_type_id.warehouse_id.partner_id.name"/>
+                        <div t-field="doc.picking_type_id.warehouse_id.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
+                        <!-- <div t-field="res_company.name"/>
+                        <div t-field="res_company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/> -->
+                        <div class="mt16" t-field="doc.notes"/>
+                        Yours Sincerely,<br/>
+                        <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
+                        Reuben Barnes<br/>
+                        Managing Director
+                    </div>
+                    <div class="col-xs-6">
+                        <strong>Packing Information:</strong><br/>
+                        <p>
+                            Please refer to the shipping method indicated on accompanying email.<br/>
+                            Please provide invoices by email to
+                            Papworths Construction Testing Equipment Pty Ltd at 
+                            r.barnes@pcte.com.au<br/>
+                            Prices EX GST for Australian Dollar Orders
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

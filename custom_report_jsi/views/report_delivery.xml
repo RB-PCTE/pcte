@@ -18,8 +18,8 @@
                 </div>
                 <div class="col-xs-5 col-xs-offset-1">
                     <div><strong>Docket No.: </strong> <span t-field="doc.name"/></div>
-                    <div><strong>Customer PO No.: </strong><!-- <span t-field="doc.name"/> --></div>
-                    <div><strong>Invoice No.: </strong><!-- <span t-field="doc.name"/> --></div>
+                    <div><strong>Customer PO No.: </strong><span t-field="doc.x_studio_field_W8cga"/></div>
+                    <div><strong>Invoice No.: </strong><span t-field="doc.x_studio_field_e5hfh"/></div>
                     <div><strong>Date: </strong><span t-field="doc.scheduled_date" t-options="{'widget':'date'}"/></div>
                 </div>
             </div>
@@ -45,11 +45,12 @@
                 </tbody>
             </table>
 
-            <div class="row">
+            <div class="row" style="page-break-inside: avoid !important;">
                 <div class="mb16 col-xs-6">
                     <strong>For Delivery to:</strong><br/>
-                    <div t-field="res_company.name"/>
-                    <div t-field="res_company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
+                    <t t-set="delivery_address" t-value="doc.sale_id and doc.sale_id.partner_shipping_id or doc.partner_id"/>
+                    <div t-field="delivery_address.name"/>
+                    <div t-esc="delivery_address" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
                 </div>
                 <div class="col-xs-4 col-xs-offset-2">
                     Customer Signature,<br/><br/><br/>
