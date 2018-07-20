@@ -5,6 +5,9 @@
             <div class="row">
                 <div class="col-xs-6">
                     <img t-if="company.logo" t-att-src="'data:image/png;base64,%s' %to_text(company.logo)" style="max-height: 90px;"/>
+                    <div style="margin-left: 60px;">
+                        ABN: <span t-field="company.vat"/>
+                    </div>
                 </div>
                 <div class="col-xs-5 col-xs-offset-1">
                     <div>Street Address:</div>
@@ -20,7 +23,6 @@
             <t t-raw="0"/>
         </div>
     </template>
-
 
     <template id="external_layout_custom_jsi">
         <!-- Multicompany -->
