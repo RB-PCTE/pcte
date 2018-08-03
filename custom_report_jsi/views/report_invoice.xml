@@ -10,8 +10,7 @@
             <h1 class="text-center"><strong>Tax Invoice</strong></h1>
             <div class="row">
                 <div class="col-xs-6">
-                    <div><strong>Invoice to:</strong></div>
-                    <div class="mt8">Customer details:</div>
+                    <strong>Invoice to:</strong>
                     <div t-esc="related_sale and related_sale.partner_invoice_id or doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
@@ -25,7 +24,7 @@
                     <div><strong>Customer PO:</strong> <span t-field="doc.x_studio_field_6qcoa"/></div>
                 </div>
             </div>
-            <div class="mt8">ABN : <span t-field="doc.partner_id.vat"/></div>
+            <div class="mt8">GST : <span t-field="doc.partner_id.vat"/></div>
 
             <table class="table custom-table mt16">
                 <thead>
@@ -114,9 +113,12 @@
                 <div class="row">
                     <div class="col-xs-6 mb16"><strong>How to Pay</strong><br/>
                         <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/><br/>
-                        BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>
-                        BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA<br/>
-                        Account: Papworth Construction Testing Equipment Pty Ltd
+                        BNZ<br/>
+                        Account: 02-0108-0384464-000<br/>
+                        Swift code: BKNZNZ22<br/>
+                        <!--BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>-->
+                        <!--BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA<br/>-->
+                        <!--Account: Papworth Construction Testing Equipment Pty Ltd-->
                     </div>
                     <div class="col-xs-4 col-xs-offset-2">
                         <div name="pay_info"/>

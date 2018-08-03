@@ -9,8 +9,7 @@
             <h1 class="text-center"><strong>Quote</strong></h1>
             <div class="row">
                 <div class="col-xs-6">
-                    <div>Quote to:</div>
-                    <div class="mt8">Customer details:</div>
+                    <strong>Quote to:</strong>
                     <div t-field="doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
@@ -23,7 +22,7 @@
                     <div><strong>Payment Terms:</strong> <span t-field="doc.payment_term_id"/></div>
                 </div>
             </div>
-            <div class="mt8">ABN : <span t-field="doc.partner_id.vat"/></div>
+            <div class="mt8">GST : <span t-field="doc.partner_id.vat"/></div>
 
             <table class="table custom-table mt16">
                 <thead>
@@ -41,7 +40,7 @@
                         <tr>
                             <td class="text-right">
                                 <span t-field="l.product_uom_qty"/>
-                                <span t-field="l.product_uom" groups="product.group_uom"/>
+                                <!--<span t-field="l.product_uom" groups="product.group_uom"/>-->
                             </td>
                             <td><span t-field="l.product_id"/></td>
                             <td><span t-field="l.name"/></td>
@@ -169,11 +168,17 @@
     <xpath expr="//h1" position="replace">
         <h1 class="text-center"><strong>Sales Order</strong></h1>
     </xpath>
-    <xpath expr="//div[hasclass('col-xs-6')]/div" position="replace">
-        <div>Sales Order to:</div>
+    <xpath expr="//div[hasclass('col-xs-6')]/strong" position="replace">
+        <strong>Sales Order to:</strong>
     </xpath>
     <xpath expr="//div[hasclass('col-xs-5')]/div/strong" position="replace">
         <strong>Sales Order No.:</strong>
+    </xpath>
+    <xpath expr="//table//th[3]" position="after">
+         <th>EXPECTED<br/>DELIVERY<br/>DATE</th>
+    </xpath>
+    <xpath expr="//table//td[3]" position="after">
+         <td><span t-field="l.x_studio_field_Y5PFN"/></td>
     </xpath>
     <div name="delivery_term" position="replace">
          <div t-field="doc.delivery" style="padding-left:10px;"/>

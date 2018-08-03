@@ -9,7 +9,7 @@
             <h1 class="text-center"><strong>Purchase Order</strong></h1>
             <div class="row">
                 <div class="col-xs-6">
-                    <div>Supplier details:</div>
+                    <strong>Supplier details:</strong>
                     <div t-field="doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
@@ -61,16 +61,10 @@
                     <div class="row" name="total">
                         <div class="col-xs-4 pull-right">
                             <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
-                                <tr class="border-black">
+                                <tr>
                                     <td class="text-center"><strong>Total</strong></td>
                                     <td class="text-right">
                                         <span t-field="doc.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.currency_id}"/>
-                                    </td>
-                                </tr>
-                                <tr class="border-black">
-                                    <td class="text-center"><strong>Currency</strong></td>
-                                    <td class="text-right">
-                                        <span t-field="doc.currency_id"/>
                                     </td>
                                 </tr>
                             </table>
