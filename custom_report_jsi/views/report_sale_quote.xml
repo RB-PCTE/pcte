@@ -30,7 +30,6 @@
                         <th class="text-right">QUANTITY</th>
                         <th>ITEM NAME</th>
                         <th>DESCRIPTION</th>
-                        <th>EXPECTED<br/>DELIVERY<br/>DATE</th>
                         <th class="text-center">UNIT PRICE<br/>(ex GST)</th>
                         <th class="text-right">DISC.(%)</th>
                         <th class="text-center">TOTAL PRICE<br/>(ex- GST)</th>
@@ -45,7 +44,6 @@
                             </td>
                             <td><span t-field="l.product_id"/></td>
                             <td><span t-field="l.name"/></td>
-                            <td><span t-field="l.x_studio_field_Y5PFN"/></td>
                             <td class="text-right">
                                 <span t-field="l.price_unit"/>
                             </td>
@@ -170,11 +168,17 @@
     <xpath expr="//h1" position="replace">
         <h1 class="text-center"><strong>Sales Order</strong></h1>
     </xpath>
-    <xpath expr="//div[hasclass('col-xs-6')]/div" position="replace">
-        <div>Sales Order to:</div>
+    <xpath expr="//div[hasclass('col-xs-6')]/strong" position="replace">
+        <strong>Sales Order to:</strong>
     </xpath>
     <xpath expr="//div[hasclass('col-xs-5')]/div/strong" position="replace">
         <strong>Sales Order No.:</strong>
+    </xpath>
+    <xpath expr="//table//th[3]" position="after">
+         <th>EXPECTED<br/>DELIVERY<br/>DATE</th>
+    </xpath>
+    <xpath expr="//table//td[3]" position="after">
+         <td><span t-field="l.x_studio_field_Y5PFN"/></td>
     </xpath>
     <div name="delivery_term" position="replace">
          <div t-field="doc.delivery" style="padding-left:10px;"/>
