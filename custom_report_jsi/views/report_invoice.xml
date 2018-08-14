@@ -116,9 +116,10 @@
                 <div class="row">
                     <div class="col-xs-6 mb16"><strong>How to Pay</strong><br/>
                         <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/><br/>
-                        <!-- BNZ<br/>
-                        Account: 02-0108-0384464-000<br/>
-                        Swift  -->code: BKNZNZ22<br/>
+                        <!--BNZ<br/> -->
+                        <!--Account: 02-0108-0384464-000<br/>
+                        Swift code: BKNZNZ22<br/> -->
+                        <br/>
                         BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>
                         BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA<br/>
                         Account: Papworth Construction Testing Equipment Pty Ltd
