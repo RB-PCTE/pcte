@@ -11,9 +11,9 @@
             <div class="row">
                 <div class="col-xs-6">
                     <strong>Invoice to:</strong>
-                    <!-- <div t-esc="related_sale and related_sale.partner_invoice_id or doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/> -->
-                    <t t-set="partner_invoice_id" t-value="doc.partner_id.child_ids.filtered(lambda x: x.type='invoice')[0] or doc.partner_id"/>
-                    <div t-esc="partner_invoice_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
+                    <t t-set="partner_invoice_id" t-value="doc.partner_id.child_ids.filtered(lambda x: x.type=='invoice')"/>
+                    <div t-esc="partner_invoice_id and partner_invoice_id[0].name or  doc.partner_id.name"/>
+                    <div t-esc="partner_invoice_id and partner_invoice_id[0] or  doc.partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;,], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                 </div>
