@@ -24,7 +24,9 @@
                     <div><strong>Customer PO:</strong> <span t-field="doc.x_studio_field_6qcoa"/></div>
                 </div>
             </div>
-            <div class="mt8">GST : <span t-field="doc.partner_id.vat"/></div>
+            <div class="mt8">
+                <span t-esc="doc.company_id.id==1 and 'ABN' or 'GST'"/>: <span t-field="doc.partner_id.vat"/>
+            </div>
 
             <table class="table custom-table mt16">
                 <thead>
@@ -113,12 +115,12 @@
                 <div class="row">
                     <div class="col-xs-6 mb16"><strong>How to Pay</strong><br/>
                         <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/><br/>
-                        BNZ<br/>
+                        <!-- BNZ<br/>
                         Account: 02-0108-0384464-000<br/>
-                        Swift code: BKNZNZ22<br/>
-                        <!--BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>-->
-                        <!--BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA<br/>-->
-                        <!--Account: Papworth Construction Testing Equipment Pty Ltd-->
+                        Swift  -->code: BKNZNZ22<br/>
+                        BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>
+                        BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA<br/>
+                        Account: Papworth Construction Testing Equipment Pty Ltd
                     </div>
                     <div class="col-xs-4 col-xs-offset-2">
                         <div name="pay_info"/>
@@ -143,7 +145,7 @@
 
 <template id="report_invoice_document_pre_paid_jsi" inherit_id="custom_report_jsi.report_invoice_document_jsi" primary="True">
     <div name="pay_info" position="inside">
-        To pay via credit card (only Visa or Mastercard will be accepted) please call 08 9322 4020.<br/>
+        To pay via credit card (only Visa or Mastercard will be accepted).<br/>
 Payment via this method incurs a 1.5% surcharge
     </div>
 </template>
