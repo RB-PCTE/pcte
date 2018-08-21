@@ -118,14 +118,14 @@
                         <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/><br/>
                         <t t-if="doc.company_id.id == 3">
                           BNZ<br/> 
-                          Account: 02-0108-0384464-000<br/>
+                          Account No: 02-0108-0384464-000<br/>
                           Swift code: BKNZNZ22<br/>
                         </t>
                         <t t-if="doc.company_id.id == 1">
                           BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>
                           BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA<br/>
-                          Account: Papworth Construction Testing Equipment Pty Ltd
                         </t>
+                        Account: Papworth Construction Testing Equipment Pty Ltd
                         <br/>
                     </div>
                     <div class="col-xs-4 col-xs-offset-2">
