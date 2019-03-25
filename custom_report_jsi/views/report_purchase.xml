@@ -36,12 +36,13 @@
                     <t t-foreach="doc.order_line" t-as="l">
                         <tr>
                             <td class="text-right">
-                                <span t-field="l.product_qty"/>
+                                <span t-esc="'%.1f' % l.product_qty"/>
                             </td>
                             <td><span t-field="l.product_id"/></td>
                             <td>
                                 <t t-esc="l.product_id.product_tmpl_id.seller_ids and l.product_id.product_tmpl_id.seller_ids[0].product_code or ''"/>
                             </td>
+                            <td><span t-field="l.product_id.description_sale"/></td>
                             <td class="text-right">
                                 <span t-field="l.price_unit"/>
                             </td>
@@ -75,8 +76,11 @@
                 <div class="row">
                     <div class="mb16 col-xs-6">
                         <strong>Delivery to:</strong><br/>
-                        <div t-field="doc.picking_type_id.warehouse_id.partner_id.name"/>
-                        <div t-field="doc.picking_type_id.warehouse_id.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
+                        <!-- <div t-field="doc.picking_type_id.warehouse_id.partner_id.name"/> -->
+                        <!-- <div t-field="doc.picking_type_id.warehouse_id.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/> -->
+
+                        <div t-field="doc.x_studio_field_5qgZF.name"/>
+                        <div t-field="doc.x_studio_field_5qgZF" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
                         Yours Sincerely,<br/>
                         <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
                         Reuben Barnes<br/>
