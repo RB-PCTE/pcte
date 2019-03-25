@@ -27,6 +27,7 @@
                         <th class="text-right">QUANTITY</th>
                         <th>ITEM NAME</th>
                         <th>SUPPLIER ITEM CODE</th>
+                        <th>DESCRIPTION</th>
                         <th class="text-center">UNIT PRICE</th>
                         <th class="text-center">DISCOUNT(%)</th>
                         <th class="text-center">TOTAL PRICE</th>
