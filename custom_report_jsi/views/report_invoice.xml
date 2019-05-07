@@ -23,6 +23,7 @@
                     <div><strong>Due Date:</strong> <span t-field="doc.date_due"/></div>
                     <div><strong>Payment Terms:</strong> <span t-field="doc.payment_term_id"/></div>
                     <div><strong>Customer PO:</strong> <span t-field="doc.x_studio_field_6qcoa"/></div>
+                    <div><strong>SO:</strong> <span t-esc="related_sale and related_sale.name or ''"/></div>
                 </div>
             </div>
             <div class="mt8">
@@ -103,7 +104,7 @@
                                     </td>
                                 </tr>
                                 <tr class="border-black">
-                                    <td><strong>Balance Due</strong></td>
+                                    <td><strong>Balance Due (<span t-field="doc.currency_id"/>)</strong></td>
                                     <td class="text-right">
                                         <span t-field="doc.residual" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
@@ -125,8 +126,9 @@
                           BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>
                           BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA<br/>
                         </t>
-                        Account: Papworth Construction Testing Equipment Pty Ltd
-                        <br/>
+                        Account: Papworths Construction Testing Equipment Pty Ltd<br/>
+                        Swift Code: NATAAU3303M<br/>
+                        Please email remittance to: admin@pcte.com.au
                     </div>
                     <div class="col-xs-4 col-xs-offset-2">
                         <div name="pay_info"/>
