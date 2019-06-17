@@ -15,7 +15,7 @@
         'views/report_invoice.xml',
         'views/report_purchase.xml',
         'views/report_delivery.xml',
-        'report_followup_pdf.xml',
+        'views/report_followup_pdf.xml',
         ],
     'demo': [],
     'installable': True,
