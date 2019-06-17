@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<data>
+    
+    <template id="followup_filter_info_template_inheited_jsi" inherit_id="account_reports.followup_filter_info_template">
+        <div position="replace">
+            <h2 class="print_only text-center">CUSTOMER ACCOUNT STATEMENT</h2>
+            <div t-if="context.get(&quot;mail&quot;) != True" class="print_only" style="margin-bottom: 20px;">
+              <t t-if="invoice_address_id" t-set="partner_addr" t-value="invoice_address_id"/>
+              <t t-else="" t-set="partner_addr" t-value="partner"/>
+              <div class="row">
+                  <div class="col-xs-5" style="margin-top: 15px;">
+                      <div t-field="partner_addr.commercial_partner_id" t-field-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;, &quot;phone&quot;], &quot;no_marker&quot;: True}"/>
+                      
+                      Att: <span t-field="partner_addr.self"/><br/>
+                      Email: <span t-field="partner_addr.email"/><br/>
+                      ABN: <span t-field="partner_addr.vat"/><br/>
+                      Date: <span t-esc="today" t-options="{'widget': 'date'}"/><br/>
+                  </div>
+              </div>
+            </div>
+        </div>
+    </template>
+    
+    <template id="template_followup_report_inherited_jsi" inherit_id="account_reports.template_followup_report">
+        <div class="table-responsive" position="after">
+            <div class="row print_only">
+                <div class="col-xs-6 mb16">
+                    <strong>How to Pay</strong><br/>
+                    <strong>By Internet</strong> <!-- &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/> --><br/>
+                    <!-- <t t-if="doc.company_id.id == 3">
+                    BNZ<br/> 
+                    Account No: 02-0108-0384464-000<br/>
+                    Swift code: BKNZNZ22<br/>
+                    </t> -->
+                    <!-- <t t-if="doc.company_id.id == 1"> -->
+                    BSB: 086-334&amp;nbsp;&amp;nbsp;&amp;nbsp;<br/>Account No: 813207500<br/>
+                    BANK: NAB&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;Branch: Morley WA<br/>
+                    <!-- </t> -->
+                    Account: Papworths Construction Testing Equipment Pty Ltd<br/>
+                    Swift Code: NATAAU3303M<br/>
+                    Please email remittance to: admin@pcte.com.au
+                </div>
+                <div class="col-xs-4 col-xs-offset-2">
+                    <!-- <div name="pay_info"/> -->
+                    <br/>Yours Sincerely,<br/>
+                    <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
+                    Reuben Barnes<br/>
+                    Managing Director
+                </div>
+            </div>
+        </div>
+    </template>
+</data>
