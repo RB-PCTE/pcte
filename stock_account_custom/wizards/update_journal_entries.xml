@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+        <record id="wizard_update_journal_entries_view_form" model="ir.ui.view">
+        <field name="name">wizard.update.journal.entries.form</field>
+        <field name="model">wizard.update.journal.entries</field>
+        <field name="arch" type="xml">
+            <form string="Update Import">
+                <footer>
+                    <button string="Update" name="update_journal_entries" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <act_window id="wizard_update_journal_entries_view_form_action"
+            name="Update Journal Entries"
+            src_model="account.move"
+            res_model="wizard.update.journal.entries"
+            view_type="form" view_mode="form"
+            key2="client_action_multi" target="new" groups="base.group_no_one"/>
+
+</odoo>
