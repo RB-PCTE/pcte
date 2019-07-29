@@ -5,6 +5,11 @@
         <field name="model">wizard.update.journal.entries</field>
         <field name="arch" type="xml">
             <form string="Update Import">
+                <group>
+                    <field name="company_id"/>
+                    <field name="journal_id"/>
+                    <field name="update_from_date"/>
+                </group>
                 <footer>
                     <button string="Update" name="update_journal_entries" type="object" class="btn-primary"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
