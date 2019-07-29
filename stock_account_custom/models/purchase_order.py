@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from odoo import models, fields, exceptions, api, _
+import logging
+_logger = logging.getLogger(__name__)
 
 class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
 
     @api.multi
     def _get_stock_move_price_unit(self):
+        super(PurchaseOrderLine, self)._get_stock_move_price_unit()
         self.ensure_one()
         line = self[0]
         order = line.order_id
+        _logger.info("price unit is {}".format(line.price_unit))
         if line.discount and line.discount !=0:
             price_unit = line.price_unit*(1-(line.discount/100))
         else:
@@ -25,4 +29,5 @@ class PurchaseOrderLine(models.Model):
             price_unit = order.currency_id.with_context(date=order.date_approve).compute(price_unit,
                                                                                          order.company_id.currency_id,
                                                                                          round=False)
+        _logger.info("final price is {}".format(price_unit))
         return price_unit
