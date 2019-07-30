@@ -12,6 +12,7 @@ Custom stock account for PCTE
     'website': "havi.com.au",
     'depends': ['stock_account','purchase_discount'],
     'data': [
+        'views/res_config_settings.xml',
         'wizards/update_journal_entries.xml',
     ],
 }
