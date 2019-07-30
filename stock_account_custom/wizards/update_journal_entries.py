@@ -35,6 +35,8 @@ class WizardUpdateJournalEntries(models.TransientModel):
                         _logger.info("[INCOMING] Price before change {}".format(move.stock_move_id.price_unit))
                         new_price = move.stock_move_id.price_unit*(1-(move.stock_move_id.purchase_line_id.discount/100))
                         move.stock_move_id.write({'price_unit': new_price})
+                        if new_price < 0:
+                            new_price = new_price*-1
                         move.button_cancel()
                         for move_line in move.line_ids:
                             if move_line.credit != 0:
@@ -47,8 +49,10 @@ class WizardUpdateJournalEntries(models.TransientModel):
                     else:
                         if move.stock_move_id.product_id.supplier_discount and move.stock_move_id.picking_type_id.code == 'outgoing':
                             _logger.info("[OUTGOING] Price before change {}".format(move.stock_move_id.price_unit))
-                            new_price = move.stock_move_id.price_unit * (1 - (move.stock_move_id.product_id.supplier_discount / 100))*-1
+                            new_price = move.stock_move_id.price_unit * (1 - (move.stock_move_id.product_id.supplier_discount / 100))
                             move.stock_move_id.write({'price_unit': new_price})
+                            if new_price < 0:
+                                new_price = new_price * -1
                             move.button_cancel()
                             for move_line in move.line_ids:
                                 if move_line.credit != 0:
