@@ -46,7 +46,7 @@ class WizardUpdateJournalEntries(models.TransientModel):
                     else:
                         if move.stock_move_id.product_id.supplier_discount and move.stock_move_id.picking_type_id.code == 'outgoing':
                             _logger.info("[OUTGOING] Price before change {}".format(move.stock_move_id.price_unit))
-                            new_price = move.stock_move_id.price_unit * (1 - (move.stock_move_id.product_id.supplier_discount / 100))
+                            new_price = move.stock_move_id.price_unit * (1 - (move.stock_move_id.product_id.supplier_discount / 100))*-1
                             move.stock_move_id.write({'price_unit': new_price})
                             move.button_cancel()
                             for move_line in move.line_ids:
