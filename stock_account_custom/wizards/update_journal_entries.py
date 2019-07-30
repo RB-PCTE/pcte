@@ -38,9 +38,10 @@ class WizardUpdateJournalEntries(models.TransientModel):
                         move.button_cancel()
                         for move_line in move.line_ids:
                             if move_line.credit != 0:
-                                move_line.write({'credit': new_price})
+                                self._cr.execute("""UPDATE  account_move_line set credit=%s WHERE id=%s""", (new_price,move_line.id))
                             if move_line.debit != 0:
-                                move_line.write({'debit': new_price})
+                                self._cr.execute("""UPDATE   account_move_line set debit=%s WHERE id=%s""", (new_price, move_line.id))
+                        move._post_validate()
                         move.post()
                         _logger.info("[INCOMING] Price after change {}".format(new_price))
                     else:
@@ -51,9 +52,10 @@ class WizardUpdateJournalEntries(models.TransientModel):
                             move.button_cancel()
                             for move_line in move.line_ids:
                                 if move_line.credit != 0:
-                                    move_line.write({'credit': new_price})
+                                    self._cr.execute("""UPDATE  account_move_line set credit=%s WHERE id=%s""",(new_price, move_line.id))
                                 if move_line.debit != 0:
-                                    move_line.write({'debit': new_price})
+                                    self._cr.execute("""UPDATE   account_move_line set debit=%s WHERE id=%s""",(new_price, move_line.id))
+                            move._post_validate()
                             move.post()
                             _logger.info("[OUTGOING] Price after change {}".format(new_price))
 
