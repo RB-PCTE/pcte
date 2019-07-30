@@ -9,6 +9,7 @@
                     <field name="company_id"/>
                     <field name="journal_id"/>
                     <field name="update_from_date"/>
+                    <field name="update_to_date"/>
                 </group>
                 <footer>
                     <button string="Update" name="update_journal_entries" type="object" class="btn-primary"/>

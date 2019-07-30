@@ -20,11 +20,12 @@ class WizardUpdateJournalEntries(models.TransientModel):
     company_id = fields.Many2one('res.company', string='Company', required=1)
     journal_id = fields.Many2one('account.journal', string='Journal', required=1)
     update_from_date = fields.Date(string='Update from date', required=1)
+    update_to_date = fields.Date(string='Update to date', required=1)
 
     @api.multi
     def update_journal_entries(self):
         for wiz in self:
-            all_entries = self.env['account.move'].search([('journal_id', '=', wiz.journal_id.id),('date','>=', wiz.update_from_date),('company_id','=', wiz.company_id.id)])
+            all_entries = self.env['account.move'].search([('journal_id', '=', wiz.journal_id.id),('date','>=', wiz.update_from_date),('date','<=', wiz.update_to_date),('company_id','=', wiz.company_id.id)])
             for move in all_entries:
                 # update price unit in stock move
                 # update debit, credit in account move line
