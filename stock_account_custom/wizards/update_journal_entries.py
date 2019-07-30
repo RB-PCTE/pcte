@@ -30,17 +30,26 @@ class WizardUpdateJournalEntries(models.TransientModel):
                 # update price unit in stock move
                 # update debit, credit in account move line
                 if move.stock_move_id:
+                    _logger.info("[MOVE NAME] {}".format(move.name))
                     if move.stock_move_id.purchase_line_id and move.stock_move_id.purchase_line_id.discount and move.stock_move_id.purchase_line_id.discount !=0 and move.price_unit:
-                        _logger.info("[INCOMING] Price before change {}".format(move.price_unit))
+                        _logger.info("[INCOMING] Price before change {}".format(move.stock_move_id.price_unit))
                         new_price = move.price_unit*(1-(move.stock_move_id.purchase_line_id.discount/100))
                         move.stock_move_id.write({'price_unit': new_price})
-                        move.write({'price_unit': new_price})
+                        for move_line in move.line_ids:
+                            if move_line.credit != 0:
+                                move_line.write({'credit': new_price})
+                            if move_line.debit != 0:
+                                move_line.write({'debit': new_price})
                         _logger.info("[INCOMING] Price after change {}".format(new_price))
                     else:
                         if move.stock_move_id.product_id.supplier_discount and move.stock_move_id.picking_type_id.code == 'outgoing':
-                            _logger.info("[OUTGOING] Price before change {}".format(move.price_unit))
+                            _logger.info("[OUTGOING] Price before change {}".format(move.stock_move_id.price_unit))
                             new_price = move.price_unit * (1 - (move.stock_move_id.product_id.supplier_discount / 100))
                             move.stock_move_id.write({'price_unit': new_price})
-                            move.write({'price_unit': new_price})
+                            for move_line in move.line_ids:
+                                if move_line.credit != 0:
+                                    move_line.write({'credit': new_price})
+                                if move_line.debit != 0:
+                                    move_line.write({'debit': new_price})
                             _logger.info("[OUTGOING] Price after change {}".format(new_price))
 
