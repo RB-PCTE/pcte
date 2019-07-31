@@ -51,12 +51,16 @@
                             <td>NATAAU3303M</td>
                         </tr>
                         <tr>
-                            <td>Please email remittance to:</td>
+                            <td>Please email remittance to: </td>
                             <td>admin@pcte.com.au</td>
+                        </tr>
+                        <tr>
+                            <td>Reference: </td>
+                            <td><t t-if="invoice_numbers"><t t-esc="invoice_numbers"/></t></td>
                         </tr>
                     </table>
                 </div>
-                <div class="col-xs-2 col-xs-offset-3">
+                <div class="col-xs-5 text-right">
                     <br/>Yours Sincerely,<br/>
                     <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
                     Reuben Barnes<br/>
