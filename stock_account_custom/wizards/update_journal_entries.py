@@ -40,9 +40,10 @@ class WizardUpdateJournalEntries(models.TransientModel):
                         move.button_cancel()
                         for move_line in move.line_ids:
                             if move_line.credit != 0:
-                                self._cr.execute("""UPDATE  account_move_line set credit=%s WHERE id=%s""", (new_price,move_line.id))
+                                self._cr.execute("""UPDATE  account_move_line set credit=%s WHERE id=%s""", (new_price*move.stock_move_id.quantity_done,move_line.id))
                             if move_line.debit != 0:
-                                self._cr.execute("""UPDATE   account_move_line set debit=%s WHERE id=%s""", (new_price, move_line.id))
+                                self._cr.execute("""UPDATE   account_move_line set debit=%s WHERE id=%s""", (new_price*move.stock_move_id.quantity_done, move_line.id))
+                        move._amount_compute()
                         move._post_validate()
                         move.post()
                         _logger.info("[INCOMING] Price after change {}".format(new_price))
@@ -56,10 +57,32 @@ class WizardUpdateJournalEntries(models.TransientModel):
                             move.button_cancel()
                             for move_line in move.line_ids:
                                 if move_line.credit != 0:
-                                    self._cr.execute("""UPDATE  account_move_line set credit=%s WHERE id=%s""",(new_price, move_line.id))
+                                    self._cr.execute("""UPDATE  account_move_line set credit=%s WHERE id=%s""",(new_price*move.stock_move_id.quantity_done, move_line.id))
                                 if move_line.debit != 0:
-                                    self._cr.execute("""UPDATE   account_move_line set debit=%s WHERE id=%s""",(new_price, move_line.id))
+                                    self._cr.execute("""UPDATE   account_move_line set debit=%s WHERE id=%s""",(new_price*move.stock_move_id.quantity_done, move_line.id))
+                            move._amount_compute()
                             move._post_validate()
                             move.post()
                             _logger.info("[OUTGOING] Price after change {}".format(new_price))
+                else:
+                    expense_account_code = ['5-1001', '5-1002', '5-1003','5-1004', '5-1005']
+                    if move.line_ids.filtered(lambda r: r.account_id.code in expense_account_code):
+                        _logger.info("[INVOICE] Price after change {}".format(move.name))
+                        # move.button_cancel()
+                        # for move_line in move.line_ids:
+                        #     if move_line.product_id:
+                        #         price = move_line.product_id.standard_price
+                        #         for supplier in move_line.product_id.product_tmpl_id.seller_ids:
+                        #             if supplier.name.id != 1:
+                        #                 price = supplier.price * (1 - (move_line.product_id.product_tmpl_id.supplier_discount / 100))
+                        #                 price = supplier.currency_id.with_context(date=move.date).compute(price, move.company_id.currency_id)
+                        #         if move_line.account_id.id == move_line.product_id.product_tmpl_id.categ_id.property_account_expense_categ_id.id and move_line.debit !=0.0:
+                        #             self._cr.execute("""UPDATE  account_move_line set debit=%s WHERE id=%s""",(price * move_line.quantity, move_line.id))
+                        #         if move_line.account_id.id == move_line.product_id.product_tmpl_id.categ_id.property_account_income_categ_id.id and move_line.credit !=0.0:
+                        #             self._cr.execute("""UPDATE  account_move_line set credit=%s WHERE id=%s""",(price * move_line.quantity, move_line.id))
+                        # move._amount_compute()
+                        # move._post_validate()
+                        # move.post()
+
+
 

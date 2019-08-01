@@ -9,25 +9,29 @@ class PurchaseOrderLine(models.Model):
 
     @api.multi
     def _get_stock_move_price_unit(self):
-        super(PurchaseOrderLine, self)._get_stock_move_price_unit()
-        self.ensure_one()
-        line = self[0]
-        order = line.order_id
-        _logger.info("price unit is {}".format(line.price_unit))
-        if line.discount and line.discount !=0:
-            price_unit = line.price_unit*(1-(line.discount/100))
+        use_supplier_price = self.env['ir.config_parameter'].sudo().get_param('stock_account_custom.use_supplier_price')
+        if use_supplier_price:
+            super(PurchaseOrderLine, self)._get_stock_move_price_unit()
+            self.ensure_one()
+            line = self[0]
+            order = line.order_id
+            _logger.info("price unit is {}".format(line.price_unit))
+            if line.discount and line.discount !=0:
+                price_unit = line.price_unit*(1-(line.discount/100))
+            else:
+                price_unit = line.price_unit
+            if line.taxes_id:
+                price_unit = line.taxes_id.with_context(round=False).compute_all(
+                    price_unit, currency=line.order_id.currency_id, quantity=1.0, product=line.product_id,
+                    partner=line.order_id.partner_id
+                )['total_excluded']
+            if line.product_uom.id != line.product_id.uom_id.id:
+                price_unit *= line.product_uom.factor / line.product_id.uom_id.factor
+            if order.currency_id != order.company_id.currency_id:
+                price_unit = order.currency_id.with_context(date=order.date_approve).compute(price_unit,
+                                                                                             order.company_id.currency_id,
+                                                                                             round=False)
+            _logger.info("final price is {}".format(price_unit))
+            return price_unit
         else:
-            price_unit = line.price_unit
-        if line.taxes_id:
-            price_unit = line.taxes_id.with_context(round=False).compute_all(
-                price_unit, currency=line.order_id.currency_id, quantity=1.0, product=line.product_id,
-                partner=line.order_id.partner_id
-            )['total_excluded']
-        if line.product_uom.id != line.product_id.uom_id.id:
-            price_unit *= line.product_uom.factor / line.product_id.uom_id.factor
-        if order.currency_id != order.company_id.currency_id:
-            price_unit = order.currency_id.with_context(date=order.date_approve).compute(price_unit,
-                                                                                         order.company_id.currency_id,
-                                                                                         round=False)
-        _logger.info("final price is {}".format(price_unit))
-        return price_unit
+            return super(PurchaseOrderLine, self)._get_stock_move_price_unit()

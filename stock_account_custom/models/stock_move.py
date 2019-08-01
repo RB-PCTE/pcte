@@ -21,12 +21,15 @@ class StockMove(models.Model):
             return price_unit
 
     def _get_supplier_price(self, product):
-        if len(product.seller_ids) != 1:
+        if len(product.seller_ids) > 2:
             return product.standard_price
         else:
-            supplier_price = product.seller_ids[0].currency_id.with_context(date=self.date).compute(product.seller_ids[0].price,self.company_id.currency_id,round=False)
-            if product.supplier_discount:
-                supplier_price = supplier_price*(1-(product.supplier_discount/100))
+            supplier_price = product.standard_price
+            for supplier in product.seller_ids:
+                if supplier.name.id != self.company_id.partner_id.id:
+                    supplier_price = supplier.price * (1 - (product.product_tmpl_id.supplier_discount / 100))
+                    supplier_price = supplier.currency_id.with_context(date=self.date).compute(supplier_price,
+                                                                                                self.company_id.currency_id)
             return supplier_price
 
     def _run_valuation(self, quantity=None):
