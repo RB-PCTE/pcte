@@ -59,5 +59,25 @@
                 </div>
             </div>
         </xpath>
+        <xpath expr="//div[hasclass('footer')]" position="replace">
+            <div class="footer">
+                <div class="text-center" style="border-top: 1px solid black;">
+                    <ul class="list-inline mb4">
+                        <li t-if="company.phone">Phone: <span t-field="company.phone"/></li>
+                        <li t-if="company.email">Email: <span t-field="company.email"/></li>
+                        <li t-if="company.website">Web: <span t-field="company.website"/></li>
+                        <li t-if="company.vat"><t t-esc="company.country_id.vat_label or 'ABN'"/>: <span t-field="company.vat"/></li>
+                    </ul>
+
+                    <div name="financial_infos">
+                        <span t-field="company.report_footer"/>
+                    </div>
+
+                    <div class="text-muted">
+                        Page: <span class="page"/> / <span class="topage"/>
+                    </div>
+                </div>
+            </div>
+        </xpath>
     </template>
 </odoo>

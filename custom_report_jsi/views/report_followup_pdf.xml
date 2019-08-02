@@ -60,7 +60,7 @@
                         </tr>
                     </table>
                 </div>
-                <div class="col-xs-5 text-right">
+                <div class="col-xs-5 text-right" style="font-size:15px; padding-right:30px">
                     <br/>Yours Sincerely,<br/>
                     <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
                     Reuben Barnes<br/>
