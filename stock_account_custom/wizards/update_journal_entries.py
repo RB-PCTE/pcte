@@ -76,7 +76,7 @@ class WizardUpdateJournalEntries(models.TransientModel):
                                     if supplier.name.id != 1:
                                         price = supplier.price * (1 - (move_line.product_id.product_tmpl_id.supplier_discount / 100))
                                         price = supplier.currency_id.with_context(date=move.date).compute(price, move.company_id.currency_id)
-                                if (move_line.account_id.id == move_line.product_id.product_tmpl_id.categ_id.property_account_expense_categ_id.id or move.account_id.code in expense_account_code) and move_line.debit !=0.0:
+                                if (move_line.account_id.id == move_line.product_id.product_tmpl_id.categ_id.property_account_expense_categ_id.id or move_line.account_id.code in expense_account_code) and move_line.debit !=0.0:
                                     self._cr.execute("""UPDATE  account_move_line set debit=%s WHERE id=%s""",(price * move_line.quantity, move_line.id))
                                 if move_line.account_id.id == move_line.product_id.product_tmpl_id.categ_id.property_stock_account_output_categ_id.id and move_line.credit !=0.0:
                                     self._cr.execute("""UPDATE  account_move_line set credit=%s WHERE id=%s""",(price * move_line.quantity, move_line.id))
