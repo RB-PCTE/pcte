@@ -37,4 +37,47 @@
         </t>
         <t t-call="custom_report_jsi.external_layout_hf_custom_jsi"><t t-raw="0"/></t>
     </template>
+
+    <!--external_layout_standard-->
+    <template id="pcte_external_layout_standard_header" inherit_id="web.external_layout_standard">
+        <xpath expr="//div[hasclass('header')]" position="replace">
+            <div class="header">
+                <div class="row">
+                    <div class="col-xs-6">
+                        <img t-if="company.logo" t-att-src="'data:image/png;base64,%s' %to_text(company.logo)" style="max-height: 90px;"/>
+                        <div style="margin-left: 60px;">
+                            <span t-esc="company.id==1 and 'ABN' or 'GST'"/>: <span t-field="company.vat"/>
+                        </div>
+                    </div>
+                    <div class="col-xs-5 col-xs-offset-1">
+                        <div>Street Address:</div>
+                        <div t-field="company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'name']}"/>
+                        <!-- <div>Postal Address:<br/>PO Box 972 West Perth WA 6872</div> -->
+                        <div>Tel: <span t-field="company.phone"/></div>
+                        <div>Email: <span t-field="company.email"/></div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+        <xpath expr="//div[hasclass('footer')]" position="replace">
+            <div class="footer">
+                <div class="text-center" style="border-top: 1px solid black;">
+                    <ul class="list-inline mb4">
+                        <li t-if="company.phone">Phone: <span t-field="company.phone"/></li>
+                        <li t-if="company.email">Email: <span t-field="company.email"/></li>
+                        <li t-if="company.website">Web: <span t-field="company.website"/></li>
+                        <li t-if="company.vat"><t t-esc="company.country_id.vat_label or 'ABN'"/>: <span t-field="company.vat"/></li>
+                    </ul>
+
+                    <div name="financial_infos">
+                        <span t-field="company.report_footer"/>
+                    </div>
+
+                    <div class="text-muted">
+                        Page: <span class="page"/> / <span class="topage"/>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
 </odoo>
