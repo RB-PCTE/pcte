@@ -100,10 +100,21 @@ class WizardDeleteAccountAccount(models.TransientModel):
             partner_prop_acc = self.env['ir.property'].search([('value_reference', 'in', values)], limit=1)
             if partner_prop_acc:
                 _logger.info(values)
+                #136->804, 154 -> 814
                 account_replace = self.env['account.account'].search([('name', '=', account.name),('deprecated','=', False),('company_id','=', account.company_id.id)])
                 if account_replace:
                     partner_prop_acc.write({'value_reference': 'account.account,%s'%account_replace.id})
                     _logger.info('update value reference')
+                elif account.id==136:
+                    partner_prop_acc.write({'value_reference': 'account.account,%s' % 804})
+                    _logger.info('update value reference by id')
+                elif account.id==154:
+                    partner_prop_acc.write({'value_reference': 'account.account,%s' % 814})
+                    _logger.info('update value reference by id')
+                else:
+                    if not partner_prop_acc.res_id:
+                        partner_prop_acc.write({'value_reference': ''})
+                        _logger.info('update empty value reference')
             account.unlink()
             _logger.info('delete success')
 
