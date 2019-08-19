@@ -123,4 +123,20 @@ class WizardDeleteAccountAccount(models.TransientModel):
             _logger.info('delete success')
 
 
+class WizardFixWowCreditCardReconciliation(models.TransientModel):
+    _name = 'wizard.fix.wow.cc.reconciliation'
+
+    account_id = fields.Many2one('account.account', string='Account')
+
+    @api.multi
+    def button_update_reconciliation(self):
+        for wizard in self:
+            account_move_lines = self.env['account.move.line'].search([('account_id', '=', wizard.account_id.id)])
+            self.env.cr.execute(
+                "UPDATE account_account SET reconcile=%s "
+                "WHERE id=%s", (True, wizard.account_id.id,))
+            for move in account_move_lines:
+                _logger.info('before: %s|%s|%s|%s' % (move.debit, move.credit, move.balance, move.amount_residual))
+                move._amount_residual()
+                _logger.info('after: %s|%s|%s|%s' % (move.debit, move.credit, move.balance, move.amount_residual))
 

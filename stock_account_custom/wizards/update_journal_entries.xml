@@ -19,12 +19,12 @@
         </field>
     </record>
 
-    <act_window id="wizard_update_journal_entries_view_form_action"
-            name="Update Journal Entries"
-            src_model="account.move"
-            res_model="wizard.update.journal.entries"
-            view_type="form" view_mode="form"
-            key2="client_action_multi" target="new" groups="base.group_no_one"/>
+    <!--<act_window id="wizard_update_journal_entries_view_form_action"-->
+            <!--name="Update Journal Entries"-->
+            <!--src_model="account.move"-->
+            <!--res_model="wizard.update.journal.entries"-->
+            <!--view_type="form" view_mode="form"-->
+            <!--key2="client_action_multi" target="new" groups="base.group_no_one"/>-->
 
     <record id="wizard_delete_account_account_view_form" model="ir.ui.view">
         <field name="name">wizard.delete.account.account.form</field>
@@ -46,6 +46,29 @@
             name="Clean Account"
             src_model="account.account"
             res_model="wizard.delete.account.account"
+            view_type="form" view_mode="form"
+            key2="client_action_multi" target="new" groups="base.group_no_one"/>
+
+    <record id="wizard_fix_wow_cc_reconciliation_view_form" model="ir.ui.view">
+        <field name="name">wizard.fix.wow.cc.reconciliation.form</field>
+        <field name="model">wizard.fix.wow.cc.reconciliation</field>
+        <field name="arch" type="xml">
+            <form string="Fix Reconciliation">
+                <group>
+                    <field name="account_id" required="1"/>
+                </group>
+                <footer>
+                    <button string="Update" name="button_update_reconciliation" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <act_window id="wizard_fix_wow_cc_reconciliation_view_form_action"
+            name="Fix Reconciliation"
+            src_model="account.move.line"
+            res_model="wizard.fix.wow.cc.reconciliation"
             view_type="form" view_mode="form"
             key2="client_action_multi" target="new" groups="base.group_no_one"/>
 
