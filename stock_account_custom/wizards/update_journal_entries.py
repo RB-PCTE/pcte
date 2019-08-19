@@ -97,8 +97,8 @@ class WizardDeleteAccountAccount(models.TransientModel):
     def button_delete_account(self):
         for account in self.account_ids:
             values = ['account.account,%s' % (account.id,)]
-            partner_prop_acc = self.env['ir.property'].search([('value_reference', 'in', values)], limit=1)
-            if partner_prop_acc:
+            partner_prop_accs = self.env['ir.property'].search([('value_reference', 'in', values)])
+            for partner_prop_acc in partner_prop_accs:
                 _logger.info(values)
                 #136->804, 154 -> 814
                 account_replace = self.env['account.account'].search([('name', '=', account.name),('deprecated','=', False),('company_id','=', account.company_id.id)])
