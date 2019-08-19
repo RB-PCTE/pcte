@@ -89,7 +89,7 @@ class WizardDeleteAccountAccount(models.TransientModel):
 
     def _default_account_ids(self):
         account_ids = self._context.get('active_model') == 'account.account' and self._context.get('active_ids') or []
-        return [(6, 0, account_ids.ids)]
+        return [(6, 0, account_ids)]
 
     account_ids = fields.Many2many('account.account', string='Accounts', default=_default_account_ids)
 
