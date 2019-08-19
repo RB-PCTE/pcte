@@ -108,9 +108,13 @@ class WizardDeleteAccountAccount(models.TransientModel):
                 elif account.id==136:
                     partner_prop_acc.write({'value_reference': 'account.account,%s' % 804})
                     _logger.info('update value reference by id')
+                    invoice_ids = self.env['account.invoice'].search([('account_id','=', 136)])
+                    invoice_ids.write({'account_id': 804})
                 elif account.id==154:
                     partner_prop_acc.write({'value_reference': 'account.account,%s' % 814})
                     _logger.info('update value reference by id')
+                    invoice_ids = self.env['account.invoice'].search([('account_id', '=', 136)])
+                    invoice_ids.write({'account_id': 804})
                 else:
                     if not partner_prop_acc.res_id:
                         partner_prop_acc.write({'value_reference': ''})
