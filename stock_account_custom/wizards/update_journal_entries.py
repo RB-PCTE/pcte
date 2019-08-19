@@ -84,5 +84,28 @@ class WizardUpdateJournalEntries(models.TransientModel):
                         move._post_validate()
                         move.post()
 
+class WizardDeleteAccountAccount(models.TransientModel):
+    _name = 'wizard.delete.account.account'
+
+    def _default_account_ids(self):
+        account_ids = self._context.get('active_model') == 'account.account' and self._context.get('active_ids') or []
+        return [(6, 0, account_ids.ids)]
+
+    account_ids = fields.Many2many('account.account', string='Accounts', default=_default_account_ids)
+
+    @api.multi
+    def button_delete_account(self):
+        for account in self.account_ids:
+            values = ['account.account,%s' % (account.id,)]
+            partner_prop_acc = self.env['ir.property'].search([('value_reference', 'in', values)], limit=1)
+            if partner_prop_acc:
+                _logger.info(values)
+                account_replace = self.env['account.account'].search([('name', '=', account.name),('deprecated','=', False),('company_id','=', account.company_id.id)])
+                if account_replace:
+                    partner_prop_acc.write({'value_reference': 'account.account,%s'%account_replace.id})
+                    _logger.info('update value reference')
+            account.unlink()
+            _logger.info('delete success')
+
 
 
