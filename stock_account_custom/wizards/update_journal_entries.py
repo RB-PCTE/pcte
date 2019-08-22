@@ -37,11 +37,11 @@ class WizardUpdateJournalEntries(models.TransientModel):
                 _logger.info("[MOVE NAME] {}".format(move.name))
                 if move.stock_move_id.purchase_line_id and move.stock_move_id.purchase_line_id.discount and move.stock_move_id.purchase_line_id.discount !=0 and move.stock_move_id.price_unit:
                     _logger.info("[INCOMING] Price before change {}".format(move.stock_move_id.price_unit))
-                    new_price = move_line.product_id.standard_price
-                    for supplier in move_line.product_id.product_tmpl_id.seller_ids:
+                    new_price = move.stock_move_id.product_id.standard_price
+                    for supplier in move.stock_move_id.product_id.product_tmpl_id.seller_ids:
                         if supplier.name.id != 1:
                             price = supplier.price * (
-                            1 - (move_line.product_id.product_tmpl_id.supplier_discount / 100))
+                            1 - (move.stock_move_id.product_id.product_tmpl_id.supplier_discount / 100))
                             new_price = supplier.currency_id.with_context(date=move.date).compute(price,
                                                                                               move.company_id.currency_id)
                     move.stock_move_id.write({'price_unit': new_price})
@@ -60,11 +60,11 @@ class WizardUpdateJournalEntries(models.TransientModel):
                 else:
                     if move.stock_move_id.product_id.supplier_discount and move.stock_move_id.picking_type_id.code == 'outgoing':
                         _logger.info("[OUTGOING] Price before change {}".format(move.stock_move_id.price_unit))
-                        new_price = move_line.product_id.standard_price
-                        for supplier in move_line.product_id.product_tmpl_id.seller_ids:
+                        new_price = move.stock_move_id.product_id.standard_price
+                        for supplier in move.stock_move_id.product_id.product_tmpl_id.seller_ids:
                             if supplier.name.id != 1:
                                 price = supplier.price * (
-                                1 - (move_line.product_id.product_tmpl_id.supplier_discount / 100))
+                                1 - (move.stock_move_id.product_id.product_tmpl_id.supplier_discount / 100))
                                 new_price = supplier.currency_id.with_context(date=move.date).compute(price,
                                                                                                   move.company_id.currency_id)
                         move.stock_move_id.write({'price_unit': new_price*-1})
