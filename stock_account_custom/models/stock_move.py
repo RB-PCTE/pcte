@@ -14,9 +14,14 @@ class StockMove(models.Model):
         use_supplier_price = self.env['ir.config_parameter'].sudo().get_param('stock_account_custom.use_supplier_price')
         price_unit = super(StockMove, self)._get_price_unit()
         _logger.info("Price unit of _get_price_unit is {}".format(price_unit))
-        if self.price_unit != price_unit and use_supplier_price:
-            _logger.info("Difference is True: {}".format(self.price_unit))
-            return self.price_unit
+        if use_supplier_price:
+            supplier_price = self.product_id.standard_price
+            for supplier in self.product_id.seller_ids:
+                if supplier.name.id != self.company_id.partner_id.id:
+                    supplier_price = supplier.price * (1 - (self.product_id.product_tmpl_id.supplier_discount / 100))
+                    supplier_price = supplier.currency_id.with_context(date=self.date).compute(supplier_price, self.warehouse_id.company_id.currency_id)
+            _logger.info("Price after discount: {}".format(supplier_price))
+            return supplier_price
         else:
             return price_unit
 
