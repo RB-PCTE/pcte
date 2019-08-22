@@ -44,9 +44,9 @@ class WizardUpdateJournalEntries(models.TransientModel):
                     move.button_cancel()
                     for move_line in move.line_ids:
                         if move_line.credit != 0:
-                            self._cr.execute("""UPDATE  account_move_line set credit=%s, balance=%s WHERE id=%s""", (new_price*move.stock_move_id.quantity_done,move_line.id,new_price*move.stock_move_id.quantity_done,move_line.id))
+                            self._cr.execute("""UPDATE  account_move_line set credit=%s, balance=%s WHERE id=%s""", (new_price*move.stock_move_id.quantity_done,new_price*move.stock_move_id.quantity_done,move_line.id))
                         if move_line.debit != 0:
-                            self._cr.execute("""UPDATE   account_move_line set debit=%s, balance=%s WHERE id=%s""", (new_price*move.stock_move_id.quantity_done, move_line.id,new_price*move.stock_move_id.quantity_done, move_line.id))
+                            self._cr.execute("""UPDATE   account_move_line set debit=%s, balance=%s WHERE id=%s""", (new_price*move.stock_move_id.quantity_done,new_price*move.stock_move_id.quantity_done,move_line.id))
                     move._amount_compute()
                     move._post_validate()
                     move.post()
