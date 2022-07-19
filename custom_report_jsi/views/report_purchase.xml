@@ -8,20 +8,20 @@
             <div class="oe_structure"/>
             <h1 class="text-center"><strong>Purchase Order</strong></h1>
             <div class="row">
-                <div class="col-xs-6">
+                <div class="col-6">
                     <strong>Supplier details:</strong>
                     <div t-field="doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                     <div t-field="doc.partner_id.phone"/>
                 </div>
-                <div class="col-xs-5 col-xs-offset-1">
+                <div class="col-5 offset-1">
                     <div><strong>PO No.: </strong> <span t-field="doc.name"/></div>
                     <div><strong>Date: </strong> <span t-field="doc.date_order" t-options="{'widget':'date'}"/></div>
                 </div>
             </div>
 
-            <table class="table custom-table mt16">
+            <table class="table custom-table oe_mt16">
                 <thead>
                     <tr>
                         <th class="text-right">QUANTITY</th>
@@ -61,7 +61,7 @@
             <div style="page-break-inside: avoid !important;">
                 <div class="clearfix">
                     <div class="row" name="total">
-                        <div class="col-xs-4 pull-right">
+                        <div class="col-4 pull-right">
                             <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
                                 <tr>
                                     <td class="text-center"><strong>Total</strong></td>
@@ -75,7 +75,7 @@
                 </div>
 
                 <div class="row">
-                    <div class="mb16 col-xs-6">
+                    <div class="oe_mb16 col-6">
                         <strong>Delivery to:</strong><br/>
                         <div t-field="doc.x_studio_field_5qgZF.name"/>
                         <div t-field="doc.x_studio_field_5qgZF" t-options="{'widget': 'contact', 'fields': ['address', 'phone'], 'no_marker': True, 'phone_icons': True}"/>
@@ -84,16 +84,16 @@
                         Reuben Barnes<br/>
                         Managing Director
                     </div>
-                    <div class="col-xs-6">
+                    <div class="col-6">
                         <strong>Packing Information:</strong><br/>
                         <p>
                             Please refer to the shipping method indicated on accompanying email.<br/>
                             Please provide invoices by email to
-                            Papworths Construction Testing Equipment Pty Ltd at 
+                            Papworths Construction Testing Equipment Pty Ltd at
                             r.barnes@pcte.com.au<br/>
                             Prices EX GST for Australian Dollar Orders
                         </p>
-                        <div class="mt16" t-field="doc.notes"/>
+                        <div class="oe_mt16" t-field="doc.notes"/>
                     </div>
                 </div>
             </div>

@@ -7,94 +7,101 @@
             <field name="default" eval="True"/>
             <field name="format">A4</field>
             <field name="orientation">Portrait</field>
-            <field name="margin_top">40</field>
+            <field name="margin_top">45</field>
             <field name="margin_bottom">5</field>
             <field name="margin_left">7</field>
             <field name="margin_right">7</field>
             <field name="header_line" eval="False"/>
-            <field name="header_spacing">35</field>
+            <field name="header_spacing">40</field>
             <field name="dpi">90</field>
         </record>
 
-        <report
-            id="action_report_quotation_jsi"
-            string="Quote(Delivery Included)"
-            model="sale.order"
-            report_type="qweb-pdf"
-            name="custom_report_jsi.report_quotation_jsi"
-            file="custom_report_jsi.report_quotation_jsi"
-            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
-        />
+        <record id="action_report_quotation_jsi" model="ir.actions.report">
+            <field name="name">Quote(Delivery Included)</field>
+            <field name="model">sale.order</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">custom_report_jsi.report_quotation_jsi</field>
+            <field name="report_file">custom_report_jsi.report_quotation_jsi</field>
+            <field name="paperformat_id" ref="custom_report_jsi.paperformat_for_sales_jsi"/>
+            <field name="binding_model_id" ref="sale.model_sale_order"/>
+            <field name="binding_type">report</field>
+        </record>
 
-        <report
-            id="action_report_quotation_del_not_inc_jsi"
-            string="Quote(Delivery Not Included)"
-            model="sale.order"
-            report_type="qweb-pdf"
-            name="custom_report_jsi.report_order_del_not_inc_jsi"
-            file="custom_report_jsi.report_order_del_not_inc_jsi"
-            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
-        />
+        <record id="action_report_quotation_del_not_inc_jsi" model="ir.actions.report">
+            <field name="name">Quote(Delivery Not Included)</field>
+            <field name="model">sale.order</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">custom_report_jsi.report_order_del_not_inc_jsi</field>
+            <field name="report_file">custom_report_jsi.report_order_del_not_inc_jsi</field>
+            <field name="paperformat_id" ref="custom_report_jsi.paperformat_for_sales_jsi"/>
+            <field name="binding_model_id" ref="sale.model_sale_order"/>
+            <field name="binding_type">report</field>
+        </record>
 
-        <report
-            id="action_report_quotation_del_not_ret_inc_jsi"
-            string="Quote(Delivery But Not Return Included)"
-            model="sale.order"
-            report_type="qweb-pdf"
-            name="custom_report_jsi.report_order_del_not_ret_inc_jsi"
-            file="custom_report_jsi.report_order_del_not_ret_inc_jsi"
-            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
-        />
+        <record id="action_report_quotation_del_not_ret_inc_jsi" model="ir.actions.report">
+            <field name="name">Quote(Delivery But Not Return Included)</field>
+            <field name="model">sale.order</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">custom_report_jsi.report_order_del_not_ret_inc_jsi</field>
+            <field name="report_file">custom_report_jsi.report_order_del_not_ret_inc_jsi</field>
+            <field name="paperformat_id" ref="custom_report_jsi.paperformat_for_sales_jsi"/>
+            <field name="binding_model_id" ref="sale.model_sale_order"/>
+            <field name="binding_type">report</field>
+        </record>
 
-        <report
-            id="action_report_order_jsi"
-            string="Sales Order - PCTE"
-            model="sale.order"
-            report_type="qweb-pdf"
-            name="custom_report_jsi.report_order_jsi"
-            file="custom_report_jsi.report_order_jsi"
-            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
-        />
+        <record id="action_report_order_jsi" model="ir.actions.report">
+            <field name="name">Sales Order - PCTE</field>
+            <field name="model">sale.order</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">custom_report_jsi.report_order_jsi</field>
+            <field name="report_file">custom_report_jsi.report_order_jsi</field>
+            <field name="paperformat_id" ref="custom_report_jsi.paperformat_for_sales_jsi"/>
+            <field name="binding_model_id" ref="sale.model_sale_order"/>
+            <field name="binding_type">report</field>
+        </record>
 
-        <report
-            id="action_report_invoice_jsi"
-            string="Invoice - PCTE"
-            model="account.invoice"
-            report_type="qweb-pdf"
-            name="custom_report_jsi.report_invoice_jsi"
-            file="custom_report_jsi.report_invoice_jsi"
-            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
-        />
+        <record id="action_report_invoice_jsi" model="ir.actions.report">
+            <field name="name">Invoice - PCTE</field>
+            <field name="model">account.move</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">custom_report_jsi.report_invoice_jsi</field>
+            <field name="report_file">custom_report_jsi.report_invoice_jsi</field>
+            <field name="paperformat_id" ref="custom_report_jsi.paperformat_for_sales_jsi"/>
+            <field name="binding_model_id" ref="account.model_account_move"/>
+            <field name="binding_type">report</field>
+        </record>
 
-        <report
-            id="action_report_invoice_pre_paid_jsi"
-            string="Pre-Paid"
-            model="account.invoice"
-            report_type="qweb-pdf"
-            name="custom_report_jsi.report_invoice_pre_paid_jsi"
-            file="custom_report_jsi.report_invoice_pre_paid_jsi"
-            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
-        />
+        <record id="action_report_invoice_pre_paid_jsi" model="ir.actions.report">
+            <field name="name">Pre-Paid</field>
+            <field name="model">account.move</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">custom_report_jsi.report_invoice_pre_paid_jsi</field>
+            <field name="report_file">custom_report_jsi.report_invoice_pre_paid_jsi</field>
+            <field name="paperformat_id" ref="custom_report_jsi.paperformat_for_sales_jsi"/>
+            <field name="binding_model_id" ref="account.model_account_move"/>
+            <field name="binding_type">report</field>
+        </record>
 
-        <report
-            id="action_report_purchase_jsi"
-            string="Purchase Order - PCTE"
-            model="purchase.order"
-            report_type="qweb-pdf"
-            name="custom_report_jsi.report_purchase_jsi"
-            file="custom_report_jsi.report_purchase_jsi"
-            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
-        />
+        <record id="action_report_purchase_jsi" model="ir.actions.report">
+            <field name="name">Purchase Order - PCTE</field>
+            <field name="model">purchase.order</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">custom_report_jsi.report_purchase_jsi</field>
+            <field name="report_file">custom_report_jsi.report_purchase_jsi</field>
+            <field name="paperformat_id" ref="custom_report_jsi.paperformat_for_sales_jsi"/>
+            <field name="binding_model_id" ref="purchase.model_purchase_order"/>
+            <field name="binding_type">report</field>
+        </record>
 
-        <report
-            id="action_report_delivery_jsi"
-            string="Delivery Docket - PCTE"
-            model="stock.picking"
-            report_type="qweb-pdf"
-            name="custom_report_jsi.report_delivery_jsi"
-            file="custom_report_jsi.report_delivery_jsi"
-            paperformat="custom_report_jsi.paperformat_for_sales_jsi"
-        />
-
+        <record id="action_report_delivery_jsi" model="ir.actions.report">
+            <field name="name">Delivery Docket - PCTE</field>
+            <field name="model">stock.picking</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">custom_report_jsi.report_delivery_jsi</field>
+            <field name="report_file">custom_report_jsi.report_delivery_jsi</field>
+            <field name="paperformat_id" ref="custom_report_jsi.paperformat_for_sales_jsi"/>
+            <field name="binding_model_id" ref="stock.model_stock_picking"/>
+            <field name="binding_type">report</field>
+        </record>
     </data>
 </odoo>

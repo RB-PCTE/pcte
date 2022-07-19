@@ -8,24 +8,24 @@
             <div class="oe_structure"/>
             <h1 class="text-center"><strong>Quote</strong></h1>
             <div class="row">
-                <div class="col-xs-6">
+                <div class="col-6">
                     <strong>Quote to:</strong>
                     <div t-field="doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                     <div t-field="doc.partner_id.phone"/>
                 </div>
-                <div class="col-xs-5 col-xs-offset-1">
+                <div class="col-5 offset-1">
                     <div><strong>Quote No.:</strong> <span t-field="doc.name"/></div>
                     <div><strong>Date:</strong> <span t-field="doc.date_order" t-options="{'widget':'date'}"/></div>
                     <div><strong>Validity:</strong> <span t-field="doc.validity_date"/></div>
                     <div><strong>Payment Terms:</strong> <span t-field="doc.payment_term_id"/></div>
                 </div>
             </div>
-            <div class="mt8">
+            <div class="oe_mt8">
                 <span t-esc="doc.company_id.id==1 and 'ABN' or 'GST'"/>: <span t-field="doc.partner_id.vat"/>
             </div>
-            <table class="table custom-table mt16">
+            <table class="table custom-table oe_mt16">
                 <thead>
                     <tr>
                         <th class="text-right">QUANTITY</th>
@@ -41,7 +41,6 @@
                         <tr>
                             <td class="text-right">
                                 <span t-field="l.product_uom_qty"/>
-                                <!--<span t-field="l.product_uom" groups="product.group_uom"/>-->
                             </td>
                             <td><span t-field="l.product_id"/></td>
                             <td><span t-field="l.name"/></td>
@@ -61,7 +60,8 @@
             <div style="page-break-inside: avoid !important;">
                 <div class="clearfix">
                     <div class="row" name="total">
-                        <div class="col-xs-4 pull-right">
+                        <div class="col-8" />
+                        <div class="col-4 pull-right">
                             <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
                                 <tr>
                                     <td><strong>Subtotal:</strong></td>
@@ -87,7 +87,7 @@
                 </div>
 
                 <div class="row">
-                    <div class="mb16 col-xs-6">
+                    <div class="oe_mb16 col-6">
                         <strong>Delivery</strong>
                         <div name="delivery_term">
                             - Delivery Included
@@ -97,60 +97,61 @@
                             The offer is based the exchange rate for the date of this offer,<br/>as found on oanda.com PCTE reserves the right to refuse<br/>orders based on the offer price where the exchange rate has<br/>changed more than 5%
                         </div>
                         <br/>Yours Sincerely,<br/><br/><br/>
-                        <!-- <img src="/custom_report_jsi/static/src/img/signature.png"/><br/> -->
                         <span t-field="doc.user_id"/><br/>
                         PCTE <span t-field="doc.user_id.state_id"/><br/><span t-field="doc.user_id.phone"/>
                     </div>
-                    <div class="col-xs-4 col-xs-offset-2">
+                    <div class="col-4 offset-2">
                         <strong>Notes: </strong> <span t-field="doc.note"/>
                     </div>
                 </div>
             </div>
 
-            <div name="terms" class="row" style="page-break-before:always;font-size:12px;">
+            <div name="terms" style="page-break-before:always;font-size:12px;">
                 <h2 class="text-center"><strong>Terms and Conditions</strong></h2>
-                <div class="col-xs-6 mt8" style="text-align:justify;">
-                    <div><strong>1) Customer Acknowledgement.</strong></div>
-                    <div>The Customer acknowledges agreement with these Terms and Conditions of Sale by the placement of an order to purchase product from PCTE 
-                    PCTE is the trading name of Papworths Construction Testing Equipment Pty Ltd This contract of sale is between the entity named on the invoice (the “Customer”) and PCTE </div>
-                    <div>All goods are supplied on these terms and conditions only and no person in the employment or otherwise as agent for PCTE has any authority to supply goods on any other terms and conditions or to vary these terms and conditions in any way whatsoever. Previous dealings shall not vary or negate these terms and conditions in any respect. </div>
-                    <div><strong>2) Return or Exchange of Goods</strong></div>
-                    <div>PCTE will credit goods returned within a reasonable time (generally 7 days) provided the goods are in original condition, original packaging, current version and not a special order, hardware, peripheral or clearance item. Where PCTE incur costs in receiving returned goods they will be deducted from the credit price. </div>
-                    <div>Please note that where the plastic seal of a software package is broken the return or exchange cannot be accepted due to copyright and licensing restrictions, unless faulty or defective. In this case we will help the Customer obtain a working copy. </div>
-                    <div>Return or exchange of testing equipment and peripherals is sometimes not possible due to third party constraints on PCTE (unless faulty). Unless agreed otherwise prior to purchasing, all sales shall be considered firm sales. </div>
-                    <div><strong>3) Warranty Information</strong></div>
-                    <div>All products sold by PCTE are covered by the manufacturers’ warranty that accompanies the product unless otherwise stated. PCTE makes no additional or independent warranty. PCTE does not warrant the performance, compatibility, integrity, merchantability and fitness for a particular purpose of any product, but merely passes through to the Customer whatever end-user warranty the manufacturers or software publishers provide with their respective products. </div>
-                    <div>Please Note: Due to restrictions placed upon us by the manufacturers, hardware that is defective on arrival can generally be exchanged if we are notified within 7 days of invoice. Otherwise, the manufacturer’s warranty process must be followed. </div>
-                    <div><strong>4) Delivery of Goods</strong></div>
-                    <div>We place great importance on the fast and reliable delivery of Customers orders, however please note that delivery times are estimates only and PCTE shall not be liable for delays. If the Customer fails or refuses to take delivery of the goods, then in addition to all other rights and remedies of PCTE, the Customer shall be liable for all loss and damage (including consequential loss and damage) suffered or incurred by PCTE as a result thereof and PCTE, at its discretion may charge a restocking fee of up to 25% of the purchase price. </div>
-                    <div>The goods shall be at the Customers risk at the point of delivery. The Customer, upon taking delivery of the goods, shall immediately examine the goods and give written notice to PCTE of any defect within five (5) days of such date, failing which the goods shall be deemed to have been delivered in good order and condition and accepted by the Customer. </div>
-                    <div><strong>5) Title of Goods</strong></div>
-                    <div>The goods shall remain the sole and absolute property of PCTE as legal and equitable owner and the Customer shall hold such goods as bailee only until such time as the Customer shall have paid the full price. The Customer shall be liable to PCTE in respect of any loss or damage to the goods during such bailment. </div>
-                    <div><strong>6) Payment</strong></div>
-                    <div>The price shall be paid by the Customer in full without any deduction in respect of any claimed set-off or counterclaim (including any such set-off or counterclaim on account of any delay on the part of PCTE in
-                    delivering any part of the goods) on or before the payment date. </div>
-                </div>
-                <div class="col-xs-6" style="text-align:justify;">
-                    <div>In addition to any other rights or remedies of PCTE in the event of the Customer’s default hereunder, PCTE shall be entitled:</div>
-                    <div>To charge and recover costs incurred for the collection of payment (such as but not limited to collection agency fees and legal costs), cheque dishonour fees, interest at the current bank overdraft rate plus two percent per annum from the due date for payment until payment in full;</div>
-                    <div>To immediately and without notice retake possession of the goods (and for such purpose the Customer irrevocably licenses PCTE, its employees, contractors, servants or agents to enter upon the premises at which the goods are located to so retake possession) and resell the goods after seven (7) days written notice to the Customer and thereafter recover from the Customer any amount by which the resale price is less than the price agreed to be paid by the Customer, together with all costs and expenses suffered or incurred by PCTE as a result of the Customer’s default;</div>
-                    <div>At the sole discretion of PCTE charge a restocking fee of up to 25% of the purchase price. d) At the sole discretion of PCTE put the Customer account credit on hold and suspend the supply of goods and services (including RA).</div>
-                    <div><strong>7) Errors and Omissions</strong></div>
-                    <div>At PCTE, we work hard to offer you the most competitive pricing and accurate product information. Because of the dynamic nature of this industry (e.g. vendor price changes and other variables beyond our control), prices, promotions, versions and availability advertised are subject to change without prior notice. Please be assured of our every effort to ensure the accuracy; however the documents and graphics published may contain technical inaccuracies or typographical errors. PCTE makes no representations about the suitability of this information; it is provided “as is” without warranty of any kind. If an error is made or a product is listed at an incorrect price, PCTE shall maintain the right to refuse or cancel any orders placed. If the order has been confirmed and charged to your credit card, PCTE shall immediately issue a refund.</div>
-                    <div><strong>8) Limitation of Liability</strong></div>
-                    <div>PCTE, shall under no circumstances be liable for special, incidental, or consequential damages including loss of profit or opportunity, even if it has been advised of the possibility of such damages: the maximum liability for all direct damages, if any, arising out of any action shall be limited to an amount not to exceed the purchase price of the product.</div>
-                    <div>Subject to any applicable Commonwealth or State Legislation, PCTE’s liability for any such breach shall be limited, at its sole discretion, to any of the following:</div>
-                    <div>a) Replacement of the goods or any part thereof;</div>
-                    <div>b) Supply of equivalent goods or any part thereof</div>
-                    <div>c) Repair of the goods or any part thereof</div>
-                    <div>d) Payment of the cost of replacing the goods or acquiring equivalent goods or any part thereof</div>
-                    <div>e) The payment of the cost of having the goods or any part thereof repaired; or</div>
-                    <div>f) Refund of the goods upon return.</div>
-                    <div><strong>9) All Sales Made in Western Australia</strong></div>
-                    <div>All sales shall be deemed made in the state of Western Australia regardless of the location of the Customer. The Customer agrees that any dispute with PCTE shall be brought by the Customer exclusively in the state or federal courts situated in the State of Western Australia.</div>
-                    <div><strong>10) General</strong></div>
-                    <div>PCTE warrants that it has good title to all products it sells.</div>
-                    <div>In the event any section or portion of a section of these Terms and Conditions of Sale are deemed unlawful or unenforceable, that section or portion of a section shall be stricken from the Terms and Conditions of Sale, and the remaining terms shall continue in full force and effect</div>
+                <div class="row">
+                    <div class="col-6 oe_mt8" style="text-align:justify;">
+                        <div><strong>1) Customer Acknowledgement.</strong></div>
+                        <div>The Customer acknowledges agreement with these Terms and Conditions of Sale by the placement of an order to purchase product from PCTE
+                        PCTE is the trading name of Papworths Construction Testing Equipment Pty Ltd This contract of sale is between the entity named on the invoice (the “Customer”) and PCTE </div>
+                        <div>All goods are supplied on these terms and conditions only and no person in the employment or otherwise as agent for PCTE has any authority to supply goods on any other terms and conditions or to vary these terms and conditions in any way whatsoever. Previous dealings shall not vary or negate these terms and conditions in any respect. </div>
+                        <div><strong>2) Return or Exchange of Goods</strong></div>
+                        <div>PCTE will credit goods returned within a reasonable time (generally 7 days) provided the goods are in original condition, original packaging, current version and not a special order, hardware, peripheral or clearance item. Where PCTE incur costs in receiving returned goods they will be deducted from the credit price. </div>
+                        <div>Please note that where the plastic seal of a software package is broken the return or exchange cannot be accepted due to copyright and licensing restrictions, unless faulty or defective. In this case we will help the Customer obtain a working copy. </div>
+                        <div>Return or exchange of testing equipment and peripherals is sometimes not possible due to third party constraints on PCTE (unless faulty). Unless agreed otherwise prior to purchasing, all sales shall be considered firm sales. </div>
+                        <div><strong>3) Warranty Information</strong></div>
+                        <div>All products sold by PCTE are covered by the manufacturers’ warranty that accompanies the product unless otherwise stated. PCTE makes no additional or independent warranty. PCTE does not warrant the performance, compatibility, integrity, merchantability and fitness for a particular purpose of any product, but merely passes through to the Customer whatever end-user warranty the manufacturers or software publishers provide with their respective products. </div>
+                        <div>Please Note: Due to restrictions placed upon us by the manufacturers, hardware that is defective on arrival can generally be exchanged if we are notified within 7 days of invoice. Otherwise, the manufacturer’s warranty process must be followed. </div>
+                        <div><strong>4) Delivery of Goods</strong></div>
+                        <div>We place great importance on the fast and reliable delivery of Customers orders, however please note that delivery times are estimates only and PCTE shall not be liable for delays. If the Customer fails or refuses to take delivery of the goods, then in addition to all other rights and remedies of PCTE, the Customer shall be liable for all loss and damage (including consequential loss and damage) suffered or incurred by PCTE as a result thereof and PCTE, at its discretion may charge a restocking fee of up to 25% of the purchase price. </div>
+                        <div>The goods shall be at the Customers risk at the point of delivery. The Customer, upon taking delivery of the goods, shall immediately examine the goods and give written notice to PCTE of any defect within five (5) days of such date, failing which the goods shall be deemed to have been delivered in good order and condition and accepted by the Customer. </div>
+                        <div><strong>5) Title of Goods</strong></div>
+                        <div>The goods shall remain the sole and absolute property of PCTE as legal and equitable owner and the Customer shall hold such goods as bailee only until such time as the Customer shall have paid the full price. The Customer shall be liable to PCTE in respect of any loss or damage to the goods during such bailment. </div>
+                        <div><strong>6) Payment</strong></div>
+                        <div>The price shall be paid by the Customer in full without any deduction in respect of any claimed set-off or counterclaim (including any such set-off or counterclaim on account of any delay on the part of PCTE in
+                        delivering any part of the goods) on or before the payment date. </div>
+                    </div>
+                    <div class="col-6" style="text-align:justify;">
+                        <div>In addition to any other rights or remedies of PCTE in the event of the Customer’s default hereunder, PCTE shall be entitled:</div>
+                        <div>To charge and recover costs incurred for the collection of payment (such as but not limited to collection agency fees and legal costs), cheque dishonour fees, interest at the current bank overdraft rate plus two percent per annum from the due date for payment until payment in full;</div>
+                        <div>To immediately and without notice retake possession of the goods (and for such purpose the Customer irrevocably licenses PCTE, its employees, contractors, servants or agents to enter upon the premises at which the goods are located to so retake possession) and resell the goods after seven (7) days written notice to the Customer and thereafter recover from the Customer any amount by which the resale price is less than the price agreed to be paid by the Customer, together with all costs and expenses suffered or incurred by PCTE as a result of the Customer’s default;</div>
+                        <div>At the sole discretion of PCTE charge a restocking fee of up to 25% of the purchase price. d) At the sole discretion of PCTE put the Customer account credit on hold and suspend the supply of goods and services (including RA).</div>
+                        <div><strong>7) Errors and Omissions</strong></div>
+                        <div>At PCTE, we work hard to offer you the most competitive pricing and accurate product information. Because of the dynamic nature of this industry (e.g. vendor price changes and other variables beyond our control), prices, promotions, versions and availability advertised are subject to change without prior notice. Please be assured of our every effort to ensure the accuracy; however the documents and graphics published may contain technical inaccuracies or typographical errors. PCTE makes no representations about the suitability of this information; it is provided “as is” without warranty of any kind. If an error is made or a product is listed at an incorrect price, PCTE shall maintain the right to refuse or cancel any orders placed. If the order has been confirmed and charged to your credit card, PCTE shall immediately issue a refund.</div>
+                        <div><strong>8) Limitation of Liability</strong></div>
+                        <div>PCTE, shall under no circumstances be liable for special, incidental, or consequential damages including loss of profit or opportunity, even if it has been advised of the possibility of such damages: the maximum liability for all direct damages, if any, arising out of any action shall be limited to an amount not to exceed the purchase price of the product.</div>
+                        <div>Subject to any applicable Commonwealth or State Legislation, PCTE’s liability for any such breach shall be limited, at its sole discretion, to any of the following:</div>
+                        <div>a) Replacement of the goods or any part thereof;</div>
+                        <div>b) Supply of equivalent goods or any part thereof</div>
+                        <div>c) Repair of the goods or any part thereof</div>
+                        <div>d) Payment of the cost of replacing the goods or acquiring equivalent goods or any part thereof</div>
+                        <div>e) The payment of the cost of having the goods or any part thereof repaired; or</div>
+                        <div>f) Refund of the goods upon return.</div>
+                        <div><strong>9) All Sales Made in Western Australia</strong></div>
+                        <div>All sales shall be deemed made in the state of Western Australia regardless of the location of the Customer. The Customer agrees that any dispute with PCTE shall be brought by the Customer exclusively in the state or federal courts situated in the State of Western Australia.</div>
+                        <div><strong>10) General</strong></div>
+                        <div>PCTE warrants that it has good title to all products it sells.</div>
+                        <div>In the event any section or portion of a section of these Terms and Conditions of Sale are deemed unlawful or unenforceable, that section or portion of a section shall be stricken from the Terms and Conditions of Sale, and the remaining terms shall continue in full force and effect</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -169,10 +170,10 @@
     <xpath expr="//h1" position="replace">
         <h1 class="text-center"><strong>Sales Order</strong></h1>
     </xpath>
-    <xpath expr="//div[hasclass('col-xs-6')]/strong" position="replace">
+    <xpath expr="//div[hasclass('col-6')]/strong" position="replace">
         <strong>Sales Order to:</strong>
     </xpath>
-    <xpath expr="//div[hasclass('col-xs-5')]/div/strong" position="replace">
+    <xpath expr="//div[hasclass('col-5')]/div/strong" position="replace">
         <strong>Sales Order No.:</strong>
     </xpath>
     <xpath expr="//table//th[3]" position="after">
