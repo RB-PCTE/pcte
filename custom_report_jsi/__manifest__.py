@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 {
-    'name': 'Custom reports(Sale, Purchase, Delivery)',
-    'category': 'Sale',
-    'sequence': 60,
-    'description': "It will add new reports in Sale, Purchase and stock app.",
-    'depends': ['sale_stock', 'purchase'],
+    "name": "Custom reports(Sale, Purchase, Delivery)",
+    "summary": """
+        add new reports in Sale, Purchase and stock app
+        """,
+    "category": "",
+    "version": "15.0.1.0.0",
+    "author": "Odoo PS",
+    "website": "https://www.odoo.com",
+    "license": "OEEL-1",
+    'depends': ['sale_stock', 'purchase', 'account_followup'],
     'data': [
         'views/sale_view.xml',
         'views/reports.xml',
@@ -16,8 +20,5 @@
         'views/report_purchase.xml',
         'views/report_delivery.xml',
         'views/report_followup_pdf.xml',
-        ],
-    'demo': [],
-    'installable': True,
-    'auto_install': False,
+    ],
 }
