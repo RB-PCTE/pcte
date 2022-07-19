@@ -9,15 +9,14 @@
             <div class="oe_structure"/>
             <h1 class="text-center"><strong>Tax Invoice</strong></h1>
             <div class="row">
-                <div class="col-xs-6">
+                <div class="col-6">
                     <strong>Invoice to:</strong>
                     <t t-set="partner_invoice_id" t-value="doc.partner_id.child_ids.filtered(lambda x: x.type=='invoice')"/>
-                    <!-- <div t-esc="partner_invoice_id and partner_invoice_id[0].name or  doc.partner_id.name"/> -->
                     <div t-esc="partner_invoice_id and partner_invoice_id[0] or  doc.partner_id" t-options="{'widget': 'contact', 'fields': ['address','name'], 'no_marker': True, 'phone_icons': True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                 </div>
-                <div class="col-xs-5 col-xs-offset-1">
+                <div class="col-5 offset-1">
                     <div><strong>Invoice No.:</strong> <span t-field="doc.number"/></div>
                     <div><strong>Date:</strong> <span t-field="doc.date_invoice"/></div>
                     <div><strong>Due Date:</strong> <span t-field="doc.date_due"/></div>
@@ -26,11 +25,11 @@
                     <div><strong>SO:</strong> <span t-esc="related_sale and related_sale.name or ''"/></div>
                 </div>
             </div>
-            <div class="mt8">
+            <div class="oe_mt8">
                 <span t-esc="doc.company_id.id==1 and 'ABN' or 'GST'"/>: <span t-field="doc.partner_id.vat"/>
             </div>
 
-            <table class="table custom-table mt16">
+            <table class="table custom-table oe_mt16">
                 <thead>
                     <tr>
                         <th class="text-right">QUANTITY</th>
@@ -67,7 +66,7 @@
             <div style="page-break-inside: avoid !important;">
                 <div class="clearfix">
                     <div class="row" name="total">
-                        <div class="col-xs-6">
+                        <div class="col-6">
                             <table class="table" style="min-width: 200px;max-width: 350px;border:1px solid #dddddd;">
                                 <tr>
                                     <td width="30%"><strong>Salesperson:</strong></td>
@@ -83,7 +82,7 @@
                                 </tr>
                             </table>
                         </div>
-                        <div class="col-xs-4 col-xs-offset-2 pull-right">
+                        <div class="col-4 offset-2 pull-right">
                             <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
                                 <tr>
                                     <td><strong>Subtotal:</strong></td>
@@ -115,10 +114,10 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-xs-6 mb16"><strong>How to Pay</strong><br/>
+                    <div class="col-6 oe_mb16"><strong>How to Pay</strong><br/>
                         <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/><br/>
                         <t t-if="doc.company_id.id == 3">
-                          BNZ<br/> 
+                          BNZ<br/>
                           Account No: 02-0108-0384464-000<br/>
                           Swift code: BKNZNZ22<br/>
                         </t>
@@ -130,7 +129,7 @@
                         Swift Code: NATAAU3303M<br/>
                         Please email remittance to: admin@pcte.com.au
                     </div>
-                    <div class="col-xs-4 col-xs-offset-2">
+                    <div class="col-4 offset-2">
                         <div name="pay_info"/>
                         <br/>Yours Sincerely,<br/>
                         <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>

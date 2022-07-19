@@ -3,16 +3,15 @@
     <template id="external_layout_hf_custom_jsi">
         <div class="header">
             <div class="row">
-                <div class="col-xs-6">
+                <div class="col-6">
                     <img t-if="company.logo" t-att-src="'data:image/png;base64,%s' %to_text(company.logo)" style="max-height: 90px;"/>
                     <div style="margin-left: 60px;">
                         <span t-esc="company.id==1 and 'ABN' or 'GST'"/>: <span t-field="company.vat"/>
                     </div>
                 </div>
-                <div class="col-xs-5 col-xs-offset-1">
+                <div class="col-5 offset-1">
                     <div>Street Address:</div>
                     <div t-field="company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'name']}"/>
-                    <!-- <div>Postal Address:<br/>PO Box 972 West Perth WA 6872</div> -->
                     <div>Tel: <span t-field="company.phone"/></div>
                     <div>Email: <span t-field="company.email"/></div>
                 </div>
@@ -40,29 +39,30 @@
 
     <!--external_layout_standard-->
     <template id="pcte_external_layout_standard_header" inherit_id="web.external_layout_standard">
-        <xpath expr="//div[hasclass('header')]" position="replace">
-            <div class="header">
+
+        <div t-attf-class="header o_company_#{company.id}_layout" position="replace">
+            <div t-attf-class="header o_company_#{company.id}_layout" t-att-style="report_header_style">
                 <div class="row">
-                    <div class="col-xs-6">
+                    <div class="col-6">
                         <img t-if="company.logo" t-att-src="'data:image/png;base64,%s' %to_text(company.logo)" style="max-height: 90px;"/>
                         <div style="margin-left: 60px;">
                             <span t-esc="company.id==1 and 'ABN' or 'GST'"/>: <span t-field="company.vat"/>
                         </div>
                     </div>
-                    <div class="col-xs-5 col-xs-offset-1">
+                    <div class="col-5 offset-1">
                         <div>Street Address:</div>
                         <div t-field="company.partner_id" t-options="{'widget': 'contact', 'fields': ['address', 'name']}"/>
-                        <!-- <div>Postal Address:<br/>PO Box 972 West Perth WA 6872</div> -->
                         <div>Tel: <span t-field="company.phone"/></div>
                         <div>Email: <span t-field="company.email"/></div>
                     </div>
                 </div>
             </div>
-        </xpath>
-        <xpath expr="//div[hasclass('footer')]" position="replace">
-            <div class="footer">
+        </div>
+
+        <div t-attf-class="footer o_standard_footer o_company_#{company.id}_layout" position="replace">
+            <div t-attf-class="footer o_standard_footer o_company_#{company.id}_layout">
                 <div class="text-center" style="border-top: 1px solid black;">
-                    <ul class="list-inline mb4">
+                    <ul class="list-inline oe_mb4">
                         <li t-if="company.phone">Phone: <span t-field="company.phone"/></li>
                         <li t-if="company.email">Email: <span t-field="company.email"/></li>
                         <li t-if="company.website">Web: <span t-field="company.website"/></li>
@@ -78,6 +78,6 @@
                     </div>
                 </div>
             </div>
-        </xpath>
+        </div>
     </template>
 </odoo>
