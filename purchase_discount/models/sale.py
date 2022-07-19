@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
-from odoo import models, fields, exceptions, api, _
+
+from odoo import models, fields, api, _
+from odoo.exceptions import ValidationError
 
 
 class SaleOrderLine(models.Model):
@@ -8,7 +9,6 @@ class SaleOrderLine(models.Model):
 
     shipping_type = fields.Selection([('air', 'Air'), ('parcel', 'Parcel'), ('sea', 'Sea')], default=False)
     product_lca = fields.Boolean(compute="product_has_lca", store=True)
-
 
     @api.depends('order_id.partner_id', 'product_id')
     def product_has_lca(self):
@@ -29,11 +29,9 @@ class SaleOrderLine(models.Model):
             if ship_info:
                 amount = ship_info.get_amount(qty, self.shipping_type)
             else:
-                raise exceptions.ValidationError("Did not find shipping information for product %s" % product.name)
-
+                raise ValidationError("Did not find shipping information for product %s" % product.name)
         return amount
 
-    @api.multi
     @api.onchange('product_id')
     def product_id_change(self):
         if not self.product_id:
@@ -105,9 +103,9 @@ class SaleOrderLine(models.Model):
                 if not pricelist_item:
                     pricelist_item = pricelist.item_ids.filtered(lambda p: p.compute_price == 'formula' and p.applied_on == '3_global')
                 if not pricelist_item:
-                    raise exceptions.ValidationError("Did not find pricelist items for pricelist: %s and product %s" % (self.order_id.partner_id.property_product_pricelist.name, self.product_id.name))
+                    raise ValidationError("Did not find pricelist items for pricelist: %s and product %s" % (self.order_id.partner_id.property_product_pricelist.name, self.product_id.name))
             else:
-                raise exceptions.ValidationError("Customer doesn't have a sale pricelist!")
+                raise ValidationError("Customer doesn't have a sale pricelist!")
 
             M = pricelist_item[0].margin_pcte
 

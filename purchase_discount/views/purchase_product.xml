@@ -18,7 +18,6 @@
 	        </field>
 	    </record>
 
-
 	    <record id="purchase_order_inherited_form_view_pcte" model="ir.ui.view">
 	        <field name="name">Purchase Order Inherited Form View PCTE</field>
 	        <field name="model">purchase.order</field>
@@ -50,7 +49,7 @@
 	        <field name="inherit_id" ref="product.product_supplierinfo_form_view"/>
 	        <field name="priority" eval="100"/>
 	        <field name="arch" type="xml">
-	            <xpath expr="//form/group" position="inside">
+	            <xpath expr="//form//group" position="inside">
 	            	<group>
 	            		<field name="landed_cost_actual"/>
 	            	</group>
@@ -62,8 +61,3 @@
 	    </record>
 	</data>
 </odoo>
-
-
-
-
-	
