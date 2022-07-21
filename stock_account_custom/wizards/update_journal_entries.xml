@@ -42,12 +42,16 @@
         </field>
     </record>
 
-    <act_window id="wizard_delete_account_account_view_form_action"
-            name="Clean Account"
-            src_model="account.account"
-            res_model="wizard.delete.account.account"
-            view_type="form" view_mode="form"
-            key2="client_action_multi" target="new" groups="base.group_no_one"/>
+    <record id="wizard_delete_account_account_view_form_action" model="ir.actions.act_window">
+        <field name="name">Clean Account</field>
+        <field name="res_model">wizard.delete.account.account</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{}</field>
+        <field name="binding_model_id" ref="account.model_account_account"/>
+        <field name="binding_view_types">form</field>
+        <field name="groups_id" eval="[(4, ref('base.group_no_one'))]"/>
+    </record>
 
     <record id="wizard_fix_wow_cc_reconciliation_view_form" model="ir.ui.view">
         <field name="name">wizard.fix.wow.cc.reconciliation.form</field>
@@ -65,11 +69,15 @@
         </field>
     </record>
 
-    <act_window id="wizard_fix_wow_cc_reconciliation_view_form_action"
-            name="Fix Reconciliation"
-            src_model="account.move.line"
-            res_model="wizard.fix.wow.cc.reconciliation"
-            view_type="form" view_mode="form"
-            key2="client_action_multi" target="new" groups="base.group_no_one"/>
+    <record id="wizard_fix_wow_cc_reconciliation_view_form_action" model="ir.actions.act_window">
+        <field name="name">Fix Reconciliation</field>
+        <field name="res_model">wizard.fix.wow.cc.reconciliation</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{}</field>
+        <field name="binding_model_id" ref="account.model_account_move_line"/>
+        <field name="binding_view_types">form</field>
+        <field name="groups_id" eval="[(4, ref('base.group_no_one'))]"/>
+    </record>
 
 </odoo>
