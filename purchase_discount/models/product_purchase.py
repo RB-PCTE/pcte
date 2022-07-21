@@ -145,14 +145,25 @@ class PurchaseOrderLine(models.Model):
 
     @api.depends('product_qty', 'price_unit', 'taxes_id', 'discount')
     def _compute_amount(self):
-        for line in self:
-            if line.discount:
-                price_unit = line.price_unit * (100.0 - line.discount) / 100.0
-            else:
-                price_unit = line.price_unit
-            taxes = line.taxes_id.compute_all(price_unit, line.order_id.currency_id, line.product_qty, product=line.product_id, partner=line.order_id.partner_id)
-            line.update({
-                'price_tax': sum(t.get('amount', 0.0) for t in taxes.get('taxes', [])),
-                'price_total': taxes['total_included'],
-                'price_subtotal': taxes['total_excluded'],
-            })
+        return super()._compute_amount()
+
+    def _prepare_compute_all_values(self):
+        vals = super()._prepare_compute_all_values()
+        vals.update({"price_unit": self._get_discounted_price_unit()})
+        return vals
+
+    def _get_discounted_price_unit(self):
+        """Inheritable method for getting the unit price after applying
+        discount(s).
+        :rtype: float
+        :return: Unit price after discount(s).
+        """
+        self.ensure_one()
+        if self.discount:
+            return self.price_unit * (1 - self.discount / 100)
+        return self.price_unit
+
+    def _prepare_account_move_line(self, move=False):
+        vals = super(PurchaseOrderLine, self)._prepare_account_move_line(move)
+        vals["discount"] = self.discount
+        return vals
