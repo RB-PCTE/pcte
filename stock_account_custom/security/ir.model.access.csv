@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_wizard_update_journal_entries,access_wizard_update_journal_entries,model_wizard_update_journal_entries,,1,0,0,0
+access_wizard_delete_account_account,access_wizard_delete_account_account,model_wizard_delete_account_account,,1,0,0,0
+access_wizard_fix_wow_cc_reconciliation,access_wizard_fix_wow_cc_reconciliation,model_wizard_fix_wow_cc_reconciliation,,1,0,0,0
