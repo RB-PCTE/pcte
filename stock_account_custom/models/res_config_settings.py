@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-from odoo import models, fields, exceptions, api, _
-import logging
-_logger = logging.getLogger(__name__)
+from odoo import models, fields, api, _
+
 
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
@@ -18,7 +17,6 @@ class ResConfigSettings(models.TransientModel):
         )
         return res
 
-    @api.multi
     def set_values(self):
         super(ResConfigSettings, self).set_values()
         self.env['ir.config_parameter'].sudo().set_param('stock_account_custom.use_supplier_price',
