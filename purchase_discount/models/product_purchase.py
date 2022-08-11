@@ -163,7 +163,3 @@ class PurchaseOrderLine(models.Model):
             return self.price_unit * (1 - self.discount / 100)
         return self.price_unit
 
-    def _prepare_account_move_line(self, move=False):
-        vals = super(PurchaseOrderLine, self)._prepare_account_move_line(move)
-        vals["discount"] = self.discount
-        return vals
