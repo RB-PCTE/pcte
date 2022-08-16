@@ -5,7 +5,7 @@
         <t t-set="doc" t-value="doc.with_context({'lang':doc.partner_id.lang})" />
         <div class="page">
             <link rel="stylesheet" type="text/css" href="/custom_report_jsi/static/src/css/sale_report.css"/>
-            <t t-set="related_sale" t-value="env['sale.order'].search([('name', '=', doc.origin)])"/>
+            <t t-set="related_sale" t-value="env['sale.order'].search([('name', '=', doc.invoice_origin)])"/>
             <div class="oe_structure"/>
             <h1 class="text-center"><strong>Tax Invoice</strong></h1>
             <div class="row">
@@ -17,10 +17,10 @@
                     <div t-field="doc.partner_id.email"/>
                 </div>
                 <div class="col-5 offset-1">
-                    <div><strong>Invoice No.:</strong> <span t-field="doc.number"/></div>
-                    <div><strong>Date:</strong> <span t-field="doc.date_invoice"/></div>
-                    <div><strong>Due Date:</strong> <span t-field="doc.date_due"/></div>
-                    <div><strong>Payment Terms:</strong> <span t-field="doc.payment_term_id"/></div>
+                    <div><strong>Invoice No.:</strong> <span t-field="doc.name"/></div>
+                    <div><strong>Date:</strong> <span t-field="doc.invoice_date"/></div>
+                    <div><strong>Due Date:</strong> <span t-field="doc.invoice_date_due"/></div>
+                    <div><strong>Payment Terms:</strong> <span t-field="doc.invoice_payment_term_id"/></div>
                     <div><strong>Customer PO:</strong> <span t-field="doc.x_studio_field_6qcoa"/></div>
                     <div><strong>SO:</strong> <span t-esc="related_sale and related_sale.name or ''"/></div>
                 </div>
@@ -77,7 +77,7 @@
                                 <tr style="border-top:hidden;">
                                     <td><strong>Notes: </strong></td>
                                     <td style="min-height:25px;">
-                                        <span t-field="doc.comment"/>
+                                        <span t-field="doc.narration"/>
                                     </td>
                                 </tr>
                             </table>
@@ -105,7 +105,7 @@
                                 <tr class="border-black">
                                     <td><strong>Balance Due (<span t-field="doc.currency_id"/>)</strong></td>
                                     <td class="text-right">
-                                        <span t-field="doc.residual" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        <span t-field="doc.amount_residual" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
                                 </tr>
                             </table>
@@ -115,7 +115,7 @@
 
                 <div class="row">
                     <div class="col-6 oe_mb16"><strong>How to Pay</strong><br/>
-                        <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.number"/><br/>
+                        <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.name"/><br/>
                         <t t-if="doc.company_id.id == 3">
                           BNZ<br/>
                           Account No: 02-0108-0384464-000<br/>
