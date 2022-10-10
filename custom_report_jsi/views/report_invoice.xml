@@ -2,26 +2,26 @@
 <odoo>
 <template id="report_invoice_document_jsi">
     <t t-call="custom_report_jsi.external_layout_custom_jsi">
-        <t t-set="doc" t-value="doc.with_context({'lang':doc.partner_id.lang})" />
+        <t t-set="doc" t-value="doc.with_context({'lang':doc.partner_id.lang})"/>
         <div class="page">
-            <link rel="stylesheet" type="text/css" href="/custom_report_jsi/static/src/css/sale_report.css"/>
+            <!--<link rel="stylesheet" type="text/css" href="/custom_report_jsi/static/src/css/sale_report.css"/>-->
             <t t-set="related_sale" t-value="env['sale.order'].search([('name', '=', doc.invoice_origin)])"/>
             <div class="oe_structure"/>
             <h1 class="text-center"><strong>Tax Invoice</strong></h1>
             <div class="row">
-                <div class="col-6">
+                <div class="col-6" style="font-size:13px;">
                     <strong>Invoice to:</strong>
                     <t t-set="partner_invoice_id" t-value="doc.partner_id.child_ids.filtered(lambda x: x.type=='invoice')"/>
                     <div t-esc="partner_invoice_id and partner_invoice_id[0] or  doc.partner_id" t-options="{'widget': 'contact', 'fields': ['address','name'], 'no_marker': True, 'phone_icons': True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                 </div>
-                <div class="col-5 offset-1">
+                <div class="col-5 offset-1" style="font-size:13px;">
                     <div><strong>Invoice No.:</strong> <span t-field="doc.name"/></div>
                     <div><strong>Date:</strong> <span t-field="doc.invoice_date"/></div>
                     <div><strong>Due Date:</strong> <span t-field="doc.invoice_date_due"/></div>
                     <div><strong>Payment Terms:</strong> <span t-field="doc.invoice_payment_term_id"/></div>
-                    <div><strong>Customer PO:</strong> <span t-field="doc.x_studio_field_6qcoa"/></div>
+                    <div><strong>Customer PO:</strong> <span t-field="doc.ref"/></div>
                     <div><strong>SO:</strong> <span t-esc="related_sale and related_sale.name or ''"/></div>
                 </div>
             </div>
@@ -29,20 +29,21 @@
                 <span t-esc="doc.company_id.id==1 and 'ABN' or 'GST'"/>: <span t-field="doc.partner_id.vat"/>
             </div>
 
-            <table class="table custom-table oe_mt16">
+            <table class="table custom-table oe_mt16" style="font-size:13px;">
                 <thead>
                     <tr>
                         <th class="text-right">QUANTITY</th>
                         <th>ITEM NAME</th>
                         <th>DESCRIPTION</th>
-                        <th class="text-center">UNIT PRICE<br/>(ex GST)</th>
+                        <th class="text-center">UNIT PRICE (ex GST)</th>
                         <th class="text-right">DISC.(%)</th>
-                        <th class="text-center">TOTAL PRICE<br/>(ex- GST)</th>
+                        <th class="text-center">TOTAL PRICE (ex- GST)</th>
                     </tr>
                </thead>
-               <tbody class="sale_tbody">
+               <tbody class="sale_tbody" style="font-size:13px;">
                     <t t-foreach="doc.invoice_line_ids" t-as="l">
-                        <tr>
+                        <tr t-att-class="'bg-200 font-weight-bold o_line_section' if l.display_type == 'line_section' else 'font-italic o_line_note' if l.display_type == 'line_note' else ''">
+                            <t t-if="not l.display_type">
                             <td class="text-right">
                                 <span t-field="l.quantity"/>
                                 <span t-field="l.uom_id" groups="product.group_uom"/>
@@ -58,6 +59,19 @@
                             <td class="text-right">
                                 <span t-field="l.price_subtotal" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                             </td>
+                            </t>
+                            <t t-if="l.display_type == 'line_section'">
+                                <td name="td_section_line" colspan="99">
+                                    <span t-field="l.name"/>
+                                </td>
+                                <t t-set="current_section" t-value="line"/>
+                                <t t-set="current_subtotal" t-value="0"/>
+                            </t>
+                            <t t-if="l.display_type == 'line_note'">
+                                <td name="td_note_line" colspan="99">
+                                    <span t-field="l.name"/>
+                                </td>
+                            </t>
                         </tr>
                     </t>
                 </tbody>
@@ -66,7 +80,8 @@
             <div style="page-break-inside: avoid !important;">
                 <div class="clearfix">
                     <div class="row" name="total">
-                        <div class="col-6">
+                      <div class="col-8"/>
+                        <div class="col-6" style="font-size:13px;">
                             <table class="table" style="min-width: 200px;max-width: 350px;border:1px solid #dddddd;">
                                 <tr>
                                     <td width="30%"><strong>Salesperson:</strong></td>
@@ -83,7 +98,7 @@
                             </table>
                         </div>
                         <div class="col-4 offset-2 pull-right">
-                            <table class="table custom-table" style="min-width: 200px;max-width: 350px;">
+                            <table class="table custom-table" style="min-width: 200px;max-width: 350px; font-size:13px;">
                                 <tr>
                                     <td><strong>Subtotal:</strong></td>
                                     <td class="text-right">
@@ -114,7 +129,7 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-6 oe_mb16"><strong>How to Pay</strong><br/>
+                    <div class="col-6 oe_mb16" style="font-size:13px;"><strong>How to Pay</strong><br/>
                         <strong>By Internet</strong> &amp;nbsp;&amp;nbsp;Please reference: <span t-field="doc.name"/><br/>
                         <t t-if="doc.company_id.id == 3">
                           BNZ<br/>
@@ -129,7 +144,7 @@
                         Swift Code: NATAAU3303M<br/>
                         Please email remittance to: admin@pcte.com.au
                     </div>
-                    <div class="col-4 offset-2">
+                    <div class="col-4 offset-2" style="font-size:13px;">
                         <div name="pay_info"/>
                         <br/>Yours Sincerely,<br/>
                         <img src="/custom_report_jsi/static/src/img/signature.png"/><br/>
