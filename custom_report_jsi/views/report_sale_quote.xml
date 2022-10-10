@@ -8,37 +8,38 @@
             <div class="oe_structure"/>
             <h1 class="text-center"><strong>Quote</strong></h1>
             <div class="row">
-                <div class="col-6">
+                <div class="col-6" style="font-size:13px;">
                     <strong>Quote to:</strong>
                     <div t-field="doc.partner_id.commercial_partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
                     <div t-field="doc.partner_id.phone"/>
                 </div>
-                <div class="col-5 offset-1" style="font-size:12px;">
+                <div class="col-5 offset-1" style="font-size:13px;">
                     <div><strong>Quote No.:</strong> <span t-field="doc.name"/></div>
                     <div><strong>Date:</strong> <span t-field="doc.date_order" t-options="{'widget':'date'}"/></div>
                     <div><strong>Validity:</strong> <span t-field="doc.validity_date"/></div>
                     <div><strong>Payment Terms:</strong> <span t-field="doc.payment_term_id"/></div>
                 </div>
             </div>
-            <div class="oe_mt8" style="font-size:12px;">
+            <div class="oe_mt8" style="font-size:13px;">
                 <span t-esc="doc.company_id.id==1 and 'ABN' or 'GST'"/>: <span t-field="doc.partner_id.vat"/>
             </div>
-            <table class="table custom-table oe_mt16" style="font-size:12px;">
+            <table class="table custom-table oe_mt16" style="font-size:13px;">
                 <thead>
                     <tr>
                         <th class="text-right">QUANTITY</th>
                         <th>ITEM NAME</th>
                         <th>DESCRIPTION</th>
-                        <th class="text-center">UNIT PRICE<br/>(ex GST)</th>
+                        <th class="text-center">UNIT PRICE (ex GST)</th>
                         <th class="text-right">DISC.(%)</th>
-                        <th class="text-center">TOTAL PRICE<br/>(ex- GST)</th>
+                        <th class="text-center">TOTAL PRICE (ex- GST)</th>
                     </tr>
                </thead>
-               <tbody class="sale_tbody">
+               <tbody class="sale_tbody" style="font-size:13px;">
                     <t t-foreach="doc.order_line" t-as="l">
-                        <tr>
+                        <tr t-att-class="'bg-200 font-weight-bold o_line_section' if l.display_type == 'line_section' else 'font-italic o_line_note' if l.display_type == 'line_note' else ''">
+                            <t t-if="not l.display_type">
                             <td class="text-right">
                                 <span t-field="l.product_uom_qty"/>
                             </td>
@@ -53,6 +54,19 @@
                             <td class="text-right">
                                 <span t-field="l.price_subtotal" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
                             </td>
+                            </t>
+                            <t t-if="l.display_type == 'line_section'">
+                                <td name="td_section_line" colspan="99">
+                                    <span t-field="l.name"/>
+                                </td>
+                                <t t-set="current_section" t-value="line"/>
+                                <t t-set="current_subtotal" t-value="0"/>
+                            </t>
+                            <t t-if="l.display_type == 'line_note'">
+                                <td name="td_note_line" colspan="99">
+                                    <span t-field="l.name"/>
+                                </td>
+                            </t>
                         </tr>
                     </t>
                 </tbody>
@@ -62,7 +76,7 @@
                     <div class="row" name="total">
                         <div class="col-8"/>
                         <div class="col-4 pull-right">
-                            <table class="table custom-table" style="min-width: 200px;max-width: 350px;font-size:13px;">
+                            <table class="table custom-table" style="min-width: 200px;max-width: 350px; font-size:13px;">
                                 <tr>
                                     <td><strong>Subtotal:</strong></td>
                                     <td class="text-right">
@@ -87,7 +101,7 @@
                 </div>
 
                 <div class="row">
-                    <div class="oe_mb16 col-6">
+                    <div class="oe_mb16 col-6" style="font-size:13px;">
                         <strong>Delivery</strong>
                         <div name="delivery_term">
                             - Delivery Included
@@ -100,16 +114,16 @@
                         <span t-field="doc.user_id"/><br/>
                         PCTE <span t-field="doc.user_id.state_id"/><br/><span t-field="doc.user_id.phone"/>
                     </div>
-                    <div class="col-4 offset-2">
+                    <div class="col-4 offset-2" style="font-size:13px;">
                         <strong>Notes: </strong> <span t-field="doc.note"/>
                     </div>
                 </div>
             </div>
 
-            <div name="terms" style="page-break-before:always;font-size:12px;">
+            <div name="terms" style="page-break-before:always; font-size:12px;">
                 <h2 class="text-center"><strong>Terms and Conditions</strong></h2>
                 <div class="row">
-                    <div class="col-6 oe_mt8" style="text-align:justify; font-size:12px;">
+                    <div class="col-6 oe_mt8" style="text-align:justify; font-size:11px;">
                         <div><strong>1) Customer Acknowledgement.</strong></div>
                         <div>The Customer acknowledges agreement with these Terms and Conditions of Sale by the placement of an order to purchase product from PCTE
                         PCTE is the trading name of Papworths Construction Testing Equipment Pty Ltd This contract of sale is between the entity named on the invoice (the “Customer”) and PCTE </div>
@@ -130,7 +144,7 @@
                         <div>The price shall be paid by the Customer in full without any deduction in respect of any claimed set-off or counterclaim (including any such set-off or counterclaim on account of any delay on the part of PCTE in
                         delivering any part of the goods) on or before the payment date. </div>
                     </div>
-                    <div class="col-6" style="text-align:justify; font-size:12px;">
+                    <div class="col-6" style="text-align:justify; font-size:11px;">
                         <div>In addition to any other rights or remedies of PCTE in the event of the Customer’s default hereunder, PCTE shall be entitled:</div>
                         <div>To charge and recover costs incurred for the collection of payment (such as but not limited to collection agency fees and legal costs), cheque dishonour fees, interest at the current bank overdraft rate plus two percent per annum from the due date for payment until payment in full;</div>
                         <div>To immediately and without notice retake possession of the goods (and for such purpose the Customer irrevocably licenses PCTE, its employees, contractors, servants or agents to enter upon the premises at which the goods are located to so retake possession) and resell the goods after seven (7) days written notice to the Customer and thereafter recover from the Customer any amount by which the resale price is less than the price agreed to be paid by the Customer, together with all costs and expenses suffered or incurred by PCTE as a result of the Customer’s default;</div>
@@ -156,7 +170,7 @@
             </div>
         </div>
     </t>
-</template>
+</t>
 
 <template id="report_quotation_jsi">
     <t t-call="web.html_container">
