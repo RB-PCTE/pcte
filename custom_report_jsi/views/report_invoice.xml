@@ -13,8 +13,11 @@
                     <strong>Invoice to:</strong>
                     <t t-set="partner_invoice_id" t-value="doc.partner_id.child_ids.filtered(lambda x: x.type=='invoice')"/>
                     <div t-esc="partner_invoice_id and partner_invoice_id[0] or  doc.partner_id" t-options="{'widget': 'contact', 'fields': ['address','name'], 'no_marker': True, 'phone_icons': True}"/>
+                    <div t-field="doc.partner_id.commercial_partner_id.phone"/>
                     <div>Attn. <span t-field="doc.partner_id.name"/></div>
                     <div t-field="doc.partner_id.email"/>
+                    <div t-field="doc.partner_id.phone"/>
+                    <div t-field="doc.partner_id.mobile"/>
                 </div>
                 <div class="col-5 offset-1" style="font-size:13px;">
                     <div><strong>Invoice No.:</strong> <span t-field="doc.name"/></div>
