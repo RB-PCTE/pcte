@@ -83,7 +83,6 @@
             <div style="page-break-inside: avoid !important;">
                 <div class="clearfix">
                     <div class="row" name="total">
-                      <div class="col-8"/>
                         <div class="col-6" style="font-size:13px;">
                             <table class="table" style="min-width: 200px;max-width: 350px;border:1px solid #dddddd;">
                                 <tr>
