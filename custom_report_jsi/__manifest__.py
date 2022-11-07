@@ -21,4 +21,9 @@
         'views/report_delivery.xml',
         'views/report_followup_pdf.xml',
     ],
+    'assets': {
+        'web.report_assets_common': [
+            'custom_report_jsi/static/src/css/sale_report.css',
+        ],
+    },
 }
