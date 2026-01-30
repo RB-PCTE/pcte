@@ -1,53 +1,44 @@
 const STORAGE_KEY = "equipmentTrackerState";
 
-const locations = ["Perth", "Melbourne", "Brisbane", "Sydney", "New Zealand"];
-const statuses = [
-  "Available",
-  "On demo",
-  "On hire",
-  "In transit",
-  "In service / repair",
-  "Calibration due",
-  "In calibration",
-  "Quarantined",
-];
-
 const defaultState = {
-  locations,
+  locations: [
+    "Office 1",
+    "Office 2",
+    "Office 3",
+    "Office 4",
+    "Workshop",
+    "On hire",
+  ],
   equipment: [
     {
       id: crypto.randomUUID(),
       name: "Projection kit A",
-      location: "Perth",
-      status: "Available",
+      location: "Office 1",
       lastMoved: "2024-05-14 09:10",
     },
     {
       id: crypto.randomUUID(),
       name: "Audio demo case",
-      location: "Melbourne",
-      status: "Available",
+      location: "Workshop",
       lastMoved: "2024-05-12 16:45",
     },
     {
       id: crypto.randomUUID(),
       name: "Lighting rig",
-      location: "Sydney",
-      status: "On hire",
+      location: "On hire",
       lastMoved: "2024-05-10 11:00",
     },
     {
       id: crypto.randomUUID(),
       name: "Portable control unit",
-      location: "Brisbane",
-      status: "Available",
+      location: "Office 3",
       lastMoved: "2024-05-11 13:25",
     },
   ],
   history: [
     {
       id: crypto.randomUUID(),
-      text: "Lighting rig moved to Sydney (Client demo).",
+      text: "Lighting rig moved to On hire (Client demo).",
       timestamp: "2024-05-10 11:00",
     },
   ],
@@ -64,18 +55,15 @@ const htmlEscapes = {
 
 const elements = {
   locationFilter: document.querySelector("#location-filter"),
-  statusFilter: document.querySelector("#status-filter"),
   searchInput: document.querySelector("#search-input"),
   equipmentTable: document.querySelector("#equipment-table"),
   moveForm: document.querySelector("#move-form"),
   moveEquipment: document.querySelector("#move-equipment"),
   moveLocation: document.querySelector("#move-location"),
-  moveStatus: document.querySelector("#move-status"),
   moveNotes: document.querySelector("#move-notes"),
   addEquipmentForm: document.querySelector("#add-equipment-form"),
   addEquipmentName: document.querySelector("#new-equipment-name"),
   addEquipmentLocation: document.querySelector("#new-equipment-location"),
-  addEquipmentStatus: document.querySelector("#new-equipment-status"),
   addLocationForm: document.querySelector("#add-location-form"),
   addLocationName: document.querySelector("#new-location-name"),
   historyList: document.querySelector("#history-list"),
@@ -89,27 +77,6 @@ function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
 }
 
-function normalizeEquipment(items, locationsList) {
-  return items.map((item) => {
-    const normalized = { ...item };
-    const locationLower = String(normalized.location ?? "").toLowerCase();
-    if (locationLower === "on hire") {
-      normalized.status = "On hire";
-      normalized.location = locationsList[0];
-    }
-
-    if (!locationsList.includes(normalized.location)) {
-      normalized.location = locationsList[0];
-    }
-
-    if (!statuses.includes(normalized.status)) {
-      normalized.status = "Available";
-    }
-
-    return normalized;
-  });
-}
-
 function loadState() {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) {
@@ -117,12 +84,9 @@ function loadState() {
   }
   try {
     const parsed = JSON.parse(stored);
-    const parsedEquipment = Array.isArray(parsed.equipment)
-      ? parsed.equipment
-      : defaultState.equipment;
     return {
-      locations: defaultState.locations,
-      equipment: normalizeEquipment(parsedEquipment, defaultState.locations),
+      locations: parsed.locations ?? defaultState.locations,
+      equipment: parsed.equipment ?? defaultState.equipment,
       history: parsed.history ?? defaultState.history,
     };
   } catch (error) {
@@ -167,32 +131,6 @@ function renderLocationOptions() {
   elements.addEquipmentLocation.innerHTML = selectionOptions;
 }
 
-function renderStatusOptions() {
-  const statusOptions = ["All statuses", ...statuses]
-    .map((status) => {
-      const safeStatus = escapeHTML(status);
-      return `<option value="${safeStatus}">${safeStatus}</option>`;
-    })
-    .join("");
-
-  elements.statusFilter.innerHTML = statusOptions;
-
-  const selectionOptions = statuses
-    .map((status) => {
-      const safeStatus = escapeHTML(status);
-      return `<option value="${safeStatus}">${safeStatus}</option>`;
-    })
-    .join("");
-
-  elements.addEquipmentStatus.innerHTML = selectionOptions;
-  elements.addEquipmentStatus.value = "Available";
-
-  elements.moveStatus.innerHTML = [
-    '<option value="">Keep current status</option>',
-    selectionOptions,
-  ].join("");
-}
-
 function renderEquipmentOptions() {
   const options = state.equipment
     .map(
@@ -206,7 +144,7 @@ function renderEquipmentOptions() {
 function renderStats() {
   elements.statTotal.textContent = state.equipment.length;
   const hireCount = state.equipment.filter(
-    (item) => item.status === "On hire"
+    (item) => item.location.toLowerCase() === "on hire"
   ).length;
   elements.statHire.textContent = hireCount;
 }
@@ -214,7 +152,6 @@ function renderStats() {
 function renderTable() {
   const searchTerm = elements.searchInput.value.trim().toLowerCase();
   const locationFilter = elements.locationFilter.value;
-  const statusFilter = elements.statusFilter.value;
 
   const filtered = state.equipment.filter((item) => {
     const matchesSearch =
@@ -222,14 +159,12 @@ function renderTable() {
       item.location.toLowerCase().includes(searchTerm);
     const matchesLocation =
       locationFilter === "All locations" || item.location === locationFilter;
-    const matchesStatus =
-      statusFilter === "All statuses" || item.status === statusFilter;
-    return matchesSearch && matchesLocation && matchesStatus;
+    return matchesSearch && matchesLocation;
   });
 
   if (filtered.length === 0) {
     elements.equipmentTable.innerHTML =
-      '<tr><td colspan="4">No equipment matches the current filter.</td></tr>';
+      '<tr><td colspan="3">No equipment matches the current filter.</td></tr>';
     return;
   }
 
@@ -239,7 +174,6 @@ function renderTable() {
         <tr>
           <td>${escapeHTML(item.name)}</td>
           <td><span class="tag">${escapeHTML(item.location)}</span></td>
-          <td><span class="tag status-tag">${escapeHTML(item.status)}</span></td>
           <td>${escapeHTML(item.lastMoved)}</td>
         </tr>
       `
@@ -304,7 +238,6 @@ function renderLocationSummary() {
 
 function refreshUI() {
   renderLocationOptions();
-  renderStatusOptions();
   renderEquipmentOptions();
   renderStats();
   renderTable();
@@ -327,7 +260,6 @@ function handleMoveSubmit(event) {
   event.preventDefault();
   const equipmentId = elements.moveEquipment.value;
   const newLocation = elements.moveLocation.value;
-  const status = elements.moveStatus.value;
   const notes = elements.moveNotes.value.trim();
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
@@ -336,9 +268,6 @@ function handleMoveSubmit(event) {
   }
 
   item.location = newLocation;
-  if (status) {
-    item.status = status;
-  }
   item.lastMoved = formatTimestamp();
 
   const message = `${item.name} moved to ${newLocation}${
@@ -347,7 +276,6 @@ function handleMoveSubmit(event) {
 
   logHistory(message);
   elements.moveNotes.value = "";
-  elements.moveStatus.value = "";
   saveState();
   refreshUI();
 }
@@ -356,7 +284,6 @@ function handleAddEquipment(event) {
   event.preventDefault();
   const name = elements.addEquipmentName.value.trim();
   const location = elements.addEquipmentLocation.value;
-  const status = elements.addEquipmentStatus.value || "Available";
   if (!name) {
     return;
   }
@@ -365,7 +292,6 @@ function handleAddEquipment(event) {
     id: crypto.randomUUID(),
     name,
     location,
-    status,
     lastMoved: formatTimestamp(),
   });
 
@@ -379,11 +305,6 @@ function handleAddLocation(event) {
   event.preventDefault();
   const name = elements.addLocationName.value.trim();
   if (!name) {
-    return;
-  }
-
-  if (!defaultState.locations.includes(name)) {
-    elements.addLocationName.value = "";
     return;
   }
 
@@ -408,7 +329,6 @@ function handleClearHistory() {
 elements.searchInput.addEventListener("input", renderTable);
 
 elements.locationFilter.addEventListener("change", renderTable);
-elements.statusFilter.addEventListener("change", renderTable);
 
 elements.locationSummary.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-location]");

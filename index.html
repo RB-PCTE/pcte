@@ -40,10 +40,6 @@
               <label for="location-filter">Location</label>
               <select id="location-filter"></select>
             </div>
-            <div class="filter">
-              <label for="status-filter">Status</label>
-              <select id="status-filter"></select>
-            </div>
           </div>
           <div class="search">
             <input
@@ -59,7 +55,6 @@
                 <tr>
                   <th>Equipment</th>
                   <th>Location</th>
-                  <th>Status</th>
                   <th>Last moved</th>
                 </tr>
               </thead>
@@ -92,10 +87,6 @@
                 <select id="move-location"></select>
               </label>
               <label>
-                Status (optional)
-                <select id="move-status"></select>
-              </label>
-              <label>
                 Notes (optional)
                 <input id="move-notes" type="text" placeholder="Customer name, demo date..." />
               </label>
@@ -111,10 +102,6 @@
               <label>
                 Starting location
                 <select id="new-equipment-location"></select>
-              </label>
-              <label>
-                Status
-                <select id="new-equipment-status"></select>
               </label>
               <button type="submit">Add equipment</button>
             </form>

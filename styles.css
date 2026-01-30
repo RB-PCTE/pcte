@@ -347,11 +347,6 @@ button:hover {
   font-size: 12px;
 }
 
-.status-tag {
-  background: rgba(75, 110, 245, 0.15);
-  color: var(--accent-dark);
-}
-
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
