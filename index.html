@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demo Equipment Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Operations</p>
+          <h1>Demonstration Equipment Tracker</h1>
+          <p class="subhead">
+            Find where every kit is located, and log moves between offices, the workshop, and
+            customer hires.
+          </p>
+        </div>
+        <div class="stats" aria-live="polite">
+          <div>
+            <span class="stat-label">Tracked items</span>
+            <strong id="stat-total">0</strong>
+          </div>
+          <div>
+            <span class="stat-label">On hire</span>
+            <strong id="stat-hire">0</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2>Find equipment</h2>
+              <p>Search by equipment name or current location.</p>
+            </div>
+            <div class="filter">
+              <label for="location-filter">Location</label>
+              <select id="location-filter"></select>
+            </div>
+          </div>
+          <div class="search">
+            <input
+              id="search-input"
+              type="search"
+              placeholder="Search equipment..."
+              autocomplete="off"
+            />
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Equipment</th>
+                  <th>Location</th>
+                  <th>Last moved</th>
+                </tr>
+              </thead>
+              <tbody id="equipment-table"></tbody>
+            </table>
+          </div>
+
+          <div class="location-summary">
+            <div class="summary-header">
+              <h3>Location overview</h3>
+              <p>Quick counts and assigned equipment per location.</p>
+            </div>
+            <div id="location-summary" class="summary-grid" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Console</h2>
+          <p>Use the console to log moves, add new equipment, or introduce a new location.</p>
+
+          <div class="console">
+            <form id="move-form" class="panel">
+              <h3>Log a move</h3>
+              <label>
+                Equipment
+                <select id="move-equipment"></select>
+              </label>
+              <label>
+                New location
+                <select id="move-location"></select>
+              </label>
+              <label>
+                Notes (optional)
+                <input id="move-notes" type="text" placeholder="Customer name, demo date..." />
+              </label>
+              <button type="submit">Record move</button>
+            </form>
+
+            <form id="add-equipment-form" class="panel">
+              <h3>Add new equipment</h3>
+              <label>
+                Equipment name
+                <input id="new-equipment-name" type="text" required />
+              </label>
+              <label>
+                Starting location
+                <select id="new-equipment-location"></select>
+              </label>
+              <button type="submit">Add equipment</button>
+            </form>
+
+            <form id="add-location-form" class="panel">
+              <h3>Add a location</h3>
+              <label>
+                Location name
+                <input id="new-location-name" type="text" required />
+              </label>
+              <button type="submit">Add location</button>
+            </form>
+          </div>
+
+          <div class="history">
+            <div class="history-header">
+              <h3>Recent moves</h3>
+              <button id="clear-history" type="button">Clear history</button>
+            </div>
+            <ul id="history-list"></ul>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
