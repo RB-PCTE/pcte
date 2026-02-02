@@ -19,27 +19,12 @@ const statusOptions = [
   "Quarantined",
 ];
 
-const calibrationFilterOptions = [
-  "All",
-  "OK",
-  "Due soon",
-  "Overdue",
-  "Unknown",
-  "Not required",
-];
-
 const defaultState = {
   locations: [...physicalLocations],
   equipment: [
     {
       id: crypto.randomUUID(),
       name: "Projection kit A",
-      model: "Epson Pro EX9240",
-      serialNumber: "EPX-9240-4821",
-      purchaseDate: "2022-02-15",
-      calibrationRequired: true,
-      calibrationIntervalMonths: 12,
-      lastCalibrationDate: "2025-08-01",
       location: "Perth",
       status: "Available",
       lastMoved: "2024-05-14 09:10",
@@ -47,12 +32,6 @@ const defaultState = {
     {
       id: crypto.randomUUID(),
       name: "Audio demo case",
-      model: "Shure ULX-D",
-      serialNumber: "SHR-ULXD-7730",
-      purchaseDate: "2021-08-03",
-      calibrationRequired: true,
-      calibrationIntervalMonths: 24,
-      lastCalibrationDate: "2023-02-01",
       location: "Melbourne",
       status: "On demo",
       lastMoved: "2024-05-12 16:45",
@@ -60,12 +39,6 @@ const defaultState = {
     {
       id: crypto.randomUUID(),
       name: "Lighting rig",
-      model: "Chauvet Rogue R2",
-      serialNumber: "CHV-R2-3391",
-      purchaseDate: "2020-11-18",
-      calibrationRequired: true,
-      calibrationIntervalMonths: 12,
-      lastCalibrationDate: "2025-03-01",
       location: "Perth",
       status: "On hire",
       lastMoved: "2024-05-10 11:00",
@@ -73,12 +46,6 @@ const defaultState = {
     {
       id: crypto.randomUUID(),
       name: "Portable control unit",
-      model: "Blackmagic ATEM Mini",
-      serialNumber: "BMD-ATEM-5529",
-      purchaseDate: "2023-03-05",
-      calibrationRequired: false,
-      calibrationIntervalMonths: null,
-      lastCalibrationDate: null,
       location: "Sydney",
       status: "In service / repair",
       lastMoved: "2024-05-11 13:25",
@@ -105,7 +72,6 @@ const htmlEscapes = {
 const elements = {
   locationFilter: document.querySelector("#location-filter"),
   statusFilter: document.querySelector("#status-filter"),
-  calibrationFilter: document.querySelector("#calibration-filter"),
   searchInput: document.querySelector("#search-input"),
   equipmentTable: document.querySelector("#equipment-table"),
   moveForm: document.querySelector("#move-form"),
@@ -122,15 +88,6 @@ const elements = {
   ),
   addEquipmentLocation: document.querySelector("#new-equipment-location"),
   addEquipmentStatus: document.querySelector("#new-equipment-status"),
-  addEquipmentCalibrationRequired: document.querySelector(
-    "#new-equipment-calibration-required"
-  ),
-  addEquipmentCalibrationInterval: document.querySelector(
-    "#new-equipment-calibration-interval"
-  ),
-  addEquipmentLastCalibration: document.querySelector(
-    "#new-equipment-last-calibration"
-  ),
   addLocationForm: document.querySelector("#add-location-form"),
   addLocationName: document.querySelector("#new-location-name"),
   historyList: document.querySelector("#history-list"),
@@ -157,7 +114,6 @@ function loadState() {
       : defaultState.equipment;
 
     const normalizedEquipment = equipment.map((item) => {
-      const calibrationRequired = item.calibrationRequired ?? false;
       const rawLocation = item.location ?? physicalLocations[0];
       const needsLocationReset =
         rawLocation.toLowerCase() === "on hire" ||
@@ -173,15 +129,6 @@ function loadState() {
 
       return {
         ...item,
-        model: item.model ?? "",
-        serialNumber: item.serialNumber ?? "",
-        purchaseDate: item.purchaseDate ?? "",
-        calibrationRequired,
-        calibrationIntervalMonths:
-          calibrationRequired === false
-            ? null
-            : item.calibrationIntervalMonths ?? 12,
-        lastCalibrationDate: item.lastCalibrationDate ?? null,
         location,
         status: derivedStatus,
       };
@@ -254,16 +201,6 @@ function renderStatusOptions() {
   elements.moveStatus.innerHTML = `<option value="Keep current status">Keep current status</option>${selectionOptions}`;
   elements.addEquipmentStatus.innerHTML = selectionOptions;
   elements.addEquipmentStatus.value = "Available";
-}
-
-function renderCalibrationOptions() {
-  const options = calibrationFilterOptions
-    .map((status) => {
-      const safeStatus = escapeHTML(status);
-      return `<option value="${safeStatus}">${safeStatus}</option>`;
-    })
-    .join("");
-  elements.calibrationFilter.innerHTML = options;
 }
 
 function renderEquipmentOptions() {
@@ -363,29 +300,23 @@ function renderTable() {
   const searchTerm = elements.searchInput.value.trim().toLowerCase();
   const locationFilter = elements.locationFilter.value;
   const statusFilter = elements.statusFilter.value;
-  const calibrationFilter = elements.calibrationFilter.value;
 
   const filtered = state.equipment.filter((item) => {
     const calibrationInfo = getCalibrationInfo(item, now);
     const matchesSearch =
       item.name.toLowerCase().includes(searchTerm) ||
-      item.model.toLowerCase().includes(searchTerm) ||
-      item.serialNumber.toLowerCase().includes(searchTerm);
+      item.location.toLowerCase().includes(searchTerm) ||
+      item.status.toLowerCase().includes(searchTerm);
     const matchesLocation =
       locationFilter === "All locations" || item.location === locationFilter;
     const matchesStatus =
       statusFilter === "All statuses" || item.status === statusFilter;
-    const matchesCalibration =
-      calibrationFilter === "All" ||
-      calibrationInfo.status === calibrationFilter;
-    return (
-      matchesSearch && matchesLocation && matchesStatus && matchesCalibration
-    );
+    return matchesSearch && matchesLocation && matchesStatus;
   });
 
   if (filtered.length === 0) {
     elements.equipmentTable.innerHTML =
-      '<tr><td colspan="8">No equipment matches the current filter.</td></tr>';
+      '<tr><td colspan="4">No equipment matches the current filter.</td></tr>';
     return;
   }
 
@@ -411,17 +342,9 @@ function renderTable() {
             item.status
           )}</span></td>
           <td><span class="tag">${escapeHTML(item.location)}</span></td>
-          <td>${escapeHTML(ageLabel)}</td>
-          <td>
-            <div class="calibration-cell">
-              <span class="tag tag--calibration tag--${calibrationStatusClass}">
-                ${escapeHTML(calibrationInfo.status)}
-              </span>
-              <span class="calibration-meta">${escapeHTML(
-                calibrationMeta
-              )}</span>
-            </div>
-          </td>
+          <td><span class="tag tag--status">${escapeHTML(
+            item.status
+          )}</span></td>
           <td>${escapeHTML(item.lastMoved)}</td>
         </tr>
       `;
@@ -488,7 +411,6 @@ function renderLocationSummary() {
 function refreshUI() {
   renderLocationOptions();
   renderStatusOptions();
-  renderCalibrationOptions();
   renderEquipmentOptions();
   renderStats();
   renderTable();
@@ -548,13 +470,6 @@ function handleAddEquipment(event) {
   const purchaseDate = elements.addEquipmentPurchaseDate.value;
   const location = elements.addEquipmentLocation.value;
   const status = elements.addEquipmentStatus.value;
-  const calibrationRequired = elements.addEquipmentCalibrationRequired.checked;
-  const calibrationInterval = calibrationRequired
-    ? Number(elements.addEquipmentCalibrationInterval.value)
-    : null;
-  const lastCalibrationDate = calibrationRequired
-    ? elements.addEquipmentLastCalibration.value || null
-    : null;
   if (!name) {
     return;
   }
@@ -622,8 +537,6 @@ elements.searchInput.addEventListener("input", renderTable);
 elements.locationFilter.addEventListener("change", renderTable);
 
 elements.statusFilter.addEventListener("change", renderTable);
-
-elements.calibrationFilter.addEventListener("change", renderTable);
 
 elements.locationSummary.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-location]");

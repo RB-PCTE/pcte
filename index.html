@@ -34,7 +34,7 @@
           <div class="card-header">
             <div>
               <h2>Find equipment</h2>
-              <p>Search by equipment name, model, or serial number.</p>
+              <p>Search by equipment name, location, or status.</p>
             </div>
             <div class="filters">
               <div class="filter">
@@ -44,10 +44,6 @@
               <div class="filter">
                 <label for="status-filter">Status</label>
                 <select id="status-filter"></select>
-              </div>
-              <div class="filter">
-                <label for="calibration-filter">Calibration</label>
-                <select id="calibration-filter"></select>
               </div>
             </div>
           </div>
@@ -68,8 +64,7 @@
                   <th>Serial</th>
                   <th>Status</th>
                   <th>Location</th>
-                  <th>Age</th>
-                  <th>Calibration</th>
+                  <th>Status</th>
                   <th>Last moved</th>
                 </tr>
               </thead>
@@ -137,21 +132,6 @@
               <label>
                 Status
                 <select id="new-equipment-status"></select>
-              </label>
-              <label class="checkbox-field">
-                <span>Calibration required</span>
-                <input id="new-equipment-calibration-required" type="checkbox" />
-              </label>
-              <label>
-                Calibration interval (months)
-                <select id="new-equipment-calibration-interval">
-                  <option value="12">12</option>
-                  <option value="24">24</option>
-                </select>
-              </label>
-              <label>
-                Last calibration date
-                <input id="new-equipment-last-calibration" type="date" />
               </label>
               <button type="submit">Add equipment</button>
             </form>

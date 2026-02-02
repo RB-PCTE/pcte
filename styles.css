@@ -368,47 +368,6 @@ button:hover {
   color: var(--accent-dark);
 }
 
-.tag--calibration {
-  background: rgba(95, 102, 119, 0.16);
-  color: var(--muted);
-}
-
-.tag--ok {
-  background: rgba(35, 176, 125, 0.18);
-  color: var(--success);
-}
-
-.tag--due-soon {
-  background: rgba(242, 185, 80, 0.2);
-  color: #b06a00;
-}
-
-.tag--overdue {
-  background: rgba(228, 88, 88, 0.18);
-  color: #c03a3a;
-}
-
-.tag--unknown {
-  background: rgba(95, 102, 119, 0.2);
-  color: var(--muted);
-}
-
-.tag--not-required {
-  background: rgba(75, 110, 245, 0.1);
-  color: var(--accent-dark);
-}
-
-.calibration-cell {
-  display: grid;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.calibration-meta {
-  color: var(--muted);
-  font-size: 11px;
-}
-
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
