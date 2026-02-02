@@ -81,6 +81,11 @@ const elements = {
   moveNotes: document.querySelector("#move-notes"),
   addEquipmentForm: document.querySelector("#add-equipment-form"),
   addEquipmentName: document.querySelector("#new-equipment-name"),
+  addEquipmentModel: document.querySelector("#new-equipment-model"),
+  addEquipmentSerial: document.querySelector("#new-equipment-serial"),
+  addEquipmentPurchaseDate: document.querySelector(
+    "#new-equipment-purchase-date"
+  ),
   addEquipmentLocation: document.querySelector("#new-equipment-location"),
   addEquipmentStatus: document.querySelector("#new-equipment-status"),
   addLocationForm: document.querySelector("#add-location-form"),
@@ -216,12 +221,88 @@ function renderStats() {
   elements.statHire.textContent = hireCount;
 }
 
+function parseDate(value) {
+  if (!value) {
+    return null;
+  }
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+  return new Date(year, month - 1, day);
+}
+
+function addMonths(date, months) {
+  const result = new Date(date);
+  result.setMonth(result.getMonth() + months);
+  return result;
+}
+
+function formatDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getAgeLabel(purchaseDate, now) {
+  const start = parseDate(purchaseDate);
+  if (!start) {
+    return "Unknown";
+  }
+  const totalMonths =
+    (now.getFullYear() - start.getFullYear()) * 12 +
+    (now.getMonth() - start.getMonth()) -
+    (now.getDate() < start.getDate() ? 1 : 0);
+  const safeMonths = Math.max(totalMonths, 0);
+  const years = Math.floor(safeMonths / 12);
+  const remainingMonths = safeMonths % 12;
+  const yearPart = years > 0 ? `${years}y` : "";
+  const monthPart =
+    remainingMonths > 0 || years === 0 ? `${remainingMonths}m` : "";
+  return [yearPart, monthPart].filter(Boolean).join(" ");
+}
+
+function getCalibrationInfo(item, now) {
+  if (!item.calibrationRequired) {
+    return {
+      status: "Not required",
+      dueDate: null,
+    };
+  }
+  const lastCalibration = parseDate(item.lastCalibrationDate);
+  if (!lastCalibration) {
+    return {
+      status: "Unknown",
+      dueDate: null,
+    };
+  }
+  const interval = item.calibrationIntervalMonths ?? 12;
+  const dueDate = addMonths(lastCalibration, interval);
+  const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) {
+    return {
+      status: "Overdue",
+      dueDate,
+    };
+  }
+  if (diffDays <= 60) {
+    return {
+      status: "Due soon",
+      dueDate,
+    };
+  }
+  return {
+    status: "OK",
+    dueDate,
+  };
+}
+
 function renderTable() {
+  const now = new Date();
   const searchTerm = elements.searchInput.value.trim().toLowerCase();
   const locationFilter = elements.locationFilter.value;
   const statusFilter = elements.statusFilter.value;
 
   const filtered = state.equipment.filter((item) => {
+    const calibrationInfo = getCalibrationInfo(item, now);
     const matchesSearch =
       item.name.toLowerCase().includes(searchTerm) ||
       item.location.toLowerCase().includes(searchTerm) ||
@@ -241,16 +322,33 @@ function renderTable() {
 
   elements.equipmentTable.innerHTML = filtered
     .map(
-      (item) => `
+      (item) => {
+        const ageLabel = getAgeLabel(item.purchaseDate, now);
+        const calibrationInfo = getCalibrationInfo(item, now);
+        const calibrationStatusClass = calibrationInfo.status
+          .toLowerCase()
+          .replace(/\s+/g, "-");
+        const calibrationMeta = calibrationInfo.dueDate
+          ? `Due ${formatDate(calibrationInfo.dueDate)}`
+          : item.calibrationRequired
+            ? "Last calibration needed"
+            : "No calibration required";
+        return `
         <tr>
           <td>${escapeHTML(item.name)}</td>
+          <td>${escapeHTML(item.model)}</td>
+          <td>${escapeHTML(item.serialNumber)}</td>
+          <td><span class="tag tag--status">${escapeHTML(
+            item.status
+          )}</span></td>
           <td><span class="tag">${escapeHTML(item.location)}</span></td>
           <td><span class="tag tag--status">${escapeHTML(
             item.status
           )}</span></td>
           <td>${escapeHTML(item.lastMoved)}</td>
         </tr>
-      `
+      `;
+      }
     )
     .join("");
 }
@@ -367,6 +465,9 @@ function handleMoveSubmit(event) {
 function handleAddEquipment(event) {
   event.preventDefault();
   const name = elements.addEquipmentName.value.trim();
+  const model = elements.addEquipmentModel.value.trim();
+  const serialNumber = elements.addEquipmentSerial.value.trim();
+  const purchaseDate = elements.addEquipmentPurchaseDate.value;
   const location = elements.addEquipmentLocation.value;
   const status = elements.addEquipmentStatus.value;
   if (!name) {
@@ -376,6 +477,12 @@ function handleAddEquipment(event) {
   state.equipment.push({
     id: crypto.randomUUID(),
     name,
+    model,
+    serialNumber,
+    purchaseDate,
+    calibrationRequired,
+    calibrationIntervalMonths: calibrationInterval,
+    lastCalibrationDate,
     location,
     status,
     lastMoved: formatTimestamp(),
@@ -383,8 +490,21 @@ function handleAddEquipment(event) {
 
   logHistory(`${name} added to ${location} with status ${status}.`);
   elements.addEquipmentName.value = "";
+  elements.addEquipmentModel.value = "";
+  elements.addEquipmentSerial.value = "";
+  elements.addEquipmentPurchaseDate.value = "";
+  elements.addEquipmentCalibrationRequired.checked = false;
+  elements.addEquipmentCalibrationInterval.value = "12";
+  elements.addEquipmentLastCalibration.value = "";
   saveState();
   refreshUI();
+  syncCalibrationInputs();
+}
+
+function syncCalibrationInputs() {
+  const isRequired = elements.addEquipmentCalibrationRequired.checked;
+  elements.addEquipmentCalibrationInterval.disabled = !isRequired;
+  elements.addEquipmentLastCalibration.disabled = !isRequired;
 }
 
 function handleAddLocation(event) {
@@ -432,8 +552,14 @@ elements.moveForm.addEventListener("submit", handleMoveSubmit);
 
 elements.addEquipmentForm.addEventListener("submit", handleAddEquipment);
 
+elements.addEquipmentCalibrationRequired.addEventListener(
+  "change",
+  syncCalibrationInputs
+);
+
 elements.addLocationForm.addEventListener("submit", handleAddLocation);
 
 elements.clearHistory.addEventListener("click", handleClearHistory);
 
 refreshUI();
+syncCalibrationInputs();

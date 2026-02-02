@@ -293,6 +293,16 @@ tr:last-child td {
   color: var(--muted);
 }
 
+.checkbox-field {
+  align-items: center;
+  grid-template-columns: 1fr auto;
+}
+
+.checkbox-field input {
+  width: auto;
+  justify-self: start;
+}
+
 button {
   border: none;
   border-radius: 10px;
