@@ -28,7 +28,12 @@ const calibrationFilterOptions = [
   "Not required",
 ];
 
-const moveTypeOptions = ["All types", "Move", "Calibration", "Details updated"];
+const moveTypeOptions = [
+  { value: "all", label: "All types" },
+  { value: "move", label: "Move" },
+  { value: "calibration", label: "Calibration" },
+  { value: "details_updated", label: "Details updated" },
+];
 
 function normalizeStatus(rawStatus, rawLocation) {
   const status = typeof rawStatus === "string" ? rawStatus.trim() : "";
@@ -54,10 +59,14 @@ function getSeedDate({ months = 0, days = 0 } = {}) {
 }
 
 function buildDefaultState() {
+  const projectionKitId = crypto.randomUUID();
+  const audioDemoId = crypto.randomUUID();
+  const lightingRigId = crypto.randomUUID();
+  const portableControlId = crypto.randomUUID();
   return {
     equipment: [
       {
-        id: crypto.randomUUID(),
+        id: projectionKitId,
         name: "Projection kit A",
         model: "Epson EB-PU1007B",
         serialNumber: "PKA-2024-0198",
@@ -70,7 +79,7 @@ function buildDefaultState() {
         lastCalibrationDate: getSeedDate({ months: -3 }),
       },
       {
-        id: crypto.randomUUID(),
+        id: audioDemoId,
         name: "Audio demo case",
         model: "Pelican 1510",
         serialNumber: "ADC-2023-4421",
@@ -83,7 +92,7 @@ function buildDefaultState() {
         lastCalibrationDate: getSeedDate({ months: -6 }),
       },
       {
-        id: crypto.randomUUID(),
+        id: lightingRigId,
         name: "Lighting rig",
         model: "Aputure LS 600X",
         serialNumber: "LR-2022-7785",
@@ -96,7 +105,7 @@ function buildDefaultState() {
         lastCalibrationDate: getSeedDate({ months: -14 }),
       },
       {
-        id: crypto.randomUUID(),
+        id: portableControlId,
         name: "Portable control unit",
         model: "Q-SYS Core 8 Flex",
         serialNumber: "PCU-2024-1043",
@@ -112,8 +121,15 @@ function buildDefaultState() {
     moves: [
       {
         id: crypto.randomUUID(),
+        equipmentId: lightingRigId,
+        equipmentSnapshot: {
+          name: "Lighting rig",
+          model: "Aputure LS 600X",
+          serialNumber: "LR-2022-7785",
+        },
+        type: "move",
         text: "Lighting rig moved to Perth with status On hire (Client demo).",
-        timestamp: "2024-05-10 11:00",
+        timestamp: "2024-05-10T11:00:00.000Z",
       },
     ],
   };
@@ -273,14 +289,14 @@ function loadState() {
   }
   try {
     const parsed = JSON.parse(stored);
-    const { equipment, moves, migratedKeys } = migrateStoredState(parsed);
+    const { equipment, moves, log, migratedKeys } = migrateStoredState(parsed);
     if (migratedKeys.length) {
       console.warn(
         `Migrated stored state: ${migratedKeys.join(", ")}`
       );
     }
 
-    const normalized = normalizeState({ equipment, moves });
+    const normalized = normalizeState({ equipment, moves, log });
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     return normalized;
@@ -336,10 +352,7 @@ function migrateStoredState(parsed) {
   }
 
   let moves = Array.isArray(safeParsed.moves) ? safeParsed.moves : null;
-  if (!moves && Array.isArray(safeParsed.log)) {
-    moves = safeParsed.log;
-    migratedKeys.push("log→moves");
-  }
+  let log = Array.isArray(safeParsed.log) ? safeParsed.log : null;
   if (!moves && Array.isArray(safeParsed.history)) {
     moves = safeParsed.history;
     migratedKeys.push("history→moves");
@@ -364,11 +377,12 @@ function migrateStoredState(parsed) {
   return {
     equipment: Array.isArray(equipment) ? equipment : [],
     moves: Array.isArray(moves) ? moves : [],
+    log: Array.isArray(log) ? log : null,
     migratedKeys,
   };
 }
 
-function normalizeState({ equipment = [], moves = [] } = {}) {
+function normalizeState({ equipment = [], moves = [], log } = {}) {
   const corrections = [];
   const normalizedEquipment = equipment.map((item) => {
     const normalizedItem = normalizeEquipment(item);
@@ -399,31 +413,59 @@ function normalizeState({ equipment = [], moves = [] } = {}) {
     };
   });
 
+  const equipmentList = Array.isArray(normalizedEquipment)
+    ? normalizedEquipment
+    : [];
+  const equipmentById = new Map(
+    equipmentList.map((equipment) => [String(equipment.id), equipment])
+  );
+  const equipmentByName = new Map(
+    equipmentList.map((equipment) => [norm(equipment.name), equipment])
+  );
+
+  const movesLegacy = Array.isArray(log) ? log : [];
+  const movesNew = Array.isArray(moves) ? moves : [];
+  const allMoves = [...movesLegacy, ...movesNew];
+
+  const backfilledMoves = backfillMovesWithEquipment(
+    allMoves,
+    equipmentList,
+    equipmentById,
+    equipmentByName
+  );
+  const dedupedMoves = dedupeHistoryEntries(backfilledMoves);
+
   const normalizedMoves = normalizeHistoryEntries(
-    corrections.length ? [...corrections, ...moves] : moves,
+    corrections.length ? [...corrections, ...dedupedMoves] : dedupedMoves,
     normalizedEquipment
   );
 
-  return {
+  const normalizedState = {
     locations: [...physicalLocations],
     equipment: normalizedEquipment,
     moves: normalizedMoves,
   };
+
+  if (Array.isArray(log)) {
+    normalizedState.log = log;
+  }
+
+  return normalizedState;
 }
 
 function inferHistoryTypeFromText(text = "") {
   const normalized = text.toLowerCase();
   if (normalized.includes("calibration")) {
-    return "Calibration";
+    return "calibration";
   }
   if (
     normalized.includes("details updated") ||
     normalized.includes("added") ||
     normalized.includes("location corrected")
   ) {
-    return "Details updated";
+    return "details_updated";
   }
-  return "Move";
+  return "move";
 }
 
 const equipmentIdPattern =
@@ -437,13 +479,45 @@ function parseEquipmentIdFromText(text) {
   return match ? match[1] : "";
 }
 
+function parseEquipmentIdFromNotes(notes) {
+  if (!notes || typeof notes !== "string") {
+    return "";
+  }
+  const match = notes.match(
+    /\(([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\)/i
+  );
+  return match ? match[1] : "";
+}
+
+function normalizeHistoryType(rawType, fallbackText = "") {
+  if (typeof rawType === "string" && rawType.trim()) {
+    const normalized = rawType.trim().toLowerCase();
+    if (normalized === "details updated") {
+      return "details_updated";
+    }
+    if (normalized.includes("details")) {
+      return "details_updated";
+    }
+    if (normalized.includes("calibration")) {
+      return "calibration";
+    }
+    if (normalized.includes("move")) {
+      return "move";
+    }
+    if (normalized === "details_updated") {
+      return "details_updated";
+    }
+  }
+  return inferHistoryTypeFromText(fallbackText);
+}
+
 function normalizeHistoryEntry(entry, equipmentList = []) {
   const safeEntry = entry && typeof entry === "object" ? entry : {};
   const text = typeof safeEntry.text === "string" ? safeEntry.text : "";
   const timestamp =
     typeof safeEntry.timestamp === "string" && safeEntry.timestamp.trim()
       ? safeEntry.timestamp
-      : formatTimestamp();
+      : formatTimestampISO();
   const rawEntryId =
     typeof safeEntry.id === "string" && safeEntry.id.trim()
       ? safeEntry.id
@@ -485,10 +559,7 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     equipmentId && Array.isArray(equipmentList)
       ? equipmentList.find((item) => item.id === equipmentId)
       : null;
-  const type =
-    typeof safeEntry.type === "string" && safeEntry.type.trim()
-      ? safeEntry.type
-      : inferHistoryTypeFromText(text);
+  const type = normalizeHistoryType(safeEntry.type, text);
   const equipmentName =
     typeof safeEntry.equipmentName === "string"
     ? safeEntry.equipmentName
@@ -553,6 +624,151 @@ function normalizeHistoryEntries(entries = [], equipmentList = []) {
   return list.map((entry) => normalizeHistoryEntry(entry, equipmentList));
 }
 
+function dedupeHistoryEntries(entries = []) {
+  const list = Array.isArray(entries) ? entries : [];
+  const seenIds = new Set();
+  const seenKeys = new Set();
+  const deduped = [];
+
+  list.forEach((entry) => {
+    const safeEntry = entry && typeof entry === "object" ? entry : {};
+    const rawId =
+      typeof safeEntry.id === "string" ? safeEntry.id.trim() : "";
+    if (rawId) {
+      if (seenIds.has(rawId)) {
+        return;
+      }
+      seenIds.add(rawId);
+      deduped.push(entry);
+      return;
+    }
+    const timestamp =
+      typeof safeEntry.timestamp === "string" ? safeEntry.timestamp : "";
+    const notes =
+      typeof safeEntry.notes === "string"
+        ? safeEntry.notes
+        : typeof safeEntry.text === "string"
+          ? safeEntry.text
+          : "";
+    const type = normalizeHistoryType(safeEntry.type, safeEntry.text ?? "");
+    const dedupeKey = `${timestamp}::${notes}::${type}`;
+    if (seenKeys.has(dedupeKey)) {
+      return;
+    }
+    seenKeys.add(dedupeKey);
+    deduped.push(entry);
+  });
+
+  return deduped;
+}
+
+function norm(value) {
+  if (value == null) {
+    return "";
+  }
+  return String(value).trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function extractCandidateName(notes) {
+  if (!notes) {
+    return "";
+  }
+  const lowerNotes = notes.toLowerCase();
+  const movedIndex = lowerNotes.indexOf(" moved");
+  const colonIndex = lowerNotes.indexOf(":");
+  const indexes = [movedIndex, colonIndex].filter((index) => index >= 0);
+  if (indexes.length) {
+    const cutIndex = Math.min(...indexes);
+    return notes.slice(0, cutIndex).trim();
+  }
+  return notes.trim();
+}
+
+function getEquipmentIdFromEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+  if (typeof entry.equipmentId === "string" && entry.equipmentId.trim()) {
+    return entry.equipmentId.trim();
+  }
+  if (typeof entry.equipment_id === "string" && entry.equipment_id.trim()) {
+    return entry.equipment_id.trim();
+  }
+  if (typeof entry.equipment === "string" && entry.equipment.trim()) {
+    return entry.equipment.trim();
+  }
+  if (entry.equipment && typeof entry.equipment === "object") {
+    const equipmentId =
+      typeof entry.equipment.id === "string" ? entry.equipment.id.trim() : "";
+    if (equipmentId) {
+      return equipmentId;
+    }
+  }
+  return "";
+}
+
+function backfillMovesWithEquipment(
+  entries,
+  equipmentList,
+  equipmentById,
+  equipmentByName
+) {
+  const list = Array.isArray(entries) ? entries : [];
+  return list.map((entry) => {
+    const safeEntry = entry && typeof entry === "object" ? { ...entry } : {};
+    let equipmentId = getEquipmentIdFromEntry(safeEntry);
+
+    const notesText =
+      typeof safeEntry.notes === "string"
+        ? safeEntry.notes
+        : typeof safeEntry.text === "string"
+          ? safeEntry.text
+          : typeof safeEntry.message === "string"
+            ? safeEntry.message
+            : "";
+
+    if (!equipmentId) {
+      const parsedId = parseEquipmentIdFromNotes(notesText);
+      if (parsedId && equipmentById.has(parsedId)) {
+        equipmentId = parsedId;
+      }
+    }
+
+    if (!equipmentId) {
+      const candidateName = extractCandidateName(notesText);
+      const normalizedCandidate = norm(candidateName);
+      if (normalizedCandidate && equipmentByName.has(normalizedCandidate)) {
+        equipmentId = String(equipmentByName.get(normalizedCandidate).id);
+      }
+    }
+
+    if (!equipmentId && notesText) {
+      const normalizedNotes = norm(notesText);
+      const matchedEquipment = equipmentList.find((equipment) => {
+        const equipmentName = norm(equipment.name);
+        return equipmentName && normalizedNotes.includes(equipmentName);
+      });
+      if (matchedEquipment) {
+        equipmentId = String(matchedEquipment.id);
+      }
+    }
+
+    if (equipmentId) {
+      const matchedEquipment = equipmentById.get(String(equipmentId));
+      safeEntry.equipmentId = String(equipmentId);
+      if (matchedEquipment) {
+        safeEntry.equipmentSnapshot = {
+          name: matchedEquipment.name ?? "",
+          model: matchedEquipment.model ?? "",
+          serialNumber: matchedEquipment.serialNumber ?? "",
+        };
+      }
+    }
+
+    return safeEntry;
+  });
+}
+
 function syncEquipmentById() {
   equipmentById.clear();
   getEquipmentListFromState().forEach((item) => {
@@ -604,6 +820,10 @@ function formatTimestamp(date = new Date()) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatTimestampISO(date = new Date()) {
+  return date.toISOString();
 }
 
 function renderLocationOptions() {
@@ -758,15 +978,14 @@ function renderMovesTypeFilter() {
   const currentValue = elements.movesTypeFilter.value || "all";
   const options = moveTypeOptions
     .map((option) => {
-      const value = option === "All types" ? "all" : option;
-      return `<option value="${escapeHTML(value)}">${escapeHTML(
-        option
-      )}</option>`;
+      return `<option value="${escapeHTML(
+        option.value
+      )}">${escapeHTML(option.label)}</option>`;
     })
     .join("");
   elements.movesTypeFilter.innerHTML = options;
   elements.movesTypeFilter.value = moveTypeOptions.some(
-    (option) => (option === "All types" ? "all" : option) === currentValue
+    (option) => option.value === currentValue
   )
     ? currentValue
     : "all";
@@ -1078,7 +1297,8 @@ function renderTable() {
 }
 
 function renderHistory() {
-  if (state.moves.length === 0) {
+  const allMoves = getAllMovesFromState();
+  if (allMoves.length === 0) {
     if (elements.historyList) {
       elements.historyList.innerHTML = "<li>No moves logged yet.</li>";
     }
@@ -1086,13 +1306,17 @@ function renderHistory() {
   }
 
   if (elements.historyList) {
-    elements.historyList.innerHTML = state.moves
+    elements.historyList.innerHTML = allMoves
       .slice(0, 8)
       .map(
-        (entry) =>
-          `<li><strong>${escapeHTML(
-            entry.timestamp
-          )}</strong> — ${escapeHTML(entry.text)}</li>`
+        (entry) => {
+          const timestamp = entry.timestamp ?? "";
+          const message =
+            entry.text ?? entry.notes ?? entry.message ?? "Update logged.";
+          return `<li><strong>${escapeHTML(
+            timestamp
+          )}</strong> — ${escapeHTML(message)}</li>`;
+        }
       )
       .join("");
   }
@@ -1115,6 +1339,12 @@ function formatEquipmentLabel({ name, model, serialNumber } = {}) {
 
 function resolveEquipmentForLog(entry) {
   const safeEntry = entry && typeof entry === "object" ? entry : {};
+  if (
+    safeEntry.equipmentSnapshot &&
+    typeof safeEntry.equipmentSnapshot === "object"
+  ) {
+    return safeEntry.equipmentSnapshot;
+  }
   const equipmentId =
     typeof safeEntry.equipmentId === "string" && safeEntry.equipmentId.trim()
       ? String(safeEntry.equipmentId)
@@ -1128,13 +1358,6 @@ function resolveEquipmentForLog(entry) {
         serialNumber: equipmentMatch.serialNumber ?? "",
       };
     }
-  }
-
-  if (
-    safeEntry.equipmentSnapshot &&
-    typeof safeEntry.equipmentSnapshot === "object"
-  ) {
-    return safeEntry.equipmentSnapshot;
   }
 
   const notesText =
@@ -1178,7 +1401,14 @@ function getStatusChangeLabel(entry) {
   if (statusTo) {
     return statusTo;
   }
-  return "—";
+  return "";
+}
+
+function getAllMovesFromState() {
+  const movesLegacy = Array.isArray(state.log) ? state.log : [];
+  const movesNew = Array.isArray(state.moves) ? state.moves : [];
+  const allMoves = [...movesLegacy, ...movesNew];
+  return dedupeHistoryEntries(allMoves);
 }
 
 function getFilteredMoves() {
@@ -1188,7 +1418,8 @@ function getFilteredMoves() {
     ? elements.movesSearch.value.trim().toLowerCase()
     : "";
 
-  return state.moves.filter((entry) => {
+  const allMoves = getAllMovesFromState();
+  const filtered = allMoves.filter((entry) => {
     if (equipmentFilter !== "all" && entry.equipmentId !== equipmentFilter) {
       return false;
     }
@@ -1204,6 +1435,7 @@ function getFilteredMoves() {
       equipmentLabel.includes(searchTerm) || notesLabel.includes(searchTerm)
     );
   });
+  return filtered;
 }
 
 function renderMovesView() {
@@ -1248,9 +1480,19 @@ function renderMovesView() {
       const equipmentLabel = getEquipmentSummary(entry);
       const fromLocation = entry.fromLocation?.trim()
         ? entry.fromLocation
-        : "—";
-      const toLocation = entry.toLocation?.trim() ? entry.toLocation : "—";
-      const notes = entry.notes?.trim() ? entry.notes : entry.text ?? "—";
+        : "";
+      const toLocation = entry.toLocation?.trim() ? entry.toLocation : "";
+      const notes =
+        entry.notes?.trim() ||
+        entry.text?.trim() ||
+        entry.message?.trim() ||
+        "";
+      const typeLabel =
+        entry.type === "details_updated"
+          ? "Details updated"
+          : entry.type === "calibration"
+            ? "Calibration"
+            : "Move";
       const actionCell = showActions
         ? `<td><button class="icon-button" type="button" data-action="delete-move" data-id="${escapeHTML(
             entry.id
@@ -1264,7 +1506,7 @@ function renderMovesView() {
           <td>${escapeHTML(toLocation)}</td>
           <td>${escapeHTML(getStatusChangeLabel(entry))}</td>
           <td>${escapeHTML(notes)}</td>
-          <td>${escapeHTML(entry.type ?? "Move")}</td>
+          <td>${escapeHTML(typeLabel)}</td>
           ${actionCell}
         </tr>
       `;
@@ -1444,14 +1686,27 @@ function initTabs() {
 function logHistory(entry) {
   const baseEntry =
     typeof entry === "string" ? { text: entry } : entry || {};
+  const equipmentId = baseEntry.equipmentId
+    ? String(baseEntry.equipmentId)
+    : "";
+  const equipmentSnapshot =
+    baseEntry.equipmentSnapshot && typeof baseEntry.equipmentSnapshot === "object"
+      ? baseEntry.equipmentSnapshot
+      : equipmentId && equipmentById.get(equipmentId)
+        ? {
+            name: equipmentById.get(equipmentId).name ?? "",
+            model: equipmentById.get(equipmentId).model ?? "",
+            serialNumber: equipmentById.get(equipmentId).serialNumber ?? "",
+          }
+        : null;
   const historyEntry = normalizeHistoryEntry(
     {
       ...baseEntry,
-      equipmentId: baseEntry.equipmentId
-        ? String(baseEntry.equipmentId)
-        : "",
+      equipmentId,
+      equipmentSnapshot,
+      type: normalizeHistoryType(baseEntry.type, baseEntry.text ?? ""),
       id: crypto.randomUUID(),
-      timestamp: formatTimestamp(),
+      timestamp: formatTimestampISO(),
     },
     state.equipment
   );
@@ -1495,7 +1750,7 @@ function handleMoveSubmit(event) {
   }`;
 
   logHistory({
-    type: "Move",
+    type: "move",
     text: message,
     equipmentId: String(item.id),
     equipmentSnapshot: {
@@ -1565,7 +1820,7 @@ function handleCalibrationSubmit(event) {
   item.calibrationRequired = elements.calibrationRequired.checked;
   item.lastMoved = formatTimestamp();
   logHistory({
-    type: "Calibration",
+    type: "calibration",
     text: `${item.name} calibration recorded.`,
     equipmentId: String(item.id),
     equipmentSnapshot: {
@@ -1635,7 +1890,7 @@ function handleAddEquipment(event) {
   });
 
   logHistory({
-    type: "Details updated",
+    type: "details_updated",
     text: `${name} added to ${location} with status ${status}.`,
     equipmentId: String(newItemId),
     equipmentSnapshot: {
@@ -2043,7 +2298,7 @@ function handleEditEquipmentSubmit(event) {
   if (changedFields.length > 0) {
     const changedLabel = changedFields.join(", ");
     logHistory({
-      type: "Details updated",
+      type: "details_updated",
       text: `Details updated for ${name} (${item.id}): ${changedLabel}.`,
       equipmentId: String(item.id),
       equipmentSnapshot: {
