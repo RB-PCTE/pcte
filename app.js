@@ -225,8 +225,9 @@ const elements = {
   statOverdue: document.querySelector("#stat-overdue"),
   statDueSoon: document.querySelector("#stat-due-soon"),
   locationSummary: document.querySelector("#location-summary"),
+  operationsView: document.querySelector("#operations-view"),
+  adminView: document.querySelector("#admin-view"),
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
-  tabPanels: Array.from(document.querySelectorAll(".tab-panel")),
 };
 
 function escapeHTML(value) {
@@ -785,41 +786,63 @@ function refreshUI() {
 }
 
 function setActiveTab(tabName, { focus = false } = {}) {
-  if (!elements.tabButtons.length || !elements.tabPanels.length) {
+  const resolvedTab =
+    tabName === "admin" || tabName === "operations"
+      ? tabName
+      : "operations";
+  const hasViews = Boolean(elements.operationsView || elements.adminView);
+  const hasButtons = elements.tabButtons.length > 0;
+
+  if (!hasViews && !hasButtons) {
     return;
   }
-  const nextTab =
-    elements.tabButtons.find((button) => button.dataset.tab === tabName) ||
-    elements.tabButtons[0];
-  const nextName = nextTab.dataset.tab;
-  elements.tabButtons.forEach((button) => {
-    const isActive = button.dataset.tab === nextName;
-    button.setAttribute("aria-selected", String(isActive));
-    button.setAttribute("tabindex", isActive ? "0" : "-1");
-  });
-  elements.tabPanels.forEach((panel) => {
-    panel.hidden = panel.id !== `tab-${nextName}`;
-  });
+
+  const nextTabButton = hasButtons
+    ? elements.tabButtons.find(
+        (button) => button.dataset.tab === resolvedTab
+      ) || elements.tabButtons[0]
+    : null;
+  const nextName = nextTabButton?.dataset.tab ?? resolvedTab;
+
+  if (elements.operationsView) {
+    elements.operationsView.hidden = nextName !== "operations";
+  }
+  if (elements.adminView) {
+    elements.adminView.hidden = nextName !== "admin";
+  }
+
+  if (hasButtons) {
+    elements.tabButtons.forEach((button) => {
+      const isActive = button.dataset.tab === nextName;
+      button.setAttribute("aria-selected", String(isActive));
+      button.setAttribute("tabindex", isActive ? "0" : "-1");
+      button.classList.toggle("is-active", isActive);
+    });
+  }
+
   localStorage.setItem(TAB_STORAGE_KEY, nextName);
-  if (focus) {
-    nextTab.focus();
+  if (focus && nextTabButton) {
+    nextTabButton.focus();
   }
 }
 
 function initTabs() {
-  if (!elements.tabButtons.length || !elements.tabPanels.length) {
-    return;
-  }
   const stored = localStorage.getItem(TAB_STORAGE_KEY);
   const availableTabs = elements.tabButtons.map(
     (button) => button.dataset.tab
   );
-  const initialTab = availableTabs.includes(stored)
-    ? stored
-    : elements.tabButtons[0].dataset.tab;
+  const fallbackTab = availableTabs[0] ?? "operations";
+  const initialTab = availableTabs.includes(stored) ? stored : fallbackTab;
   setActiveTab(initialTab);
 
+  if (!elements.tabButtons.length) {
+    return;
+  }
+
   elements.tabButtons.forEach((button, index) => {
+    if (!button) {
+      return;
+    }
     button.addEventListener("click", () => {
       setActiveTab(button.dataset.tab, { focus: true });
     });

@@ -86,7 +86,8 @@ h1 {
   cursor: pointer;
 }
 
-.tab-button[aria-selected="true"] {
+.tab-button[aria-selected="true"],
+.tab-button.is-active {
   background: var(--accent);
   color: #fff;
   box-shadow: 0 10px 24px rgba(75, 110, 245, 0.28);
