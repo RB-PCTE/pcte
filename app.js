@@ -88,6 +88,15 @@ const elements = {
   ),
   addEquipmentLocation: document.querySelector("#new-equipment-location"),
   addEquipmentStatus: document.querySelector("#new-equipment-status"),
+  addEquipmentCalibrationRequired: document.querySelector(
+    "#new-equipment-calibration-required"
+  ),
+  addEquipmentCalibrationInterval: document.querySelector(
+    "#new-equipment-calibration-interval"
+  ),
+  addEquipmentLastCalibration: document.querySelector(
+    "#new-equipment-last-calibration"
+  ),
   addLocationForm: document.querySelector("#add-location-form"),
   addLocationName: document.querySelector("#new-location-name"),
   historyList: document.querySelector("#history-list"),
@@ -168,7 +177,9 @@ function renderLocationOptions() {
     })
     .join("");
 
-  elements.locationFilter.innerHTML = options;
+  if (elements.locationFilter) {
+    elements.locationFilter.innerHTML = options;
+  }
 
   const selectionOptions = locations
     .map((location) => {
@@ -177,8 +188,12 @@ function renderLocationOptions() {
     })
     .join("");
 
-  elements.moveLocation.innerHTML = selectionOptions;
-  elements.addEquipmentLocation.innerHTML = selectionOptions;
+  if (elements.moveLocation) {
+    elements.moveLocation.innerHTML = selectionOptions;
+  }
+  if (elements.addEquipmentLocation) {
+    elements.addEquipmentLocation.innerHTML = selectionOptions;
+  }
 }
 
 function renderStatusOptions() {
@@ -189,7 +204,9 @@ function renderStatusOptions() {
     })
     .join("");
 
-  elements.statusFilter.innerHTML = filterOptions;
+  if (elements.statusFilter) {
+    elements.statusFilter.innerHTML = filterOptions;
+  }
 
   const selectionOptions = statusOptions
     .map((status) => {
@@ -198,9 +215,13 @@ function renderStatusOptions() {
     })
     .join("");
 
-  elements.moveStatus.innerHTML = `<option value="Keep current status">Keep current status</option>${selectionOptions}`;
-  elements.addEquipmentStatus.innerHTML = selectionOptions;
-  elements.addEquipmentStatus.value = "Available";
+  if (elements.moveStatus) {
+    elements.moveStatus.innerHTML = `<option value="Keep current status">Keep current status</option>${selectionOptions}`;
+  }
+  if (elements.addEquipmentStatus) {
+    elements.addEquipmentStatus.innerHTML = selectionOptions;
+    elements.addEquipmentStatus.value = "Available";
+  }
 }
 
 function renderEquipmentOptions() {
@@ -210,15 +231,21 @@ function renderEquipmentOptions() {
         `<option value="${item.id}">${escapeHTML(item.name)}</option>`
     )
     .join("");
-  elements.moveEquipment.innerHTML = options;
+  if (elements.moveEquipment) {
+    elements.moveEquipment.innerHTML = options;
+  }
 }
 
 function renderStats() {
-  elements.statTotal.textContent = state.equipment.length;
+  if (elements.statTotal) {
+    elements.statTotal.textContent = state.equipment.length;
+  }
   const hireCount = state.equipment.filter(
     (item) => item.status.toLowerCase() === "on hire"
   ).length;
-  elements.statHire.textContent = hireCount;
+  if (elements.statHire) {
+    elements.statHire.textContent = hireCount;
+  }
 }
 
 function parseDate(value) {
@@ -297,9 +324,15 @@ function getCalibrationInfo(item, now) {
 
 function renderTable() {
   const now = new Date();
-  const searchTerm = elements.searchInput.value.trim().toLowerCase();
-  const locationFilter = elements.locationFilter.value;
-  const statusFilter = elements.statusFilter.value;
+  const searchTerm = elements.searchInput
+    ? elements.searchInput.value.trim().toLowerCase()
+    : "";
+  const locationFilter = elements.locationFilter
+    ? elements.locationFilter.value
+    : "All locations";
+  const statusFilter = elements.statusFilter
+    ? elements.statusFilter.value
+    : "All statuses";
 
   const filtered = state.equipment.filter((item) => {
     const calibrationInfo = getCalibrationInfo(item, now);
@@ -315,25 +348,28 @@ function renderTable() {
   });
 
   if (filtered.length === 0) {
-    elements.equipmentTable.innerHTML =
-      '<tr><td colspan="4">No equipment matches the current filter.</td></tr>';
+    if (elements.equipmentTable) {
+      elements.equipmentTable.innerHTML =
+        '<tr><td colspan="4">No equipment matches the current filter.</td></tr>';
+    }
     return;
   }
 
-  elements.equipmentTable.innerHTML = filtered
-    .map(
-      (item) => {
-        const ageLabel = getAgeLabel(item.purchaseDate, now);
-        const calibrationInfo = getCalibrationInfo(item, now);
-        const calibrationStatusClass = calibrationInfo.status
-          .toLowerCase()
-          .replace(/\s+/g, "-");
-        const calibrationMeta = calibrationInfo.dueDate
-          ? `Due ${formatDate(calibrationInfo.dueDate)}`
-          : item.calibrationRequired
-            ? "Last calibration needed"
-            : "No calibration required";
-        return `
+  if (elements.equipmentTable) {
+    elements.equipmentTable.innerHTML = filtered
+      .map(
+        (item) => {
+          const ageLabel = getAgeLabel(item.purchaseDate, now);
+          const calibrationInfo = getCalibrationInfo(item, now);
+          const calibrationStatusClass = calibrationInfo.status
+            .toLowerCase()
+            .replace(/\s+/g, "-");
+          const calibrationMeta = calibrationInfo.dueDate
+            ? `Due ${formatDate(calibrationInfo.dueDate)}`
+            : item.calibrationRequired
+              ? "Last calibration needed"
+              : "No calibration required";
+          return `
         <tr>
           <td>${escapeHTML(item.name)}</td>
           <td>${escapeHTML(item.model)}</td>
@@ -348,26 +384,31 @@ function renderTable() {
           <td>${escapeHTML(item.lastMoved)}</td>
         </tr>
       `;
-      }
-    )
-    .join("");
+        }
+      )
+      .join("");
+  }
 }
 
 function renderHistory() {
   if (state.history.length === 0) {
-    elements.historyList.innerHTML = "<li>No moves logged yet.</li>";
+    if (elements.historyList) {
+      elements.historyList.innerHTML = "<li>No moves logged yet.</li>";
+    }
     return;
   }
 
-  elements.historyList.innerHTML = state.history
-    .slice(0, 8)
-    .map(
-      (entry) =>
-        `<li><strong>${escapeHTML(
-          entry.timestamp
-        )}</strong> — ${escapeHTML(entry.text)}</li>`
-    )
-    .join("");
+  if (elements.historyList) {
+    elements.historyList.innerHTML = state.history
+      .slice(0, 8)
+      .map(
+        (entry) =>
+          `<li><strong>${escapeHTML(
+            entry.timestamp
+          )}</strong> — ${escapeHTML(entry.text)}</li>`
+      )
+      .join("");
+  }
 }
 
 function renderLocationSummary() {
@@ -405,7 +446,9 @@ function renderLocationSummary() {
     `;
   });
 
-  elements.locationSummary.innerHTML = summaries.join("");
+  if (elements.locationSummary) {
+    elements.locationSummary.innerHTML = summaries.join("");
+  }
 }
 
 function refreshUI() {
@@ -470,6 +513,13 @@ function handleAddEquipment(event) {
   const purchaseDate = elements.addEquipmentPurchaseDate.value;
   const location = elements.addEquipmentLocation.value;
   const status = elements.addEquipmentStatus.value;
+  const calibrationRequired =
+    elements.addEquipmentCalibrationRequired?.checked ?? false;
+  const calibrationInterval = Number(
+    elements.addEquipmentCalibrationInterval?.value ?? 12
+  );
+  const lastCalibrationDate =
+    elements.addEquipmentLastCalibration?.value ?? "";
   if (!name) {
     return;
   }
@@ -493,15 +543,28 @@ function handleAddEquipment(event) {
   elements.addEquipmentModel.value = "";
   elements.addEquipmentSerial.value = "";
   elements.addEquipmentPurchaseDate.value = "";
-  elements.addEquipmentCalibrationRequired.checked = false;
-  elements.addEquipmentCalibrationInterval.value = "12";
-  elements.addEquipmentLastCalibration.value = "";
+  if (elements.addEquipmentCalibrationRequired) {
+    elements.addEquipmentCalibrationRequired.checked = false;
+  }
+  if (elements.addEquipmentCalibrationInterval) {
+    elements.addEquipmentCalibrationInterval.value = "12";
+  }
+  if (elements.addEquipmentLastCalibration) {
+    elements.addEquipmentLastCalibration.value = "";
+  }
   saveState();
   refreshUI();
   syncCalibrationInputs();
 }
 
 function syncCalibrationInputs() {
+  if (
+    !elements.addEquipmentCalibrationRequired ||
+    !elements.addEquipmentCalibrationInterval ||
+    !elements.addEquipmentLastCalibration
+  ) {
+    return;
+  }
   const isRequired = elements.addEquipmentCalibrationRequired.checked;
   elements.addEquipmentCalibrationInterval.disabled = !isRequired;
   elements.addEquipmentLastCalibration.disabled = !isRequired;
@@ -532,34 +595,52 @@ function handleClearHistory() {
   refreshUI();
 }
 
-elements.searchInput.addEventListener("input", renderTable);
+if (elements.searchInput) {
+  elements.searchInput.addEventListener("input", renderTable);
+}
 
-elements.locationFilter.addEventListener("change", renderTable);
+if (elements.locationFilter) {
+  elements.locationFilter.addEventListener("change", renderTable);
+}
 
-elements.statusFilter.addEventListener("change", renderTable);
+if (elements.statusFilter) {
+  elements.statusFilter.addEventListener("change", renderTable);
+}
 
-elements.locationSummary.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-location]");
-  if (!button) {
-    return;
-  }
-  const location = button.dataset.location;
-  elements.locationFilter.value = location;
-  renderTable();
-});
+if (elements.locationSummary) {
+  elements.locationSummary.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-location]");
+    if (!button || !elements.locationFilter) {
+      return;
+    }
+    const location = button.dataset.location;
+    elements.locationFilter.value = location;
+    renderTable();
+  });
+}
 
-elements.moveForm.addEventListener("submit", handleMoveSubmit);
+if (elements.moveForm) {
+  elements.moveForm.addEventListener("submit", handleMoveSubmit);
+}
 
-elements.addEquipmentForm.addEventListener("submit", handleAddEquipment);
+if (elements.addEquipmentForm) {
+  elements.addEquipmentForm.addEventListener("submit", handleAddEquipment);
+}
 
-elements.addEquipmentCalibrationRequired.addEventListener(
-  "change",
-  syncCalibrationInputs
-);
+if (elements.addEquipmentCalibrationRequired) {
+  elements.addEquipmentCalibrationRequired.addEventListener(
+    "change",
+    syncCalibrationInputs
+  );
+}
 
-elements.addLocationForm.addEventListener("submit", handleAddLocation);
+if (elements.addLocationForm) {
+  elements.addLocationForm.addEventListener("submit", handleAddLocation);
+}
 
-elements.clearHistory.addEventListener("click", handleClearHistory);
+if (elements.clearHistory) {
+  elements.clearHistory.addEventListener("click", handleClearHistory);
+}
 
 refreshUI();
 syncCalibrationInputs();
