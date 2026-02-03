@@ -114,6 +114,11 @@ const elements = {
   moveLocation: document.querySelector("#move-location"),
   moveStatus: document.querySelector("#move-status"),
   moveNotes: document.querySelector("#move-notes"),
+  calibrationForm: document.querySelector("#calibration-form"),
+  calibrationEquipment: document.querySelector("#calibration-equipment"),
+  calibrationDate: document.querySelector("#calibration-date"),
+  calibrationInterval: document.querySelector("#calibration-interval"),
+  calibrationRequired: document.querySelector("#calibration-required"),
   addEquipmentForm: document.querySelector("#add-equipment-form"),
   addEquipmentName: document.querySelector("#new-equipment-name"),
   addEquipmentModel: document.querySelector("#new-equipment-model"),
@@ -291,6 +296,9 @@ function renderEquipmentOptions() {
     .join("");
   if (elements.moveEquipment) {
     elements.moveEquipment.innerHTML = options;
+  }
+  if (elements.calibrationEquipment) {
+    elements.calibrationEquipment.innerHTML = options;
   }
 }
 
@@ -605,6 +613,7 @@ function refreshUI() {
   renderTable();
   renderHistory();
   renderLocationSummary();
+  syncCalibrationForm();
 }
 
 function logHistory(message) {
@@ -647,6 +656,63 @@ function handleMoveSubmit(event) {
   logHistory(message);
   elements.moveNotes.value = "";
   elements.moveStatus.value = "Keep current status";
+  saveState();
+  refreshUI();
+}
+
+function syncCalibrationForm() {
+  if (
+    !elements.calibrationEquipment ||
+    !elements.calibrationDate ||
+    !elements.calibrationRequired
+  ) {
+    return;
+  }
+  const equipmentId = elements.calibrationEquipment.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    return;
+  }
+  elements.calibrationRequired.checked = Boolean(item.calibrationRequired);
+  if (!elements.calibrationDate.value) {
+    elements.calibrationDate.value = formatDate(new Date());
+  }
+}
+
+function handleCalibrationSubmit(event) {
+  event.preventDefault();
+  if (
+    !elements.calibrationEquipment ||
+    !elements.calibrationDate ||
+    !elements.calibrationRequired
+  ) {
+    return;
+  }
+
+  const equipmentId = elements.calibrationEquipment.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    return;
+  }
+
+  const calibrationDate = elements.calibrationDate.value;
+  if (calibrationDate) {
+    item.lastCalibrationDate = calibrationDate;
+  }
+  const intervalValue = elements.calibrationInterval?.value ?? "";
+  if (String(intervalValue).trim()) {
+    const parsedInterval = Number(intervalValue);
+    if (Number.isFinite(parsedInterval) && parsedInterval > 0) {
+      item.calibrationIntervalMonths = parsedInterval;
+    }
+  }
+
+  item.calibrationRequired = elements.calibrationRequired.checked;
+  item.lastMoved = formatTimestamp();
+  logHistory(`${item.name} calibration recorded.`);
+  if (elements.calibrationInterval) {
+    elements.calibrationInterval.value = "";
+  }
   saveState();
   refreshUI();
 }
@@ -817,6 +883,20 @@ if (elements.locationSummary) {
 
 if (elements.moveForm) {
   elements.moveForm.addEventListener("submit", handleMoveSubmit);
+}
+
+if (elements.calibrationForm) {
+  elements.calibrationForm.addEventListener(
+    "submit",
+    handleCalibrationSubmit
+  );
+}
+
+if (elements.calibrationEquipment) {
+  elements.calibrationEquipment.addEventListener(
+    "change",
+    syncCalibrationForm
+  );
 }
 
 if (elements.addEquipmentForm) {
