@@ -33,6 +33,9 @@ function buildDefaultState() {
       {
         id: crypto.randomUUID(),
         name: "Projection kit A",
+        model: "Epson EB-PU1007B",
+        serialNumber: "PKA-2024-0198",
+        purchaseDate: getSeedDate({ months: -28 }),
         location: "Perth",
         status: "Available",
         lastMoved: "2024-05-14 09:10",
@@ -43,32 +46,41 @@ function buildDefaultState() {
       {
         id: crypto.randomUUID(),
         name: "Audio demo case",
+        model: "Pelican 1510",
+        serialNumber: "ADC-2023-4421",
+        purchaseDate: getSeedDate({ months: -18 }),
         location: "Melbourne",
         status: "On demo",
         lastMoved: "2024-05-12 16:45",
-        calibrationRequired: true,
+        calibrationRequired: false,
         calibrationIntervalMonths: 12,
-        lastCalibrationDate: getSeedDate({ months: -11 }),
+        lastCalibrationDate: "",
       },
       {
         id: crypto.randomUUID(),
         name: "Lighting rig",
+        model: "Aputure LS 600X",
+        serialNumber: "LR-2022-7785",
+        purchaseDate: getSeedDate({ months: -36 }),
         location: "Perth",
         status: "On hire",
         lastMoved: "2024-05-10 11:00",
-        calibrationRequired: true,
+        calibrationRequired: false,
         calibrationIntervalMonths: 12,
-        lastCalibrationDate: getSeedDate({ months: -18 }),
+        lastCalibrationDate: "",
       },
       {
         id: crypto.randomUUID(),
         name: "Portable control unit",
+        model: "Q-SYS Core 8 Flex",
+        serialNumber: "PCU-2024-1043",
+        purchaseDate: getSeedDate({ months: -12 }),
         location: "Sydney",
         status: "In service / repair",
         lastMoved: "2024-05-11 13:25",
-        calibrationRequired: false,
-        calibrationIntervalMonths: null,
-        lastCalibrationDate: null,
+        calibrationRequired: true,
+        calibrationIntervalMonths: 12,
+        lastCalibrationDate: getSeedDate({ months: -8 }),
       },
     ],
     history: [
@@ -146,32 +158,35 @@ function loadState() {
       : defaultState.equipment;
 
     const normalizedEquipment = equipment.map((item) => {
-      const rawLocation = item.location ?? physicalLocations[0];
+      const normalizedItem = normalizeEquipmentItem(item);
+      const rawLocation = normalizedItem.location ?? physicalLocations[0];
       const needsLocationReset =
         rawLocation.toLowerCase() === "on hire" ||
         !physicalLocations.includes(rawLocation);
       const location = needsLocationReset
         ? physicalLocations[0]
         : rawLocation;
-      const derivedStatus = statusOptions.includes(item.status)
-        ? item.status
+      const derivedStatus = statusOptions.includes(normalizedItem.status)
+        ? normalizedItem.status
         : rawLocation.toLowerCase() === "on hire"
           ? "On hire"
           : "Available";
 
       return {
-        ...item,
+        ...normalizedItem,
         location,
         status: derivedStatus,
-        ...normalizeCalibrationFields(item),
+        ...normalizeCalibrationFields(normalizedItem),
       };
     });
 
-    return {
+    const normalizedState = {
       locations: normalizedLocations,
       equipment: normalizedEquipment,
       history: parsed.history ?? defaultState.history,
     };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedState));
+    return normalizedState;
   } catch (error) {
     console.warn("Failed to load stored state", error);
     return structuredClone(defaultState);
@@ -283,19 +298,34 @@ function parseDate(value) {
   return new Date(year, month - 1, day);
 }
 
+function isAccessory(item) {
+  const name = item.name ?? "";
+  const lowerName = name.toLowerCase();
+  return lowerName.includes("case") || lowerName.includes("rig");
+}
+
+function normalizeEquipmentItem(item) {
+  const calibrationRequired =
+    item.calibrationRequired ?? !isAccessory(item);
+  return {
+    ...item,
+    model: item.model ?? "",
+    serialNumber: item.serialNumber ?? "",
+    purchaseDate: item.purchaseDate ?? "",
+    calibrationRequired,
+    calibrationIntervalMonths: item.calibrationIntervalMonths ?? 12,
+    lastCalibrationDate: item.lastCalibrationDate ?? "",
+  };
+}
+
 function normalizeCalibrationFields(item) {
   const calibrationRequired = Boolean(item.calibrationRequired);
   const intervalValue = Number(item.calibrationIntervalMonths);
-  const calibrationIntervalMonths = calibrationRequired
-    ? Number.isFinite(intervalValue) && intervalValue > 0
-      ? intervalValue
-      : 12
-    : null;
-  const lastCalibrationDate = calibrationRequired
-    ? parseDate(item.lastCalibrationDate)
-      ? item.lastCalibrationDate
-      : null
-    : null;
+  const calibrationIntervalMonths =
+    Number.isFinite(intervalValue) && intervalValue > 0 ? intervalValue : 12;
+  const lastCalibrationDate = parseDate(item.lastCalibrationDate)
+    ? item.lastCalibrationDate
+    : "";
 
   return {
     calibrationRequired,
@@ -414,11 +444,15 @@ function renderTable() {
           const calibrationCell = `<span class="tag tag--status" title="${escapeHTML(
             calibrationMeta
           )}">${escapeHTML(calibrationInfo.status)}</span>`;
+          const modelLabel = item.model?.trim() ? item.model : "—";
+          const serialLabel = item.serialNumber?.trim()
+            ? item.serialNumber
+            : "—";
           return `
         <tr>
           <td>${escapeHTML(item.name)}</td>
-          <td>${escapeHTML(item.model)}</td>
-          <td>${escapeHTML(item.serialNumber)}</td>
+          <td>${escapeHTML(modelLabel)}</td>
+          <td>${escapeHTML(serialLabel)}</td>
           <td><span class="tag tag--status">${escapeHTML(
             item.status
           )}</span></td>
