@@ -147,6 +147,9 @@ const elements = {
   addEquipmentName: document.querySelector("#new-equipment-name"),
   addEquipmentModel: document.querySelector("#new-equipment-model"),
   addEquipmentSerial: document.querySelector("#new-equipment-serial"),
+  addEquipmentSerialWarning: document.querySelector(
+    "#new-equipment-serial-warning"
+  ),
   addEquipmentPurchaseDate: document.querySelector(
     "#new-equipment-purchase-date"
   ),
@@ -181,6 +184,9 @@ const elements = {
   ),
   editEquipmentModel: document.querySelector("#edit-equipment-model"),
   editEquipmentSerial: document.querySelector("#edit-equipment-serial"),
+  editEquipmentSerialWarning: document.querySelector(
+    "#edit-equipment-serial-warning"
+  ),
   editEquipmentPurchaseDate: document.querySelector(
     "#edit-equipment-purchase-date"
   ),
@@ -915,8 +921,9 @@ function handleAddEquipment(event) {
     lastCalibrationDate,
   });
 
+  const newItemId = crypto.randomUUID();
   state.equipment.push({
-    id: crypto.randomUUID(),
+    id: newItemId,
     name,
     model,
     serialNumber,
@@ -928,6 +935,11 @@ function handleAddEquipment(event) {
   });
 
   logHistory(`${name} added to ${location} with status ${status}.`);
+  toggleSerialWarning(
+    elements.addEquipmentSerialWarning,
+    serialNumber,
+    newItemId
+  );
   elements.addEquipmentName.value = "";
   elements.addEquipmentModel.value = "";
   elements.addEquipmentSerial.value = "";
@@ -999,6 +1011,7 @@ function syncEditForm() {
   elements.editEquipmentLastCalibration.value = item.lastCalibrationDate ?? "";
   syncEditCalibrationInputs();
   clearEditNameError();
+  clearSerialWarning(elements.editEquipmentSerialWarning);
 }
 
 function resetEditForm() {
@@ -1033,6 +1046,7 @@ function resetEditForm() {
   elements.editEquipmentLastCalibration.value = "";
   syncEditCalibrationInputs();
   clearEditNameError();
+  clearSerialWarning(elements.editEquipmentSerialWarning);
 }
 
 function syncEditCalibrationInputs() {
@@ -1101,6 +1115,36 @@ function clearEditNameError() {
 function showEditNameError() {
   if (elements.editEquipmentNameError) {
     elements.editEquipmentNameError.classList.remove("is-hidden");
+  }
+}
+
+function findSerialNumberMatch(serialNumber, excludeId) {
+  const normalized = serialNumber.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  return state.equipment.find((item) => {
+    if (excludeId && item.id === excludeId) {
+      return false;
+    }
+    const itemSerial = item.serialNumber?.trim().toLowerCase() ?? "";
+    return itemSerial && itemSerial === normalized;
+  });
+}
+
+function toggleSerialWarning(warningElement, serialNumber, excludeId) {
+  if (!warningElement) {
+    return;
+  }
+  const hasMatch = Boolean(
+    findSerialNumberMatch(serialNumber, excludeId)
+  );
+  warningElement.classList.toggle("is-hidden", !hasMatch);
+}
+
+function clearSerialWarning(warningElement) {
+  if (warningElement) {
+    warningElement.classList.add("is-hidden");
   }
 }
 
@@ -1190,6 +1234,11 @@ function handleEditEquipmentSubmit(event) {
     );
   }
 
+  toggleSerialWarning(
+    elements.editEquipmentSerialWarning,
+    serialNumber,
+    item.id
+  );
   saveState();
   refreshUI();
 }
@@ -1325,6 +1374,12 @@ if (elements.addEquipmentCalibrationInterval) {
   );
 }
 
+if (elements.addEquipmentSerial) {
+  elements.addEquipmentSerial.addEventListener("input", () => {
+    clearSerialWarning(elements.addEquipmentSerialWarning);
+  });
+}
+
 if (elements.editEquipmentForm) {
   elements.editEquipmentForm.addEventListener(
     "submit",
@@ -1348,6 +1403,12 @@ if (elements.editEquipmentCalibrationInterval) {
     "change",
     syncEditCalibrationInputs
   );
+}
+
+if (elements.editEquipmentSerial) {
+  elements.editEquipmentSerial.addEventListener("input", () => {
+    clearSerialWarning(elements.editEquipmentSerialWarning);
+  });
 }
 
 if (elements.editEquipmentName) {
