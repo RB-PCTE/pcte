@@ -19,30 +19,40 @@
         </div>
       </header>
 
-      <nav class="tabs" role="tablist" aria-label="Equipment tracker sections">
-        <button
-          class="tab-button"
-          type="button"
-          id="tab-button-operations"
-          role="tab"
-          aria-selected="true"
-          aria-controls="tab-operations"
-          data-tab="operations"
+      <div class="tab-controls">
+        <nav
+          class="tabs"
+          role="tablist"
+          aria-label="Equipment tracker sections"
         >
-          Operations
-        </button>
-        <button
-          class="tab-button"
-          type="button"
-          id="tab-button-admin"
-          role="tab"
-          aria-selected="false"
-          aria-controls="tab-admin"
-          data-tab="admin"
-        >
-          Admin
-        </button>
-      </nav>
+          <button
+            class="tab-button"
+            type="button"
+            id="tab-button-operations"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-operations"
+            data-tab="operations"
+          >
+            Operations
+          </button>
+          <button
+            class="tab-button"
+            type="button"
+            id="tab-button-admin"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-admin"
+            data-tab="admin"
+          >
+            Admin
+          </button>
+        </nav>
+        <label class="admin-toggle" for="admin-mode-toggle">
+          <input id="admin-mode-toggle" type="checkbox" />
+          <span>Admin mode</span>
+        </label>
+      </div>
 
       <main>
         <div id="operations-view">

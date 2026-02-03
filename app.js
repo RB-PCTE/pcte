@@ -1,5 +1,6 @@
 const STORAGE_KEY = "equipmentTrackerState";
 const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
+const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
 
 const physicalLocations = [
   "Perth",
@@ -228,7 +229,11 @@ const elements = {
   operationsView: document.querySelector("#operations-view"),
   adminView: document.querySelector("#admin-view"),
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
+  adminTabButton: document.querySelector("#tab-button-admin"),
+  adminModeToggle: document.querySelector("#admin-mode-toggle"),
 };
+
+let adminModeEnabled = false;
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
@@ -293,6 +298,38 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function loadAdminMode() {
+  return localStorage.getItem(ADMIN_MODE_KEY) === "true";
+}
+
+function saveAdminMode(isEnabled) {
+  localStorage.setItem(ADMIN_MODE_KEY, String(Boolean(isEnabled)));
+}
+
+function applyAdminMode(isEnabled, { focus = false } = {}) {
+  adminModeEnabled = Boolean(isEnabled);
+  saveAdminMode(adminModeEnabled);
+
+  if (elements.adminModeToggle) {
+    elements.adminModeToggle.checked = adminModeEnabled;
+  }
+  if (elements.adminTabButton) {
+    elements.adminTabButton.hidden = !adminModeEnabled;
+    elements.adminTabButton.setAttribute(
+      "aria-hidden",
+      String(!adminModeEnabled)
+    );
+  }
+
+  if (!adminModeEnabled) {
+    setActiveTab("operations", { focus });
+  } else {
+    const storedTab = localStorage.getItem(TAB_STORAGE_KEY) ?? "operations";
+    setActiveTab(storedTab, { focus });
+  }
+  refreshUI();
 }
 
 function formatTimestamp(date = new Date()) {
@@ -786,9 +823,11 @@ function refreshUI() {
 }
 
 function setActiveTab(tabName, { focus = false } = {}) {
+  const allowedTab =
+    tabName === "admin" && !adminModeEnabled ? "operations" : tabName;
   const resolvedTab =
-    tabName === "admin" || tabName === "operations"
-      ? tabName
+    allowedTab === "admin" || allowedTab === "operations"
+      ? allowedTab
       : "operations";
   const hasViews = Boolean(elements.operationsView || elements.adminView);
   const hasButtons = elements.tabButtons.length > 0;
@@ -797,10 +836,12 @@ function setActiveTab(tabName, { focus = false } = {}) {
     return;
   }
 
-  const nextTabButton = hasButtons
-    ? elements.tabButtons.find(
-        (button) => button.dataset.tab === resolvedTab
-      ) || elements.tabButtons[0]
+  const visibleButtons = hasButtons
+    ? elements.tabButtons.filter((button) => !button.hidden)
+    : [];
+  const nextTabButton = visibleButtons.length
+    ? visibleButtons.find((button) => button.dataset.tab === resolvedTab) ||
+      visibleButtons[0]
     : null;
   const nextName = nextTabButton?.dataset.tab ?? resolvedTab;
 
@@ -813,6 +854,9 @@ function setActiveTab(tabName, { focus = false } = {}) {
 
   if (hasButtons) {
     elements.tabButtons.forEach((button) => {
+      if (button.hidden) {
+        return;
+      }
       const isActive = button.dataset.tab === nextName;
       button.setAttribute("aria-selected", String(isActive));
       button.setAttribute("tabindex", isActive ? "0" : "-1");
@@ -828,9 +872,9 @@ function setActiveTab(tabName, { focus = false } = {}) {
 
 function initTabs() {
   const stored = localStorage.getItem(TAB_STORAGE_KEY);
-  const availableTabs = elements.tabButtons.map(
-    (button) => button.dataset.tab
-  );
+  const availableTabs = elements.tabButtons
+    .filter((button) => !button.hidden)
+    .map((button) => button.dataset.tab);
   const fallbackTab = availableTabs[0] ?? "operations";
   const initialTab = availableTabs.includes(stored) ? stored : fallbackTab;
   setActiveTab(initialTab);
@@ -851,11 +895,18 @@ function initTabs() {
         return;
       }
       event.preventDefault();
+      const availableButtons = elements.tabButtons.filter(
+        (tabButton) => !tabButton.hidden
+      );
+      const currentIndex = availableButtons.indexOf(button);
+      if (currentIndex === -1) {
+        return;
+      }
       const direction = event.key === "ArrowRight" ? 1 : -1;
       const nextIndex =
-        (index + direction + elements.tabButtons.length) %
-        elements.tabButtons.length;
-      const nextButton = elements.tabButtons[nextIndex];
+        (currentIndex + direction + availableButtons.length) %
+        availableButtons.length;
+      const nextButton = availableButtons[nextIndex];
       setActiveTab(nextButton.dataset.tab, { focus: true });
     });
   });
@@ -1657,7 +1708,15 @@ if (elements.clearHistory) {
   elements.clearHistory.addEventListener("click", handleClearHistory);
 }
 
+const storedAdminMode = loadAdminMode();
+applyAdminMode(storedAdminMode);
 initTabs();
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();
+
+if (elements.adminModeToggle) {
+  elements.adminModeToggle.addEventListener("change", () => {
+    applyAdminMode(elements.adminModeToggle.checked, { focus: true });
+  });
+}
