@@ -19,46 +19,69 @@ const statusOptions = [
   "Quarantined",
 ];
 
-const defaultState = {
-  locations: [...physicalLocations],
-  equipment: [
-    {
-      id: crypto.randomUUID(),
-      name: "Projection kit A",
-      location: "Perth",
-      status: "Available",
-      lastMoved: "2024-05-14 09:10",
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Audio demo case",
-      location: "Melbourne",
-      status: "On demo",
-      lastMoved: "2024-05-12 16:45",
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Lighting rig",
-      location: "Perth",
-      status: "On hire",
-      lastMoved: "2024-05-10 11:00",
-    },
-    {
-      id: crypto.randomUUID(),
-      name: "Portable control unit",
-      location: "Sydney",
-      status: "In service / repair",
-      lastMoved: "2024-05-11 13:25",
-    },
-  ],
-  history: [
-    {
-      id: crypto.randomUUID(),
-      text: "Lighting rig moved to Perth with status On hire (Client demo).",
-      timestamp: "2024-05-10 11:00",
-    },
-  ],
-};
+function getSeedDate({ months = 0, days = 0 } = {}) {
+  const date = new Date();
+  date.setMonth(date.getMonth() + months);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+}
+
+function buildDefaultState() {
+  return {
+    locations: [...physicalLocations],
+    equipment: [
+      {
+        id: crypto.randomUUID(),
+        name: "Projection kit A",
+        location: "Perth",
+        status: "Available",
+        lastMoved: "2024-05-14 09:10",
+        calibrationRequired: true,
+        calibrationIntervalMonths: 12,
+        lastCalibrationDate: getSeedDate({ months: -3 }),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Audio demo case",
+        location: "Melbourne",
+        status: "On demo",
+        lastMoved: "2024-05-12 16:45",
+        calibrationRequired: true,
+        calibrationIntervalMonths: 12,
+        lastCalibrationDate: getSeedDate({ months: -11 }),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Lighting rig",
+        location: "Perth",
+        status: "On hire",
+        lastMoved: "2024-05-10 11:00",
+        calibrationRequired: true,
+        calibrationIntervalMonths: 12,
+        lastCalibrationDate: getSeedDate({ months: -18 }),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Portable control unit",
+        location: "Sydney",
+        status: "In service / repair",
+        lastMoved: "2024-05-11 13:25",
+        calibrationRequired: false,
+        calibrationIntervalMonths: null,
+        lastCalibrationDate: null,
+      },
+    ],
+    history: [
+      {
+        id: crypto.randomUUID(),
+        text: "Lighting rig moved to Perth with status On hire (Client demo).",
+        timestamp: "2024-05-10 11:00",
+      },
+    ],
+  };
+}
+
+const defaultState = buildDefaultState();
 
 const state = loadState();
 const htmlEscapes = {
@@ -140,6 +163,7 @@ function loadState() {
         ...item,
         location,
         status: derivedStatus,
+        ...normalizeCalibrationFields(item),
       };
     });
 
@@ -259,6 +283,27 @@ function parseDate(value) {
   return new Date(year, month - 1, day);
 }
 
+function normalizeCalibrationFields(item) {
+  const calibrationRequired = Boolean(item.calibrationRequired);
+  const intervalValue = Number(item.calibrationIntervalMonths);
+  const calibrationIntervalMonths = calibrationRequired
+    ? Number.isFinite(intervalValue) && intervalValue > 0
+      ? intervalValue
+      : 12
+    : null;
+  const lastCalibrationDate = calibrationRequired
+    ? parseDate(item.lastCalibrationDate)
+      ? item.lastCalibrationDate
+      : null
+    : null;
+
+  return {
+    calibrationRequired,
+    calibrationIntervalMonths,
+    lastCalibrationDate,
+  };
+}
+
 function addMonths(date, months) {
   const result = new Date(date);
   result.setMonth(result.getMonth() + months);
@@ -363,18 +408,12 @@ function renderTable() {
           const calibrationInfo = getCalibrationInfo(item, now);
           const calibrationMeta = calibrationInfo.dueDate
             ? `Due ${formatDate(calibrationInfo.dueDate)}`
-            : item.calibrationRequired
+            : calibrationInfo.status === "Unknown"
               ? "Last calibration needed"
               : "No calibration required";
-          const hasCalibrationData =
-            item.calibrationRequired !== undefined ||
-            item.calibrationIntervalMonths !== undefined ||
-            item.lastCalibrationDate;
-          const calibrationCell = hasCalibrationData
-            ? `<span class="tag tag--status" title="${escapeHTML(
-                calibrationMeta
-              )}">${escapeHTML(calibrationInfo.status)}</span>`
-            : "—";
+          const calibrationCell = `<span class="tag tag--status" title="${escapeHTML(
+            calibrationMeta
+          )}">${escapeHTML(calibrationInfo.status)}</span>`;
           return `
         <tr>
           <td>${escapeHTML(item.name)}</td>
@@ -528,15 +567,19 @@ function handleAddEquipment(event) {
     return;
   }
 
+  const calibrationDetails = normalizeCalibrationFields({
+    calibrationRequired,
+    calibrationIntervalMonths: calibrationInterval,
+    lastCalibrationDate,
+  });
+
   state.equipment.push({
     id: crypto.randomUUID(),
     name,
     model,
     serialNumber,
     purchaseDate,
-    calibrationRequired,
-    calibrationIntervalMonths: calibrationInterval,
-    lastCalibrationDate,
+    ...calibrationDetails,
     location,
     status,
     lastMoved: formatTimestamp(),
