@@ -303,6 +303,10 @@ tr:last-child td {
   justify-self: start;
 }
 
+.is-hidden {
+  display: none;
+}
+
 button {
   border: none;
   border-radius: 10px;

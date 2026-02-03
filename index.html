@@ -133,6 +133,39 @@
                 Status
                 <select id="new-equipment-status"></select>
               </label>
+              <label class="checkbox-field">
+                Calibration required
+                <input
+                  id="new-equipment-calibration-required"
+                  type="checkbox"
+                  checked
+                />
+              </label>
+              <label id="new-equipment-calibration-interval-field">
+                Calibration interval
+                <select id="new-equipment-calibration-interval">
+                  <option value="12">12 months</option>
+                  <option value="24">24 months</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label
+                id="new-equipment-calibration-interval-custom-field"
+                class="is-hidden"
+              >
+                Custom interval (months)
+                <input
+                  id="new-equipment-calibration-interval-custom"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="e.g. 18"
+                />
+              </label>
+              <label id="new-equipment-last-calibration-field">
+                Last calibration date
+                <input id="new-equipment-last-calibration" type="date" />
+              </label>
               <button type="submit">Add equipment</button>
             </form>
 

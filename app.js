@@ -129,8 +129,20 @@ const elements = {
   addEquipmentCalibrationInterval: document.querySelector(
     "#new-equipment-calibration-interval"
   ),
+  addEquipmentCalibrationIntervalCustom: document.querySelector(
+    "#new-equipment-calibration-interval-custom"
+  ),
+  addEquipmentCalibrationIntervalField: document.querySelector(
+    "#new-equipment-calibration-interval-field"
+  ),
+  addEquipmentCalibrationIntervalCustomField: document.querySelector(
+    "#new-equipment-calibration-interval-custom-field"
+  ),
   addEquipmentLastCalibration: document.querySelector(
     "#new-equipment-last-calibration"
+  ),
+  addEquipmentLastCalibrationField: document.querySelector(
+    "#new-equipment-last-calibration-field"
   ),
   addLocationForm: document.querySelector("#add-location-form"),
   addLocationName: document.querySelector("#new-location-name"),
@@ -648,12 +660,11 @@ function handleAddEquipment(event) {
   const location = elements.addEquipmentLocation.value;
   const status = elements.addEquipmentStatus.value;
   const calibrationRequired =
-    elements.addEquipmentCalibrationRequired?.checked ?? false;
-  const calibrationInterval = Number(
-    elements.addEquipmentCalibrationInterval?.value ?? 12
-  );
-  const lastCalibrationDate =
-    elements.addEquipmentLastCalibration?.value ?? "";
+    elements.addEquipmentCalibrationRequired?.checked ?? true;
+  const calibrationInterval = getSelectedCalibrationInterval();
+  const lastCalibrationDate = calibrationRequired
+    ? elements.addEquipmentLastCalibration?.value ?? ""
+    : "";
   if (!name) {
     return;
   }
@@ -682,10 +693,13 @@ function handleAddEquipment(event) {
   elements.addEquipmentSerial.value = "";
   elements.addEquipmentPurchaseDate.value = "";
   if (elements.addEquipmentCalibrationRequired) {
-    elements.addEquipmentCalibrationRequired.checked = false;
+    elements.addEquipmentCalibrationRequired.checked = true;
   }
   if (elements.addEquipmentCalibrationInterval) {
     elements.addEquipmentCalibrationInterval.value = "12";
+  }
+  if (elements.addEquipmentCalibrationIntervalCustom) {
+    elements.addEquipmentCalibrationIntervalCustom.value = "";
   }
   if (elements.addEquipmentLastCalibration) {
     elements.addEquipmentLastCalibration.value = "";
@@ -695,17 +709,61 @@ function handleAddEquipment(event) {
   syncCalibrationInputs();
 }
 
+function getSelectedCalibrationInterval() {
+  const calibrationRequired =
+    elements.addEquipmentCalibrationRequired?.checked ?? true;
+  if (!calibrationRequired) {
+    return 12;
+  }
+  const intervalSelection =
+    elements.addEquipmentCalibrationInterval?.value ?? "12";
+  if (intervalSelection === "custom") {
+    const customValue = Number(
+      elements.addEquipmentCalibrationIntervalCustom?.value ?? ""
+    );
+    if (Number.isFinite(customValue) && customValue > 0) {
+      return customValue;
+    }
+    return 12;
+  }
+  const parsed = Number(intervalSelection);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 12;
+}
+
 function syncCalibrationInputs() {
   if (
     !elements.addEquipmentCalibrationRequired ||
     !elements.addEquipmentCalibrationInterval ||
-    !elements.addEquipmentLastCalibration
+    !elements.addEquipmentLastCalibration ||
+    !elements.addEquipmentCalibrationIntervalCustom
   ) {
     return;
   }
   const isRequired = elements.addEquipmentCalibrationRequired.checked;
+  const isCustom =
+    elements.addEquipmentCalibrationInterval.value === "custom";
   elements.addEquipmentCalibrationInterval.disabled = !isRequired;
+  elements.addEquipmentCalibrationIntervalCustom.disabled =
+    !isRequired || !isCustom;
   elements.addEquipmentLastCalibration.disabled = !isRequired;
+  if (elements.addEquipmentCalibrationIntervalField) {
+    elements.addEquipmentCalibrationIntervalField.classList.toggle(
+      "is-hidden",
+      !isRequired
+    );
+  }
+  if (elements.addEquipmentCalibrationIntervalCustomField) {
+    elements.addEquipmentCalibrationIntervalCustomField.classList.toggle(
+      "is-hidden",
+      !isRequired || !isCustom
+    );
+  }
+  if (elements.addEquipmentLastCalibrationField) {
+    elements.addEquipmentLastCalibrationField.classList.toggle(
+      "is-hidden",
+      !isRequired
+    );
+  }
 }
 
 function handleAddLocation(event) {
@@ -767,6 +825,13 @@ if (elements.addEquipmentForm) {
 
 if (elements.addEquipmentCalibrationRequired) {
   elements.addEquipmentCalibrationRequired.addEventListener(
+    "change",
+    syncCalibrationInputs
+  );
+}
+
+if (elements.addEquipmentCalibrationInterval) {
+  elements.addEquipmentCalibrationInterval.addEventListener(
     "change",
     syncCalibrationInputs
   );
