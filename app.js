@@ -152,20 +152,25 @@ function loadState() {
   }
   try {
     const parsed = JSON.parse(stored);
-    const normalizedLocations = [...physicalLocations];
+    const parsedLocations = Array.isArray(parsed.locations)
+      ? parsed.locations
+      : defaultState.locations;
+    const locationSet = new Set(
+      parsedLocations
+        .filter((location) => location != null)
+        .map((location) => String(location))
+    );
+    physicalLocations.forEach((location) => locationSet.add(location));
     const equipment = Array.isArray(parsed.equipment)
       ? parsed.equipment
       : defaultState.equipment;
 
     const normalizedEquipment = equipment.map((item) => {
-      const normalizedItem = normalizeEquipmentItem(item);
-      const rawLocation = normalizedItem.location ?? physicalLocations[0];
-      const needsLocationReset =
-        rawLocation.toLowerCase() === "on hire" ||
-        !physicalLocations.includes(rawLocation);
-      const location = needsLocationReset
-        ? physicalLocations[0]
-        : rawLocation;
+      const normalizedItem = normalizeEquipment(item);
+      const rawLocation = normalizedItem.location || physicalLocations[0];
+      if (rawLocation && !locationSet.has(rawLocation)) {
+        locationSet.add(rawLocation);
+      }
       const derivedStatus = statusOptions.includes(normalizedItem.status)
         ? normalizedItem.status
         : rawLocation.toLowerCase() === "on hire"
@@ -174,16 +179,18 @@ function loadState() {
 
       return {
         ...normalizedItem,
-        location,
+        location: rawLocation,
         status: derivedStatus,
         ...normalizeCalibrationFields(normalizedItem),
       };
     });
 
     const normalizedState = {
-      locations: normalizedLocations,
+      locations: Array.from(locationSet),
       equipment: normalizedEquipment,
-      history: parsed.history ?? defaultState.history,
+      history: Array.isArray(parsed.history)
+        ? parsed.history
+        : defaultState.history,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedState));
     return normalizedState;
@@ -298,23 +305,73 @@ function parseDate(value) {
   return new Date(year, month - 1, day);
 }
 
-function isAccessory(item) {
-  const name = item.name ?? "";
-  const lowerName = name.toLowerCase();
-  return lowerName.includes("case") || lowerName.includes("rig");
-}
-
-function normalizeEquipmentItem(item) {
+function normalizeEquipment(item = {}) {
+  const safeItem = item && typeof item === "object" ? item : {};
+  const name =
+    typeof safeItem.name === "string"
+      ? safeItem.name
+      : safeItem.name != null
+        ? String(safeItem.name)
+        : "";
+  const location =
+    typeof safeItem.location === "string"
+      ? safeItem.location
+      : safeItem.location != null
+        ? String(safeItem.location)
+        : "";
+  const status =
+    typeof safeItem.status === "string"
+      ? safeItem.status
+      : safeItem.status != null
+        ? String(safeItem.status)
+        : "";
+  const model =
+    typeof safeItem.model === "string"
+      ? safeItem.model
+      : safeItem.model != null
+        ? String(safeItem.model)
+        : "";
+  const serialNumber =
+    typeof safeItem.serialNumber === "string"
+      ? safeItem.serialNumber
+      : safeItem.serialNumber != null
+        ? String(safeItem.serialNumber)
+        : "";
+  const purchaseDate =
+    typeof safeItem.purchaseDate === "string"
+      ? safeItem.purchaseDate
+      : safeItem.purchaseDate != null
+        ? String(safeItem.purchaseDate)
+        : "";
+  const lastCalibrationDate =
+    typeof safeItem.lastCalibrationDate === "string"
+      ? safeItem.lastCalibrationDate
+      : safeItem.lastCalibrationDate != null
+        ? String(safeItem.lastCalibrationDate)
+        : "";
   const calibrationRequired =
-    item.calibrationRequired ?? !isAccessory(item);
+    typeof safeItem.calibrationRequired === "boolean"
+      ? safeItem.calibrationRequired
+      : true;
+
   return {
-    ...item,
-    model: item.model ?? "",
-    serialNumber: item.serialNumber ?? "",
-    purchaseDate: item.purchaseDate ?? "",
+    ...safeItem,
+    id:
+      typeof safeItem.id === "string" && safeItem.id.trim()
+        ? safeItem.id
+        : crypto.randomUUID(),
+    name,
+    location,
+    status,
+    model,
+    serialNumber,
+    purchaseDate,
     calibrationRequired,
-    calibrationIntervalMonths: item.calibrationIntervalMonths ?? 12,
-    lastCalibrationDate: item.lastCalibrationDate ?? "",
+    calibrationIntervalMonths:
+      typeof safeItem.calibrationIntervalMonths === "number"
+        ? safeItem.calibrationIntervalMonths
+        : Number(safeItem.calibrationIntervalMonths) || 12,
+    lastCalibrationDate,
   };
 }
 
