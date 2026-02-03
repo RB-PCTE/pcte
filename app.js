@@ -183,6 +183,9 @@ const elements = {
   editEquipmentNameError: document.querySelector(
     "#edit-equipment-name-error"
   ),
+  editEquipmentNameWarning: document.querySelector(
+    "#edit-equipment-name-warning"
+  ),
   editEquipmentModel: document.querySelector("#edit-equipment-model"),
   editEquipmentSerial: document.querySelector("#edit-equipment-serial"),
   editEquipmentSerialWarning: document.querySelector(
@@ -1074,6 +1077,12 @@ function syncEditForm() {
   elements.editEquipmentLastCalibration.value = item.lastCalibrationDate ?? "";
   syncEditCalibrationInputs();
   clearEditNameError();
+  toggleNameWarning(
+    elements.editEquipmentNameWarning,
+    item.name ?? "",
+    state.equipment,
+    item.id
+  );
   toggleSerialWarning(
     elements.editEquipmentSerialWarning,
     item.serialNumber ?? "",
@@ -1114,6 +1123,7 @@ function resetEditForm() {
   elements.editEquipmentLastCalibration.value = "";
   syncEditCalibrationInputs();
   clearEditNameError();
+  clearNameWarning(elements.editEquipmentNameWarning);
   clearSerialWarning(elements.editEquipmentSerialWarning);
 }
 
@@ -1193,6 +1203,13 @@ function normalizeSerialNumber(serialNumber) {
   return String(serialNumber).trim().toLowerCase();
 }
 
+function normalizeEquipmentName(name) {
+  if (name == null) {
+    return "";
+  }
+  return String(name).trim().toLowerCase();
+}
+
 function findDuplicateSerial(
   serialNumber,
   equipmentList,
@@ -1212,6 +1229,55 @@ function findDuplicateSerial(
       return itemSerial && itemSerial === normalized;
     }) || null
   );
+}
+
+function findDuplicateName(name, equipmentList, excludeEquipmentId) {
+  const normalized = normalizeEquipmentName(name);
+  if (!normalized) {
+    return null;
+  }
+  const list = Array.isArray(equipmentList) ? equipmentList : [];
+  return (
+    list.find((item) => {
+      if (excludeEquipmentId && item.id === excludeEquipmentId) {
+        return false;
+      }
+      const itemName = normalizeEquipmentName(item.name);
+      return itemName && itemName === normalized;
+    }) || null
+  );
+}
+
+function toggleNameWarning(
+  warningElement,
+  name,
+  equipmentList,
+  excludeEquipmentId
+) {
+  if (!warningElement) {
+    return;
+  }
+  const match = findDuplicateName(
+    name,
+    equipmentList,
+    excludeEquipmentId
+  );
+  if (!match) {
+    warningElement.classList.add("is-hidden");
+    return;
+  }
+  const nameLabel = match.name?.trim()
+    ? match.name.trim()
+    : "Unnamed equipment";
+  const modelLabel = match.model?.trim() ? match.model.trim() : "—";
+  const serialLabel = match.serialNumber?.trim()
+    ? match.serialNumber.trim()
+    : "no serial";
+  const locationLabel = match.location?.trim()
+    ? match.location.trim()
+    : "—";
+  warningElement.textContent = `Another item already uses this name: ${nameLabel} (${modelLabel}, ${serialLabel}, ${locationLabel})`;
+  warningElement.classList.remove("is-hidden");
 }
 
 function toggleSerialWarning(
@@ -1240,6 +1306,12 @@ function toggleSerialWarning(
 }
 
 function clearSerialWarning(warningElement) {
+  if (warningElement) {
+    warningElement.classList.add("is-hidden");
+  }
+}
+
+function clearNameWarning(warningElement) {
   if (warningElement) {
     warningElement.classList.add("is-hidden");
   }
@@ -1334,6 +1406,12 @@ function handleEditEquipmentSubmit(event) {
   toggleSerialWarning(
     elements.editEquipmentSerialWarning,
     serialNumber,
+    state.equipment,
+    item.id
+  );
+  toggleNameWarning(
+    elements.editEquipmentNameWarning,
+    name,
     state.equipment,
     item.id
   );
@@ -1526,11 +1604,23 @@ if (elements.editEquipmentSerial) {
 }
 
 if (elements.editEquipmentName) {
-  elements.editEquipmentName.addEventListener("input", () => {
-    if (elements.editEquipmentName.value.trim()) {
+  const handleEditNameInput = () => {
+    const currentName = elements.editEquipmentName.value;
+    if (currentName.trim()) {
       clearEditNameError();
     }
-  });
+    toggleNameWarning(
+      elements.editEquipmentNameWarning,
+      currentName,
+      state.equipment,
+      elements.editEquipmentSelect?.value
+    );
+  };
+  elements.editEquipmentName.addEventListener("input", handleEditNameInput);
+  elements.editEquipmentName.addEventListener(
+    "change",
+    handleEditNameInput
+  );
 }
 
 if (elements.editEquipmentCancel) {
