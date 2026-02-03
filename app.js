@@ -173,6 +173,41 @@ const elements = {
   addEquipmentLastCalibrationField: document.querySelector(
     "#new-equipment-last-calibration-field"
   ),
+  editEquipmentForm: document.querySelector("#edit-equipment-form"),
+  editEquipmentSelect: document.querySelector("#edit-equipment-select"),
+  editEquipmentName: document.querySelector("#edit-equipment-name"),
+  editEquipmentNameError: document.querySelector(
+    "#edit-equipment-name-error"
+  ),
+  editEquipmentModel: document.querySelector("#edit-equipment-model"),
+  editEquipmentSerial: document.querySelector("#edit-equipment-serial"),
+  editEquipmentPurchaseDate: document.querySelector(
+    "#edit-equipment-purchase-date"
+  ),
+  editEquipmentLocation: document.querySelector("#edit-equipment-location"),
+  editEquipmentStatus: document.querySelector("#edit-equipment-status"),
+  editEquipmentCalibrationRequired: document.querySelector(
+    "#edit-equipment-calibration-required"
+  ),
+  editEquipmentCalibrationInterval: document.querySelector(
+    "#edit-equipment-calibration-interval"
+  ),
+  editEquipmentCalibrationIntervalCustom: document.querySelector(
+    "#edit-equipment-calibration-interval-custom"
+  ),
+  editEquipmentCalibrationIntervalField: document.querySelector(
+    "#edit-equipment-calibration-interval-field"
+  ),
+  editEquipmentCalibrationIntervalCustomField: document.querySelector(
+    "#edit-equipment-calibration-interval-custom-field"
+  ),
+  editEquipmentLastCalibration: document.querySelector(
+    "#edit-equipment-last-calibration"
+  ),
+  editEquipmentLastCalibrationField: document.querySelector(
+    "#edit-equipment-last-calibration-field"
+  ),
+  editEquipmentCancel: document.querySelector("#edit-equipment-cancel"),
   historyList: document.querySelector("#history-list"),
   clearHistory: document.querySelector("#clear-history"),
   statTotal: document.querySelector("#stat-total"),
@@ -289,6 +324,9 @@ function renderLocationOptions() {
   if (elements.addEquipmentLocation) {
     elements.addEquipmentLocation.innerHTML = selectionOptions;
   }
+  if (elements.editEquipmentLocation) {
+    elements.editEquipmentLocation.innerHTML = selectionOptions;
+  }
 }
 
 function renderStatusOptions() {
@@ -323,6 +361,9 @@ function renderStatusOptions() {
     elements.addEquipmentStatus.innerHTML = selectionOptions;
     elements.addEquipmentStatus.value = "Available";
   }
+  if (elements.editEquipmentStatus) {
+    elements.editEquipmentStatus.innerHTML = selectionOptions;
+  }
 }
 
 function renderCalibrationOptions() {
@@ -351,6 +392,7 @@ function renderEquipmentOptions() {
   [
     elements.moveEquipment,
     elements.calibrationEquipment,
+    elements.editEquipmentSelect,
   ].forEach((selectEl) => {
     populateEquipmentSelect(selectEl, equipmentList, selectEl?.value);
   });
@@ -727,6 +769,7 @@ function refreshUI() {
   renderHistory();
   renderLocationSummary();
   syncCalibrationForm();
+  syncEditForm();
 }
 
 function logHistory(message) {
@@ -906,6 +949,226 @@ function handleAddEquipment(event) {
   syncCalibrationInputs();
 }
 
+function syncEditForm() {
+  if (
+    !elements.editEquipmentSelect ||
+    !elements.editEquipmentName ||
+    !elements.editEquipmentModel ||
+    !elements.editEquipmentSerial ||
+    !elements.editEquipmentPurchaseDate ||
+    !elements.editEquipmentLocation ||
+    !elements.editEquipmentStatus ||
+    !elements.editEquipmentCalibrationRequired ||
+    !elements.editEquipmentCalibrationInterval ||
+    !elements.editEquipmentCalibrationIntervalCustom ||
+    !elements.editEquipmentLastCalibration
+  ) {
+    return;
+  }
+
+  const equipmentId = elements.editEquipmentSelect.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    resetEditForm();
+    return;
+  }
+
+  elements.editEquipmentName.value = item.name ?? "";
+  elements.editEquipmentModel.value = item.model ?? "";
+  elements.editEquipmentSerial.value = item.serialNumber ?? "";
+  elements.editEquipmentPurchaseDate.value = item.purchaseDate ?? "";
+  elements.editEquipmentLocation.value = item.location ?? "";
+  elements.editEquipmentStatus.value = item.status ?? "";
+  elements.editEquipmentCalibrationRequired.checked = Boolean(
+    item.calibrationRequired
+  );
+
+  const intervalValue = Number(item.calibrationIntervalMonths);
+  if (intervalValue === 12 || intervalValue === 24) {
+    elements.editEquipmentCalibrationInterval.value = String(intervalValue);
+    elements.editEquipmentCalibrationIntervalCustom.value = "";
+  } else {
+    elements.editEquipmentCalibrationInterval.value = "custom";
+    elements.editEquipmentCalibrationIntervalCustom.value = Number.isFinite(
+      intervalValue
+    )
+      ? String(intervalValue)
+      : "";
+  }
+
+  elements.editEquipmentLastCalibration.value = item.lastCalibrationDate ?? "";
+  syncEditCalibrationInputs();
+  clearEditNameError();
+}
+
+function resetEditForm() {
+  if (
+    !elements.editEquipmentName ||
+    !elements.editEquipmentModel ||
+    !elements.editEquipmentSerial ||
+    !elements.editEquipmentPurchaseDate ||
+    !elements.editEquipmentLocation ||
+    !elements.editEquipmentStatus ||
+    !elements.editEquipmentCalibrationRequired ||
+    !elements.editEquipmentCalibrationInterval ||
+    !elements.editEquipmentCalibrationIntervalCustom ||
+    !elements.editEquipmentLastCalibration
+  ) {
+    return;
+  }
+
+  elements.editEquipmentName.value = "";
+  elements.editEquipmentModel.value = "";
+  elements.editEquipmentSerial.value = "";
+  elements.editEquipmentPurchaseDate.value = "";
+  if (elements.editEquipmentLocation) {
+    elements.editEquipmentLocation.value = "";
+  }
+  if (elements.editEquipmentStatus) {
+    elements.editEquipmentStatus.value = "";
+  }
+  elements.editEquipmentCalibrationRequired.checked = false;
+  elements.editEquipmentCalibrationInterval.value = "12";
+  elements.editEquipmentCalibrationIntervalCustom.value = "";
+  elements.editEquipmentLastCalibration.value = "";
+  syncEditCalibrationInputs();
+  clearEditNameError();
+}
+
+function syncEditCalibrationInputs() {
+  if (
+    !elements.editEquipmentCalibrationRequired ||
+    !elements.editEquipmentCalibrationInterval ||
+    !elements.editEquipmentLastCalibration ||
+    !elements.editEquipmentCalibrationIntervalCustom
+  ) {
+    return;
+  }
+  const isRequired = elements.editEquipmentCalibrationRequired.checked;
+  const isCustom =
+    elements.editEquipmentCalibrationInterval.value === "custom";
+  elements.editEquipmentCalibrationInterval.disabled = !isRequired;
+  elements.editEquipmentCalibrationIntervalCustom.disabled =
+    !isRequired || !isCustom;
+  elements.editEquipmentLastCalibration.disabled = !isRequired;
+  if (elements.editEquipmentCalibrationIntervalField) {
+    elements.editEquipmentCalibrationIntervalField.classList.toggle(
+      "is-hidden",
+      !isRequired
+    );
+  }
+  if (elements.editEquipmentCalibrationIntervalCustomField) {
+    elements.editEquipmentCalibrationIntervalCustomField.classList.toggle(
+      "is-hidden",
+      !isRequired || !isCustom
+    );
+  }
+  if (elements.editEquipmentLastCalibrationField) {
+    elements.editEquipmentLastCalibrationField.classList.toggle(
+      "is-hidden",
+      !isRequired
+    );
+  }
+}
+
+function getSelectedEditCalibrationInterval() {
+  const calibrationRequired =
+    elements.editEquipmentCalibrationRequired?.checked ?? false;
+  if (!calibrationRequired) {
+    return 12;
+  }
+  const intervalSelection =
+    elements.editEquipmentCalibrationInterval?.value ?? "12";
+  if (intervalSelection === "custom") {
+    const customValue = Number(
+      elements.editEquipmentCalibrationIntervalCustom?.value ?? ""
+    );
+    if (Number.isFinite(customValue) && customValue > 0) {
+      return customValue;
+    }
+    return 12;
+  }
+  const parsed = Number(intervalSelection);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 12;
+}
+
+function clearEditNameError() {
+  if (elements.editEquipmentNameError) {
+    elements.editEquipmentNameError.classList.add("is-hidden");
+  }
+}
+
+function showEditNameError() {
+  if (elements.editEquipmentNameError) {
+    elements.editEquipmentNameError.classList.remove("is-hidden");
+  }
+}
+
+function handleEditEquipmentSubmit(event) {
+  event.preventDefault();
+  if (
+    !elements.editEquipmentSelect ||
+    !elements.editEquipmentName ||
+    !elements.editEquipmentModel ||
+    !elements.editEquipmentSerial ||
+    !elements.editEquipmentPurchaseDate ||
+    !elements.editEquipmentLocation ||
+    !elements.editEquipmentStatus
+  ) {
+    return;
+  }
+
+  const equipmentId = elements.editEquipmentSelect.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    return;
+  }
+
+  const name = elements.editEquipmentName.value.trim();
+  if (!name) {
+    showEditNameError();
+    elements.editEquipmentName.focus();
+    return;
+  }
+
+  clearEditNameError();
+  const model = elements.editEquipmentModel.value.trim();
+  const serialNumber = elements.editEquipmentSerial.value.trim();
+  const purchaseDate = elements.editEquipmentPurchaseDate.value;
+  const location = elements.editEquipmentLocation.value;
+  const status = elements.editEquipmentStatus.value;
+  const calibrationRequired =
+    elements.editEquipmentCalibrationRequired?.checked ?? false;
+  const calibrationInterval = getSelectedEditCalibrationInterval();
+  const lastCalibrationDate = calibrationRequired
+    ? elements.editEquipmentLastCalibration?.value ?? ""
+    : "";
+
+  const calibrationDetails = normalizeCalibrationFields({
+    calibrationRequired,
+    calibrationIntervalMonths: calibrationInterval,
+    lastCalibrationDate,
+  });
+
+  item.name = name;
+  item.model = model;
+  item.serialNumber = serialNumber;
+  item.purchaseDate = purchaseDate;
+  item.location = location;
+  item.status = status;
+  item.calibrationRequired = calibrationDetails.calibrationRequired;
+  item.calibrationIntervalMonths =
+    calibrationDetails.calibrationIntervalMonths;
+  item.lastCalibrationDate = calibrationDetails.lastCalibrationDate;
+
+  saveState();
+  refreshUI();
+}
+
+function handleEditEquipmentCancel() {
+  syncEditForm();
+}
+
 function getSelectedCalibrationInterval() {
   const calibrationRequired =
     elements.addEquipmentCalibrationRequired?.checked ?? true;
@@ -1033,9 +1296,50 @@ if (elements.addEquipmentCalibrationInterval) {
   );
 }
 
+if (elements.editEquipmentForm) {
+  elements.editEquipmentForm.addEventListener(
+    "submit",
+    handleEditEquipmentSubmit
+  );
+}
+
+if (elements.editEquipmentSelect) {
+  elements.editEquipmentSelect.addEventListener("change", syncEditForm);
+}
+
+if (elements.editEquipmentCalibrationRequired) {
+  elements.editEquipmentCalibrationRequired.addEventListener(
+    "change",
+    syncEditCalibrationInputs
+  );
+}
+
+if (elements.editEquipmentCalibrationInterval) {
+  elements.editEquipmentCalibrationInterval.addEventListener(
+    "change",
+    syncEditCalibrationInputs
+  );
+}
+
+if (elements.editEquipmentName) {
+  elements.editEquipmentName.addEventListener("input", () => {
+    if (elements.editEquipmentName.value.trim()) {
+      clearEditNameError();
+    }
+  });
+}
+
+if (elements.editEquipmentCancel) {
+  elements.editEquipmentCancel.addEventListener(
+    "click",
+    handleEditEquipmentCancel
+  );
+}
+
 if (elements.clearHistory) {
   elements.clearHistory.addEventListener("click", handleClearHistory);
 }
 
 refreshUI();
 syncCalibrationInputs();
+syncEditCalibrationInputs();

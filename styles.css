@@ -294,6 +294,22 @@ tr:last-child td {
   color: var(--muted);
 }
 
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button-secondary {
+  background: transparent;
+  color: var(--accent-dark);
+  border: 1px solid var(--border);
+}
+
+.button-secondary:hover {
+  background: rgba(49, 73, 198, 0.08);
+}
+
 .checkbox-field {
   align-items: center;
   grid-template-columns: 1fr auto;
@@ -306,6 +322,11 @@ tr:last-child td {
 
 .is-hidden {
   display: none;
+}
+
+.field-error {
+  font-size: 12px;
+  color: #b42318;
 }
 
 button {
