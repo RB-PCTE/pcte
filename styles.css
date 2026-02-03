@@ -66,6 +66,15 @@ h1 {
   box-shadow: 0 12px 30px rgba(35, 42, 66, 0.08);
 }
 
+.tab-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
 .tabs {
   display: inline-flex;
   gap: 8px;
@@ -73,7 +82,7 @@ h1 {
   border-radius: 999px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.7);
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .tab-button {
@@ -96,6 +105,24 @@ h1 {
 .tab-button:focus-visible {
   outline: 2px solid rgba(75, 110, 245, 0.4);
   outline-offset: 2px;
+}
+
+.admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.admin-toggle input {
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 .tab-panel {
