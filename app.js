@@ -173,8 +173,6 @@ const elements = {
   addEquipmentLastCalibrationField: document.querySelector(
     "#new-equipment-last-calibration-field"
   ),
-  addLocationForm: document.querySelector("#add-location-form"),
-  addLocationName: document.querySelector("#new-location-name"),
   historyList: document.querySelector("#history-list"),
   clearHistory: document.querySelector("#clear-history"),
   statTotal: document.querySelector("#stat-total"),
@@ -195,44 +193,47 @@ function loadState() {
   }
   try {
     const parsed = JSON.parse(stored);
-    const parsedLocations = Array.isArray(parsed.locations)
-      ? parsed.locations
-      : defaultState.locations;
-    const locationSet = new Set(
-      parsedLocations
-        .filter((location) => location != null)
-        .map((location) => String(location))
-    );
-    physicalLocations.forEach((location) => locationSet.add(location));
     const equipment = Array.isArray(parsed.equipment)
       ? parsed.equipment
       : defaultState.equipment;
+    const history = Array.isArray(parsed.history)
+      ? parsed.history
+      : defaultState.history;
+    const corrections = [];
 
     const normalizedEquipment = equipment.map((item) => {
       const normalizedItem = normalizeEquipment(item);
       const rawLocation = normalizedItem.location || physicalLocations[0];
-      if (rawLocation && !locationSet.has(rawLocation)) {
-        locationSet.add(rawLocation);
+      const safeLocation = physicalLocations.includes(rawLocation)
+        ? rawLocation
+        : physicalLocations[0];
+      if (safeLocation !== rawLocation) {
+        const nameLabel = normalizedItem.name?.trim()
+          ? normalizedItem.name
+          : "equipment";
+        corrections.push({
+          id: crypto.randomUUID(),
+          text: `Location corrected for ${nameLabel} (was "${rawLocation}").`,
+          timestamp: formatTimestamp(),
+        });
       }
       const derivedStatus = normalizeStatus(
         normalizedItem.status,
-        rawLocation
+        safeLocation
       );
 
       return {
         ...normalizedItem,
-        location: rawLocation,
+        location: safeLocation,
         status: derivedStatus,
         ...normalizeCalibrationFields(normalizedItem),
       };
     });
 
     const normalizedState = {
-      locations: Array.from(locationSet),
+      locations: [...physicalLocations],
       equipment: normalizedEquipment,
-      history: Array.isArray(parsed.history)
-        ? parsed.history
-        : defaultState.history,
+      history: corrections.length ? [...corrections, ...history] : history,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedState));
     return normalizedState;
@@ -962,28 +963,6 @@ function syncCalibrationInputs() {
   }
 }
 
-function handleAddLocation(event) {
-  event.preventDefault();
-  if (!elements.addLocationName) {
-    return;
-  }
-  const name = elements.addLocationName.value.trim();
-  if (!name) {
-    return;
-  }
-
-  if (state.locations.some((location) => location === name)) {
-    elements.addLocationName.value = "";
-    return;
-  }
-
-  state.locations.push(name);
-  logHistory(`Location "${name}" added.`);
-  elements.addLocationName.value = "";
-  saveState();
-  refreshUI();
-}
-
 function handleClearHistory() {
   state.history = [];
   saveState();
@@ -1052,10 +1031,6 @@ if (elements.addEquipmentCalibrationInterval) {
     "change",
     syncCalibrationInputs
   );
-}
-
-if (elements.addLocationForm) {
-  elements.addLocationForm.addEventListener("submit", handleAddLocation);
 }
 
 if (elements.clearHistory) {
