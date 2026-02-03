@@ -1,5 +1,6 @@
 const STORAGE_KEY = "equipmentTrackerState";
 const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
+const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
 
 const physicalLocations = [
   "Perth",
@@ -26,6 +27,8 @@ const calibrationFilterOptions = [
   "Unknown",
   "Not required",
 ];
+
+const moveTypeOptions = ["All types", "Move", "Calibration", "Details updated"];
 
 function normalizeStatus(rawStatus, rawLocation) {
   const status = typeof rawStatus === "string" ? rawStatus.trim() : "";
@@ -120,6 +123,7 @@ function buildDefaultState() {
 const defaultState = buildDefaultState();
 
 const state = loadState();
+let isAdminModeEnabled = loadAdminMode();
 const htmlEscapes = {
   "&": "&amp;",
   "<": "&lt;",
@@ -226,12 +230,24 @@ const elements = {
   statDueSoon: document.querySelector("#stat-due-soon"),
   locationSummary: document.querySelector("#location-summary"),
   operationsView: document.querySelector("#operations-view"),
+  movesView: document.querySelector("#moves-view"),
   adminView: document.querySelector("#admin-view"),
+  movesEquipmentFilter: document.querySelector("#moves-equipment-filter"),
+  movesTypeFilter: document.querySelector("#moves-type-filter"),
+  movesSearch: document.querySelector("#moves-search"),
+  movesTableHeader: document.querySelector("#moves-table-header"),
+  movesTableBody: document.querySelector("#moves-table-body"),
+  adminModeToggle: document.querySelector("#admin-mode-toggle"),
+  adminTabButton: document.querySelector("#tab-button-admin"),
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
 };
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
+}
+
+function loadAdminMode() {
+  return localStorage.getItem(ADMIN_MODE_KEY) === "true";
 }
 
 function loadState() {
@@ -278,10 +294,14 @@ function loadState() {
       };
     });
 
+    const normalizedHistory = normalizeHistoryEntries(
+      corrections.length ? [...corrections, ...history] : history,
+      normalizedEquipment
+    );
     const normalizedState = {
       locations: [...physicalLocations],
       equipment: normalizedEquipment,
-      history: corrections.length ? [...corrections, ...history] : history,
+      history: normalizedHistory,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedState));
     return normalizedState;
@@ -291,8 +311,115 @@ function loadState() {
   }
 }
 
+function inferHistoryTypeFromText(text = "") {
+  const normalized = text.toLowerCase();
+  if (normalized.includes("calibration")) {
+    return "Calibration";
+  }
+  if (
+    normalized.includes("details updated") ||
+    normalized.includes("added") ||
+    normalized.includes("location corrected")
+  ) {
+    return "Details updated";
+  }
+  return "Move";
+}
+
+function normalizeHistoryEntry(entry, equipmentList = []) {
+  const safeEntry = entry && typeof entry === "object" ? entry : {};
+  const text = typeof safeEntry.text === "string" ? safeEntry.text : "";
+  const timestamp =
+    typeof safeEntry.timestamp === "string" && safeEntry.timestamp.trim()
+      ? safeEntry.timestamp
+      : formatTimestamp();
+  const id =
+    typeof safeEntry.id === "string" && safeEntry.id.trim()
+      ? safeEntry.id
+      : crypto.randomUUID();
+  const equipmentId =
+    typeof safeEntry.equipmentId === "string" ? safeEntry.equipmentId : "";
+  const matchedEquipment =
+    equipmentId && Array.isArray(equipmentList)
+      ? equipmentList.find((item) => item.id === equipmentId)
+      : null;
+  const type =
+    typeof safeEntry.type === "string" && safeEntry.type.trim()
+      ? safeEntry.type
+      : inferHistoryTypeFromText(text);
+  const equipmentName =
+    typeof safeEntry.equipmentName === "string"
+      ? safeEntry.equipmentName
+      : matchedEquipment?.name ?? "";
+  const equipmentModel =
+    typeof safeEntry.equipmentModel === "string"
+      ? safeEntry.equipmentModel
+      : matchedEquipment?.model ?? "";
+  const equipmentSerial =
+    typeof safeEntry.equipmentSerial === "string"
+      ? safeEntry.equipmentSerial
+      : matchedEquipment?.serialNumber ?? "";
+  const fromLocation =
+    typeof safeEntry.fromLocation === "string" ? safeEntry.fromLocation : "";
+  const toLocation =
+    typeof safeEntry.toLocation === "string" ? safeEntry.toLocation : "";
+  const statusFrom =
+    typeof safeEntry.statusFrom === "string" ? safeEntry.statusFrom : "";
+  const statusTo =
+    typeof safeEntry.statusTo === "string" ? safeEntry.statusTo : "";
+  const notes =
+    typeof safeEntry.notes === "string" ? safeEntry.notes : "";
+
+  return {
+    ...safeEntry,
+    id,
+    text,
+    timestamp,
+    type,
+    equipmentId,
+    equipmentName,
+    equipmentModel,
+    equipmentSerial,
+    fromLocation,
+    toLocation,
+    statusFrom,
+    statusTo,
+    notes,
+  };
+}
+
+function normalizeHistoryEntries(entries = [], equipmentList = []) {
+  const list = Array.isArray(entries) ? entries : [];
+  return list.map((entry) => normalizeHistoryEntry(entry, equipmentList));
+}
+
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function setAdminMode(enabled) {
+  isAdminModeEnabled = Boolean(enabled);
+  localStorage.setItem(ADMIN_MODE_KEY, String(isAdminModeEnabled));
+  if (elements.adminModeToggle) {
+    elements.adminModeToggle.checked = isAdminModeEnabled;
+  }
+  if (elements.adminTabButton) {
+    elements.adminTabButton.hidden = !isAdminModeEnabled;
+    elements.adminTabButton.setAttribute(
+      "aria-hidden",
+      String(!isAdminModeEnabled)
+    );
+  }
+  if (!isAdminModeEnabled && elements.adminView) {
+    elements.adminView.hidden = true;
+  }
+  const storedTab = localStorage.getItem(TAB_STORAGE_KEY) || "operations";
+  const availableTabs = getAvailableTabs();
+  const nextTab = availableTabs.includes(storedTab)
+    ? storedTab
+    : availableTabs[0] ?? "operations";
+  setActiveTab(nextTab);
+  renderMovesView();
 }
 
 function formatTimestamp(date = new Date()) {
@@ -409,6 +536,66 @@ function renderEquipmentOptions() {
   ].forEach((selectEl) => {
     populateEquipmentSelect(selectEl, equipmentList, selectEl?.value);
   });
+}
+
+function renderMovesFilters() {
+  renderMovesEquipmentFilter();
+  renderMovesTypeFilter();
+}
+
+function renderMovesEquipmentFilter() {
+  if (!elements.movesEquipmentFilter) {
+    return;
+  }
+  const equipmentList = state.equipment;
+  const currentValue = elements.movesEquipmentFilter.value || "all";
+  if (!equipmentList.length) {
+    elements.movesEquipmentFilter.innerHTML =
+      '<option value="all">All equipment</option><option value="" disabled>No equipment found</option>';
+    elements.movesEquipmentFilter.value = "all";
+    return;
+  }
+  const options = [
+    '<option value="all">All equipment</option>',
+    ...equipmentList.map((item) => {
+      const name = item.name?.trim() ? item.name : "";
+      const modelLabel = item.model?.trim() ? item.model : "—";
+      const serialLabel = item.serialNumber?.trim()
+        ? item.serialNumber
+        : "—";
+      const label = `${name} — ${modelLabel} — ${serialLabel}`;
+      return `<option value="${escapeHTML(
+        item.id
+      )}">${escapeHTML(label)}</option>`;
+    }),
+  ].join("");
+  elements.movesEquipmentFilter.innerHTML = options;
+  elements.movesEquipmentFilter.value = equipmentList.some(
+    (item) => item.id === currentValue
+  )
+    ? currentValue
+    : "all";
+}
+
+function renderMovesTypeFilter() {
+  if (!elements.movesTypeFilter) {
+    return;
+  }
+  const currentValue = elements.movesTypeFilter.value || "all";
+  const options = moveTypeOptions
+    .map((option) => {
+      const value = option === "All types" ? "all" : option;
+      return `<option value="${escapeHTML(value)}">${escapeHTML(
+        option
+      )}</option>`;
+    })
+    .join("");
+  elements.movesTypeFilter.innerHTML = options;
+  elements.movesTypeFilter.value = moveTypeOptions.some(
+    (option) => (option === "All types" ? "all" : option) === currentValue
+  )
+    ? currentValue
+    : "all";
 }
 
 function populateEquipmentSelect(selectEl, equipmentList, selectedId) {
@@ -733,6 +920,124 @@ function renderHistory() {
   }
 }
 
+function getEquipmentSummary(entry) {
+  const equipmentMatch = entry.equipmentId
+    ? state.equipment.find((item) => item.id === entry.equipmentId)
+    : null;
+  const name =
+    equipmentMatch?.name ||
+    (entry.equipmentName?.trim() ? entry.equipmentName : "Unknown equipment");
+  const model =
+    equipmentMatch?.model ||
+    (entry.equipmentModel?.trim() ? entry.equipmentModel : "—");
+  const serial =
+    equipmentMatch?.serialNumber ||
+    (entry.equipmentSerial?.trim() ? entry.equipmentSerial : "—");
+  return `${name} — ${model} — ${serial}`;
+}
+
+function getStatusChangeLabel(entry) {
+  const statusFrom = entry.statusFrom?.trim() ? entry.statusFrom : "";
+  const statusTo = entry.statusTo?.trim() ? entry.statusTo : "";
+  if (statusFrom && statusTo && statusFrom !== statusTo) {
+    return `${statusFrom} → ${statusTo}`;
+  }
+  if (statusTo) {
+    return statusTo;
+  }
+  return "—";
+}
+
+function getFilteredMoves() {
+  const equipmentFilter = elements.movesEquipmentFilter?.value ?? "all";
+  const typeFilter = elements.movesTypeFilter?.value ?? "all";
+  const searchTerm = elements.movesSearch
+    ? elements.movesSearch.value.trim().toLowerCase()
+    : "";
+
+  return state.history.filter((entry) => {
+    if (equipmentFilter !== "all" && entry.equipmentId !== equipmentFilter) {
+      return false;
+    }
+    if (typeFilter !== "all" && entry.type !== typeFilter) {
+      return false;
+    }
+    if (!searchTerm) {
+      return true;
+    }
+    const equipmentLabel = getEquipmentSummary(entry).toLowerCase();
+    const notesLabel = `${entry.notes ?? ""} ${entry.text ?? ""}`.toLowerCase();
+    return (
+      equipmentLabel.includes(searchTerm) || notesLabel.includes(searchTerm)
+    );
+  });
+}
+
+function renderMovesView() {
+  if (!elements.movesTableBody || !elements.movesTableHeader) {
+    return;
+  }
+  const filteredMoves = getFilteredMoves();
+  const showActions = isAdminModeEnabled;
+
+  const headers = [
+    "Timestamp",
+    "Equipment",
+    "From location",
+    "To location",
+    "Status change",
+    "Notes",
+    "Type",
+  ];
+
+  if (showActions) {
+    headers.push("Actions");
+  }
+
+  elements.movesTableHeader.innerHTML = `
+    <tr>
+      ${headers.map((label) => `<th>${escapeHTML(label)}</th>`).join("")}
+    </tr>
+  `;
+
+  if (filteredMoves.length === 0) {
+    elements.movesTableBody.innerHTML = `
+      <tr>
+        <td colspan="${headers.length}">No moves found.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  elements.movesTableBody.innerHTML = filteredMoves
+    .map((entry) => {
+      const equipmentLabel = getEquipmentSummary(entry);
+      const fromLocation = entry.fromLocation?.trim()
+        ? entry.fromLocation
+        : "—";
+      const toLocation = entry.toLocation?.trim() ? entry.toLocation : "—";
+      const notes = entry.notes?.trim() ? entry.notes : entry.text ?? "—";
+      const actionCell = showActions
+        ? `<td><button class="icon-button" type="button" data-action="delete-move" data-id="${escapeHTML(
+            entry.id
+          )}">Delete</button></td>`
+        : "";
+      return `
+        <tr>
+          <td>${escapeHTML(entry.timestamp)}</td>
+          <td>${escapeHTML(equipmentLabel)}</td>
+          <td>${escapeHTML(fromLocation)}</td>
+          <td>${escapeHTML(toLocation)}</td>
+          <td>${escapeHTML(getStatusChangeLabel(entry))}</td>
+          <td>${escapeHTML(notes)}</td>
+          <td>${escapeHTML(entry.type ?? "Move")}</td>
+          ${actionCell}
+        </tr>
+      `;
+    })
+    .join("");
+}
+
 function renderLocationSummary() {
   const summaries = state.locations.map((location) => {
     const items = state.equipment.filter((item) => item.location === location);
@@ -778,34 +1083,49 @@ function refreshUI() {
   renderStatusOptions();
   renderCalibrationOptions();
   renderEquipmentOptions();
+  renderMovesFilters();
   renderTable();
   renderHistory();
   renderLocationSummary();
+  renderMovesView();
   syncCalibrationForm();
   syncEditForm();
 }
 
+function getAvailableTabButtons() {
+  return elements.tabButtons.filter((button) => !button.hidden);
+}
+
+function getAvailableTabs() {
+  return getAvailableTabButtons().map((button) => button.dataset.tab);
+}
+
 function setActiveTab(tabName, { focus = false } = {}) {
-  const resolvedTab =
-    tabName === "admin" || tabName === "operations"
-      ? tabName
-      : "operations";
-  const hasViews = Boolean(elements.operationsView || elements.adminView);
-  const hasButtons = elements.tabButtons.length > 0;
+  const availableTabs = getAvailableTabs();
+  const resolvedTab = availableTabs.includes(tabName)
+    ? tabName
+    : availableTabs[0] ?? "operations";
+  const hasViews = Boolean(
+    elements.operationsView || elements.movesView || elements.adminView
+  );
+  const hasButtons = availableTabs.length > 0;
 
   if (!hasViews && !hasButtons) {
     return;
   }
 
   const nextTabButton = hasButtons
-    ? elements.tabButtons.find(
+    ? getAvailableTabButtons().find(
         (button) => button.dataset.tab === resolvedTab
-      ) || elements.tabButtons[0]
+      ) || getAvailableTabButtons()[0]
     : null;
   const nextName = nextTabButton?.dataset.tab ?? resolvedTab;
 
   if (elements.operationsView) {
     elements.operationsView.hidden = nextName !== "operations";
+  }
+  if (elements.movesView) {
+    elements.movesView.hidden = nextName !== "moves";
   }
   if (elements.adminView) {
     elements.adminView.hidden = nextName !== "admin";
@@ -828,9 +1148,7 @@ function setActiveTab(tabName, { focus = false } = {}) {
 
 function initTabs() {
   const stored = localStorage.getItem(TAB_STORAGE_KEY);
-  const availableTabs = elements.tabButtons.map(
-    (button) => button.dataset.tab
-  );
+  const availableTabs = getAvailableTabs();
   const fallbackTab = availableTabs[0] ?? "operations";
   const initialTab = availableTabs.includes(stored) ? stored : fallbackTab;
   setActiveTab(initialTab);
@@ -852,24 +1170,32 @@ function initTabs() {
       }
       event.preventDefault();
       const direction = event.key === "ArrowRight" ? 1 : -1;
+      const visibleButtons = getAvailableTabButtons();
+      const currentIndex = visibleButtons.indexOf(button);
+      if (currentIndex === -1) {
+        return;
+      }
       const nextIndex =
-        (index + direction + elements.tabButtons.length) %
-        elements.tabButtons.length;
-      const nextButton = elements.tabButtons[nextIndex];
+        (currentIndex + direction + visibleButtons.length) %
+        visibleButtons.length;
+      const nextButton = visibleButtons[nextIndex];
       setActiveTab(nextButton.dataset.tab, { focus: true });
     });
   });
 }
 
-function logHistory(message) {
-  state.history.unshift({
-    id: crypto.randomUUID(),
-    text: message,
-    timestamp: formatTimestamp(),
-  });
-  if (state.history.length > 25) {
-    state.history.pop();
-  }
+function logHistory(entry) {
+  const baseEntry =
+    typeof entry === "string" ? { text: entry } : entry || {};
+  const historyEntry = normalizeHistoryEntry(
+    {
+      ...baseEntry,
+      id: crypto.randomUUID(),
+      timestamp: formatTimestamp(),
+    },
+    state.equipment
+  );
+  state.history.unshift(historyEntry);
 }
 
 function handleMoveSubmit(event) {
@@ -892,6 +1218,8 @@ function handleMoveSubmit(event) {
     return;
   }
 
+  const previousLocation = item.location;
+  const previousStatus = item.status;
   item.location = newLocation;
   if (newStatus && newStatus !== "Keep current status") {
     item.status = newStatus;
@@ -906,7 +1234,19 @@ function handleMoveSubmit(event) {
     notes ? ` (${notes}).` : "."
   }`;
 
-  logHistory(message);
+  logHistory({
+    type: "Move",
+    text: message,
+    equipmentId: item.id,
+    equipmentName: item.name,
+    equipmentModel: item.model,
+    equipmentSerial: item.serialNumber,
+    fromLocation: previousLocation,
+    toLocation: newLocation,
+    statusFrom: previousStatus,
+    statusTo: item.status,
+    notes,
+  });
   elements.moveNotes.value = "";
   elements.moveStatus.value = "Keep current status";
   saveState();
@@ -962,7 +1302,14 @@ function handleCalibrationSubmit(event) {
 
   item.calibrationRequired = elements.calibrationRequired.checked;
   item.lastMoved = formatTimestamp();
-  logHistory(`${item.name} calibration recorded.`);
+  logHistory({
+    type: "Calibration",
+    text: `${item.name} calibration recorded.`,
+    equipmentId: item.id,
+    equipmentName: item.name,
+    equipmentModel: item.model,
+    equipmentSerial: item.serialNumber,
+  });
   if (elements.calibrationInterval) {
     elements.calibrationInterval.value = "";
   }
@@ -1023,7 +1370,16 @@ function handleAddEquipment(event) {
     lastMoved: formatTimestamp(),
   });
 
-  logHistory(`${name} added to ${location} with status ${status}.`);
+  logHistory({
+    type: "Details updated",
+    text: `${name} added to ${location} with status ${status}.`,
+    equipmentId: newItemId,
+    equipmentName: name,
+    equipmentModel: model,
+    equipmentSerial: serialNumber,
+    toLocation: location,
+    statusTo: status,
+  });
   elements.addEquipmentName.value = "";
   elements.addEquipmentModel.value = "";
   elements.addEquipmentSerial.value = "";
@@ -1419,11 +1775,16 @@ function handleEditEquipmentSubmit(event) {
   item.lastCalibrationDate = calibrationDetails.lastCalibrationDate;
 
   if (changedFields.length > 0) {
-    logHistory(
-      `Details updated for ${name} (${item.id}): ${changedFields.join(
-        ", "
-      )}.`
-    );
+    const changedLabel = changedFields.join(", ");
+    logHistory({
+      type: "Details updated",
+      text: `Details updated for ${name} (${item.id}): ${changedLabel}.`,
+      equipmentId: item.id,
+      equipmentName: name,
+      equipmentModel: item.model,
+      equipmentSerial: item.serialNumber,
+      notes: changedLabel,
+    });
   }
 
   toggleSerialWarning(
@@ -1509,6 +1870,16 @@ function handleClearHistory() {
   refreshUI();
 }
 
+function handleDeleteHistoryEntry(entryId) {
+  if (!entryId) {
+    return;
+  }
+  state.history = state.history.filter((entry) => entry.id !== entryId);
+  saveState();
+  renderHistory();
+  renderMovesView();
+}
+
 if (elements.searchInput) {
   elements.searchInput.addEventListener("input", refreshUI);
 }
@@ -1523,6 +1894,40 @@ if (elements.statusFilter) {
 
 if (elements.calibrationFilter) {
   elements.calibrationFilter.addEventListener("change", refreshUI);
+}
+
+if (elements.movesEquipmentFilter) {
+  elements.movesEquipmentFilter.addEventListener("change", renderMovesView);
+}
+
+if (elements.movesTypeFilter) {
+  elements.movesTypeFilter.addEventListener("change", renderMovesView);
+}
+
+if (elements.movesSearch) {
+  elements.movesSearch.addEventListener("input", renderMovesView);
+}
+
+if (elements.movesTableBody) {
+  elements.movesTableBody.addEventListener("click", (event) => {
+    const button = event.target.closest(
+      'button[data-action="delete-move"]'
+    );
+    if (!button || !isAdminModeEnabled) {
+      return;
+    }
+    const entryId = button.dataset.id;
+    if (!entryId) {
+      return;
+    }
+    const confirmed = window.confirm(
+      "Delete this log entry? This cannot be undone."
+    );
+    if (!confirmed) {
+      return;
+    }
+    handleDeleteHistoryEntry(entryId);
+  });
 }
 
 if (elements.locationSummary) {
@@ -1657,6 +2062,13 @@ if (elements.clearHistory) {
   elements.clearHistory.addEventListener("click", handleClearHistory);
 }
 
+if (elements.adminModeToggle) {
+  elements.adminModeToggle.addEventListener("change", (event) => {
+    setAdminMode(event.target.checked);
+  });
+}
+
+setAdminMode(isAdminModeEnabled);
 initTabs();
 refreshUI();
 syncCalibrationInputs();

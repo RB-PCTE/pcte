@@ -19,30 +19,51 @@
         </div>
       </header>
 
-      <nav class="tabs" role="tablist" aria-label="Equipment tracker sections">
-        <button
-          class="tab-button"
-          type="button"
-          id="tab-button-operations"
-          role="tab"
-          aria-selected="true"
-          aria-controls="tab-operations"
-          data-tab="operations"
+      <div class="tab-bar">
+        <nav
+          class="tabs"
+          role="tablist"
+          aria-label="Equipment tracker sections"
         >
-          Operations
-        </button>
-        <button
-          class="tab-button"
-          type="button"
-          id="tab-button-admin"
-          role="tab"
-          aria-selected="false"
-          aria-controls="tab-admin"
-          data-tab="admin"
-        >
-          Admin
-        </button>
-      </nav>
+          <button
+            class="tab-button"
+            type="button"
+            id="tab-button-operations"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-operations"
+            data-tab="operations"
+          >
+            Operations
+          </button>
+          <button
+            class="tab-button"
+            type="button"
+            id="tab-button-moves"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-moves"
+            data-tab="moves"
+          >
+            Moves
+          </button>
+          <button
+            class="tab-button"
+            type="button"
+            id="tab-button-admin"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-admin"
+            data-tab="admin"
+          >
+            Admin
+          </button>
+        </nav>
+        <label class="admin-toggle" for="admin-mode-toggle">
+          <span>Admin mode</span>
+          <input id="admin-mode-toggle" type="checkbox" />
+        </label>
+      </div>
 
       <main>
         <div id="operations-view">
@@ -200,6 +221,48 @@
                 </div>
               </section>
             </div>
+          </section>
+        </div>
+
+        <div id="moves-view" hidden>
+          <section
+            id="tab-moves"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-button-moves"
+          >
+            <section class="card">
+              <div class="card-header">
+                <div>
+                  <h2>Moves log</h2>
+                  <p>Review every recorded move, calibration, and update.</p>
+                </div>
+                <div class="filters">
+                  <div class="filter">
+                    <label for="moves-equipment-filter">Equipment</label>
+                    <select id="moves-equipment-filter"></select>
+                  </div>
+                  <div class="filter">
+                    <label for="moves-type-filter">Type</label>
+                    <select id="moves-type-filter"></select>
+                  </div>
+                </div>
+              </div>
+              <div class="search">
+                <input
+                  id="moves-search"
+                  type="search"
+                  placeholder="Search moves and notes..."
+                  autocomplete="off"
+                />
+              </div>
+              <div class="table-wrapper">
+                <table>
+                  <thead id="moves-table-header"></thead>
+                  <tbody id="moves-table-body"></tbody>
+                </table>
+              </div>
+            </section>
           </section>
         </div>
 
