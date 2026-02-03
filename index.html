@@ -208,6 +208,80 @@
               <button type="submit">Add equipment</button>
             </form>
 
+            <form id="edit-equipment-form" class="panel">
+              <h3>Edit equipment</h3>
+              <label>
+                Equipment
+                <select id="edit-equipment-select"></select>
+              </label>
+              <label>
+                Equipment name
+                <input id="edit-equipment-name" type="text" required />
+                <span id="edit-equipment-name-error" class="field-error is-hidden">
+                  Equipment name is required.
+                </span>
+              </label>
+              <label>
+                Model
+                <input id="edit-equipment-model" type="text" />
+              </label>
+              <label>
+                Serial number
+                <input id="edit-equipment-serial" type="text" />
+              </label>
+              <label>
+                Purchase date
+                <input id="edit-equipment-purchase-date" type="date" />
+              </label>
+              <label>
+                Physical location
+                <select id="edit-equipment-location"></select>
+              </label>
+              <label>
+                Status
+                <select id="edit-equipment-status"></select>
+              </label>
+              <label class="checkbox-field">
+                Calibration required
+                <input id="edit-equipment-calibration-required" type="checkbox" />
+              </label>
+              <label id="edit-equipment-calibration-interval-field">
+                Calibration interval
+                <select id="edit-equipment-calibration-interval">
+                  <option value="12">12 months</option>
+                  <option value="24">24 months</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label
+                id="edit-equipment-calibration-interval-custom-field"
+                class="is-hidden"
+              >
+                Custom interval (months)
+                <input
+                  id="edit-equipment-calibration-interval-custom"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="e.g. 18"
+                />
+              </label>
+              <label id="edit-equipment-last-calibration-field">
+                Last calibration date
+                <input id="edit-equipment-last-calibration" type="date" />
+              </label>
+              <div class="panel-actions">
+                <button type="submit">Save changes</button>
+                <button
+                  type="button"
+                  class="button-secondary"
+                  id="edit-equipment-cancel"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+
           </div>
 
           <div class="history">
