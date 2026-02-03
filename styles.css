@@ -416,6 +416,19 @@ button:hover {
   background: var(--accent-dark);
 }
 
+.icon-button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--accent-dark);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.icon-button:hover {
+  background: rgba(49, 73, 198, 0.08);
+}
+
 .history {
   border-top: 1px solid var(--border);
   padding-top: 18px;

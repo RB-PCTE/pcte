@@ -213,6 +213,48 @@
           </section>
         </div>
 
+        <div id="moves-view" hidden>
+          <section
+            id="tab-moves"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-button-moves"
+          >
+            <section class="card">
+              <div class="card-header">
+                <div>
+                  <h2>Moves log</h2>
+                  <p>Review every recorded move, calibration, and update.</p>
+                </div>
+                <div class="filters">
+                  <div class="filter">
+                    <label for="moves-equipment-filter">Equipment</label>
+                    <select id="moves-equipment-filter"></select>
+                  </div>
+                  <div class="filter">
+                    <label for="moves-type-filter">Type</label>
+                    <select id="moves-type-filter"></select>
+                  </div>
+                </div>
+              </div>
+              <div class="search">
+                <input
+                  id="moves-search"
+                  type="search"
+                  placeholder="Search moves and notes..."
+                  autocomplete="off"
+                />
+              </div>
+              <div class="table-wrapper">
+                <table>
+                  <thead id="moves-table-header"></thead>
+                  <tbody id="moves-table-body"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </div>
+
         <div id="admin-view" hidden>
           <section
             id="tab-admin"
