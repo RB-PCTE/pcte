@@ -122,7 +122,14 @@ function buildDefaultState() {
 const defaultState = buildDefaultState();
 
 const state = loadState();
-const equipmentById = new Map(state.equipment.map((e) => [String(e.id), e]));
+const equipmentList = Array.isArray(state.equipment)
+  ? state.equipment
+  : Array.isArray(state.items)
+    ? state.items
+    : [];
+const equipmentById = new Map(
+  equipmentList.map((equipment) => [String(equipment.id), equipment])
+);
 const htmlEscapes = {
   "&": "&amp;",
   "<": "&lt;",
@@ -247,6 +254,16 @@ let adminModeEnabled = false;
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
+}
+
+function getEquipmentListFromState() {
+  if (Array.isArray(state.equipment)) {
+    return state.equipment;
+  }
+  if (Array.isArray(state.items)) {
+    return state.items;
+  }
+  return [];
 }
 
 function loadState() {
@@ -409,6 +426,17 @@ function inferHistoryTypeFromText(text = "") {
   return "Move";
 }
 
+const equipmentIdPattern =
+  /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+
+function parseEquipmentIdFromText(text) {
+  if (!text || typeof text !== "string") {
+    return "";
+  }
+  const match = text.match(equipmentIdPattern);
+  return match ? match[1] : "";
+}
+
 function normalizeHistoryEntry(entry, equipmentList = []) {
   const safeEntry = entry && typeof entry === "object" ? entry : {};
   const text = typeof safeEntry.text === "string" ? safeEntry.text : "";
@@ -440,7 +468,18 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     equipmentList.some((item) => item.id === rawEntryId)
       ? rawEntryId
       : "";
-  const equipmentId = equipmentIdFromFields || equipmentIdFromId;
+  const notesText =
+    typeof safeEntry.notes === "string"
+      ? safeEntry.notes
+      : typeof safeEntry.message === "string"
+        ? safeEntry.message
+        : "";
+  const parsedId =
+    !equipmentIdFromFields && !equipmentIdFromId
+      ? parseEquipmentIdFromText(`${notesText} ${text}`.trim())
+      : "";
+  const equipmentId =
+    equipmentIdFromFields || equipmentIdFromId || parsedId;
   const id = equipmentIdFromId ? crypto.randomUUID() : rawEntryId || crypto.randomUUID();
   const matchedEquipment =
     equipmentId && Array.isArray(equipmentList)
@@ -452,12 +491,12 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
       : inferHistoryTypeFromText(text);
   const equipmentName =
     typeof safeEntry.equipmentName === "string"
-      ? safeEntry.equipmentName
-      : matchedEquipment?.name ?? "";
+    ? safeEntry.equipmentName
+    : matchedEquipment?.name ?? "";
   const equipmentModel =
     typeof safeEntry.equipmentModel === "string"
-      ? safeEntry.equipmentModel
-      : matchedEquipment?.model ?? "";
+    ? safeEntry.equipmentModel
+    : matchedEquipment?.model ?? "";
   const equipmentSerial =
     typeof safeEntry.equipmentSerial === "string"
       ? safeEntry.equipmentSerial
@@ -516,7 +555,7 @@ function normalizeHistoryEntries(entries = [], equipmentList = []) {
 
 function syncEquipmentById() {
   equipmentById.clear();
-  state.equipment.forEach((item) => {
+  getEquipmentListFromState().forEach((item) => {
     equipmentById.set(String(item.id), item);
   });
 }
@@ -1074,25 +1113,60 @@ function formatEquipmentLabel({ name, model, serialNumber } = {}) {
   return parts.join(" — ");
 }
 
+function resolveEquipmentForLog(entry) {
+  const safeEntry = entry && typeof entry === "object" ? entry : {};
+  const equipmentId =
+    typeof safeEntry.equipmentId === "string" && safeEntry.equipmentId.trim()
+      ? String(safeEntry.equipmentId)
+      : "";
+  if (equipmentId) {
+    const equipmentMatch = equipmentById.get(equipmentId);
+    if (equipmentMatch) {
+      return {
+        name: equipmentMatch.name ?? "",
+        model: equipmentMatch.model ?? "",
+        serialNumber: equipmentMatch.serialNumber ?? "",
+      };
+    }
+  }
+
+  if (
+    safeEntry.equipmentSnapshot &&
+    typeof safeEntry.equipmentSnapshot === "object"
+  ) {
+    return safeEntry.equipmentSnapshot;
+  }
+
+  const notesText =
+    typeof safeEntry.notes === "string"
+      ? safeEntry.notes
+      : typeof safeEntry.message === "string"
+        ? safeEntry.message
+        : "";
+  const text = typeof safeEntry.text === "string" ? safeEntry.text : "";
+  const parsedId = parseEquipmentIdFromText(
+    `${notesText} ${text}`.trim()
+  );
+  if (parsedId) {
+    const equipmentMatch = equipmentById.get(parsedId);
+    if (equipmentMatch) {
+      return {
+        name: equipmentMatch.name ?? "",
+        model: equipmentMatch.model ?? "",
+        serialNumber: equipmentMatch.serialNumber ?? "",
+      };
+    }
+  }
+
+  return null;
+}
+
 function getEquipmentSummary(entry) {
-  const equipmentMatch = entry.equipmentId
-    ? equipmentById.get(String(entry.equipmentId))
-    : null;
-  if (equipmentMatch) {
-    return formatEquipmentLabel({
-      name: equipmentMatch.name ?? "",
-      model: equipmentMatch.model ?? "",
-      serialNumber: equipmentMatch.serialNumber ?? "",
-    });
+  const resolved = resolveEquipmentForLog(entry);
+  if (resolved) {
+    return formatEquipmentLabel(resolved);
   }
-  if (entry.equipmentSnapshot) {
-    return formatEquipmentLabel(entry.equipmentSnapshot);
-  }
-  return formatEquipmentLabel({
-    name: entry.equipmentName ?? "",
-    model: entry.equipmentModel ?? "",
-    serialNumber: entry.equipmentSerial ?? "",
-  });
+  return "Unknown equipment";
 }
 
 function getStatusChangeLabel(entry) {
