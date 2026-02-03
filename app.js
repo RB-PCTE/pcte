@@ -245,6 +245,9 @@ function formatTimestamp(date = new Date()) {
 
 function renderLocationOptions() {
   const locations = state.locations;
+  const currentFilterValue = elements.locationFilter
+    ? elements.locationFilter.value
+    : "All locations";
   const options = ["All locations", ...locations]
     .map((location) => {
       const safeLocation = escapeHTML(location);
@@ -254,6 +257,9 @@ function renderLocationOptions() {
 
   if (elements.locationFilter) {
     elements.locationFilter.innerHTML = options;
+    elements.locationFilter.value = locations.includes(currentFilterValue)
+      ? currentFilterValue
+      : "All locations";
   }
 
   const selectionOptions = locations
@@ -272,6 +278,9 @@ function renderLocationOptions() {
 }
 
 function renderStatusOptions() {
+  const currentFilterValue = elements.statusFilter
+    ? elements.statusFilter.value
+    : "All statuses";
   const filterOptions = ["All statuses", ...statusOptions]
     .map((status) => {
       const safeStatus = escapeHTML(status);
@@ -281,6 +290,9 @@ function renderStatusOptions() {
 
   if (elements.statusFilter) {
     elements.statusFilter.innerHTML = filterOptions;
+    elements.statusFilter.value = statusOptions.includes(currentFilterValue)
+      ? currentFilterValue
+      : "All statuses";
   }
 
   const selectionOptions = statusOptions
@@ -300,6 +312,9 @@ function renderStatusOptions() {
 }
 
 function renderCalibrationOptions() {
+  const currentFilterValue = elements.calibrationFilter
+    ? elements.calibrationFilter.value
+    : "All";
   const filterOptions = calibrationFilterOptions
     .map((status) => {
       const safeStatus = escapeHTML(status);
@@ -309,21 +324,22 @@ function renderCalibrationOptions() {
 
   if (elements.calibrationFilter) {
     elements.calibrationFilter.innerHTML = filterOptions;
+    elements.calibrationFilter.value = calibrationFilterOptions.includes(
+      currentFilterValue
+    )
+      ? currentFilterValue
+      : "All";
   }
 }
 
 function renderEquipmentOptions() {
   const equipmentList = state.equipment;
-  populateEquipmentSelect(
+  [
     elements.moveEquipment,
-    equipmentList,
-    elements.moveEquipment?.value
-  );
-  populateEquipmentSelect(
     elements.calibrationEquipment,
-    equipmentList,
-    elements.calibrationEquipment?.value
-  );
+  ].forEach((selectEl) => {
+    populateEquipmentSelect(selectEl, equipmentList, selectEl?.value);
+  });
 }
 
 function populateEquipmentSelect(selectEl, equipmentList, selectedId) {
@@ -712,6 +728,14 @@ function logHistory(message) {
 
 function handleMoveSubmit(event) {
   event.preventDefault();
+  if (
+    !elements.moveEquipment ||
+    !elements.moveLocation ||
+    !elements.moveStatus ||
+    !elements.moveNotes
+  ) {
+    return;
+  }
   const equipmentId = elements.moveEquipment.value;
   const newLocation = elements.moveLocation.value;
   const newStatus = elements.moveStatus.value;
@@ -802,6 +826,16 @@ function handleCalibrationSubmit(event) {
 
 function handleAddEquipment(event) {
   event.preventDefault();
+  if (
+    !elements.addEquipmentName ||
+    !elements.addEquipmentModel ||
+    !elements.addEquipmentSerial ||
+    !elements.addEquipmentPurchaseDate ||
+    !elements.addEquipmentLocation ||
+    !elements.addEquipmentStatus
+  ) {
+    return;
+  }
   const name = elements.addEquipmentName.value.trim();
   const model = elements.addEquipmentModel.value.trim();
   const serialNumber = elements.addEquipmentSerial.value.trim();
@@ -917,6 +951,9 @@ function syncCalibrationInputs() {
 
 function handleAddLocation(event) {
   event.preventDefault();
+  if (!elements.addLocationName) {
+    return;
+  }
   const name = elements.addLocationName.value.trim();
   if (!name) {
     return;
@@ -941,19 +978,19 @@ function handleClearHistory() {
 }
 
 if (elements.searchInput) {
-  elements.searchInput.addEventListener("input", renderTable);
+  elements.searchInput.addEventListener("input", refreshUI);
 }
 
 if (elements.locationFilter) {
-  elements.locationFilter.addEventListener("change", renderTable);
+  elements.locationFilter.addEventListener("change", refreshUI);
 }
 
 if (elements.statusFilter) {
-  elements.statusFilter.addEventListener("change", renderTable);
+  elements.statusFilter.addEventListener("change", refreshUI);
 }
 
 if (elements.calibrationFilter) {
-  elements.calibrationFilter.addEventListener("change", renderTable);
+  elements.calibrationFilter.addEventListener("change", refreshUI);
 }
 
 if (elements.locationSummary) {
@@ -964,7 +1001,7 @@ if (elements.locationSummary) {
     }
     const location = button.dataset.location;
     elements.locationFilter.value = location;
-    renderTable();
+    refreshUI();
   });
 }
 
