@@ -19,6 +19,15 @@ const statusOptions = [
   "Quarantined",
 ];
 
+const calibrationFilterOptions = [
+  "All",
+  "Overdue",
+  "Due soon",
+  "OK",
+  "Unknown",
+  "Not required",
+];
+
 function getSeedDate({ months = 0, days = 0 } = {}) {
   const date = new Date();
   date.setMonth(date.getMonth() + months);
@@ -107,6 +116,7 @@ const htmlEscapes = {
 const elements = {
   locationFilter: document.querySelector("#location-filter"),
   statusFilter: document.querySelector("#status-filter"),
+  calibrationFilter: document.querySelector("#calibration-filter"),
   searchInput: document.querySelector("#search-input"),
   equipmentTable: document.querySelector("#equipment-table"),
   moveForm: document.querySelector("#move-form"),
@@ -155,6 +165,8 @@ const elements = {
   clearHistory: document.querySelector("#clear-history"),
   statTotal: document.querySelector("#stat-total"),
   statHire: document.querySelector("#stat-hire"),
+  statOverdue: document.querySelector("#stat-overdue"),
+  statDueSoon: document.querySelector("#stat-due-soon"),
   locationSummary: document.querySelector("#location-summary"),
 };
 
@@ -287,6 +299,19 @@ function renderStatusOptions() {
   }
 }
 
+function renderCalibrationOptions() {
+  const filterOptions = calibrationFilterOptions
+    .map((status) => {
+      const safeStatus = escapeHTML(status);
+      return `<option value="${safeStatus}">${safeStatus}</option>`;
+    })
+    .join("");
+
+  if (elements.calibrationFilter) {
+    elements.calibrationFilter.innerHTML = filterOptions;
+  }
+}
+
 function renderEquipmentOptions() {
   const equipmentList = state.equipment;
   populateEquipmentSelect(
@@ -331,15 +356,28 @@ function populateEquipmentSelect(selectEl, equipmentList, selectedId) {
   selectEl.value = selectedValue;
 }
 
-function renderStats() {
+function renderStats(filtered = [], now = new Date()) {
+  const list = Array.isArray(filtered) ? filtered : [];
   if (elements.statTotal) {
-    elements.statTotal.textContent = state.equipment.length;
+    elements.statTotal.textContent = list.length;
   }
-  const hireCount = state.equipment.filter(
+  const hireCount = list.filter(
     (item) => item.status.toLowerCase() === "on hire"
   ).length;
   if (elements.statHire) {
     elements.statHire.textContent = hireCount;
+  }
+  const overdueCount = list.filter(
+    (item) => getCalibrationInfo(item, now).status === "Overdue"
+  ).length;
+  if (elements.statOverdue) {
+    elements.statOverdue.textContent = overdueCount;
+  }
+  const dueSoonCount = list.filter(
+    (item) => getCalibrationInfo(item, now).status === "Due soon"
+  ).length;
+  if (elements.statDueSoon) {
+    elements.statDueSoon.textContent = dueSoonCount;
   }
 }
 
@@ -503,8 +541,7 @@ function getCalibrationInfo(item, now) {
   };
 }
 
-function renderTable() {
-  const now = new Date();
+function getFilteredEquipment(now = new Date()) {
   const searchTerm = elements.searchInput
     ? elements.searchInput.value.trim().toLowerCase()
     : "";
@@ -514,8 +551,11 @@ function renderTable() {
   const statusFilter = elements.statusFilter
     ? elements.statusFilter.value
     : "All statuses";
+  const calibrationFilter = elements.calibrationFilter
+    ? elements.calibrationFilter.value
+    : "All";
 
-  const filtered = state.equipment.filter((item) => {
+  return state.equipment.filter((item) => {
     const calibrationInfo = getCalibrationInfo(item, now);
     const matchesSearch =
       item.name.toLowerCase().includes(searchTerm) ||
@@ -525,8 +565,22 @@ function renderTable() {
       locationFilter === "All locations" || item.location === locationFilter;
     const matchesStatus =
       statusFilter === "All statuses" || item.status === statusFilter;
-    return matchesSearch && matchesLocation && matchesStatus;
+    const matchesCalibration =
+      calibrationFilter === "All" ||
+      calibrationInfo.status === calibrationFilter;
+    return (
+      matchesSearch &&
+      matchesLocation &&
+      matchesStatus &&
+      matchesCalibration
+    );
   });
+}
+
+function renderTable() {
+  const now = new Date();
+  const filtered = getFilteredEquipment(now);
+  renderStats(filtered, now);
 
   if (filtered.length === 0) {
     if (elements.equipmentTable) {
@@ -637,8 +691,8 @@ function renderLocationSummary() {
 function refreshUI() {
   renderLocationOptions();
   renderStatusOptions();
+  renderCalibrationOptions();
   renderEquipmentOptions();
-  renderStats();
   renderTable();
   renderHistory();
   renderLocationSummary();
@@ -896,6 +950,10 @@ if (elements.locationFilter) {
 
 if (elements.statusFilter) {
   elements.statusFilter.addEventListener("change", renderTable);
+}
+
+if (elements.calibrationFilter) {
+  elements.calibrationFilter.addEventListener("change", renderTable);
 }
 
 if (elements.locationSummary) {
