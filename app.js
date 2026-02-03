@@ -288,18 +288,47 @@ function renderStatusOptions() {
 }
 
 function renderEquipmentOptions() {
-  const options = state.equipment
-    .map(
-      (item) =>
-        `<option value="${item.id}">${escapeHTML(item.name)}</option>`
-    )
+  const equipmentList = state.equipment;
+  populateEquipmentSelect(
+    elements.moveEquipment,
+    equipmentList,
+    elements.moveEquipment?.value
+  );
+  populateEquipmentSelect(
+    elements.calibrationEquipment,
+    equipmentList,
+    elements.calibrationEquipment?.value
+  );
+}
+
+function populateEquipmentSelect(selectEl, equipmentList, selectedId) {
+  if (!selectEl) {
+    return;
+  }
+  const list = Array.isArray(equipmentList) ? equipmentList : [];
+  if (!list.length) {
+    selectEl.innerHTML =
+      '<option value="" disabled selected>No equipment found</option>';
+    return;
+  }
+  const options = list
+    .map((item) => {
+      const name = item.name?.trim() ? item.name : "";
+      const modelLabel = item.model?.trim() ? item.model : "—";
+      const serialLabel = item.serialNumber?.trim()
+        ? item.serialNumber
+        : "—";
+      const label = `${name} — ${modelLabel} — ${serialLabel}`;
+      return `<option value="${escapeHTML(
+        item.id
+      )}">${escapeHTML(label)}</option>`;
+    })
     .join("");
-  if (elements.moveEquipment) {
-    elements.moveEquipment.innerHTML = options;
-  }
-  if (elements.calibrationEquipment) {
-    elements.calibrationEquipment.innerHTML = options;
-  }
+  selectEl.innerHTML = options;
+  const selectedValue = list.some((item) => item.id === selectedId)
+    ? selectedId
+    : list[0].id;
+  selectEl.value = selectedValue;
 }
 
 function renderStats() {
