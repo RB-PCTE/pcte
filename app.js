@@ -1150,6 +1150,27 @@ function handleEditEquipmentSubmit(event) {
     lastCalibrationDate,
   });
 
+  const updatedFields = {
+    name,
+    model,
+    serialNumber,
+    purchaseDate,
+    location,
+    status,
+    calibrationRequired: calibrationDetails.calibrationRequired,
+    calibrationIntervalMonths:
+      calibrationDetails.calibrationIntervalMonths,
+    lastCalibrationDate: calibrationDetails.lastCalibrationDate,
+  };
+  const changedFields = Object.keys(updatedFields).filter((field) => {
+    const currentValue = item[field];
+    const nextValue = updatedFields[field];
+    if (typeof currentValue === "number" || typeof nextValue === "number") {
+      return Number(currentValue) !== Number(nextValue);
+    }
+    return currentValue !== nextValue;
+  });
+
   item.name = name;
   item.model = model;
   item.serialNumber = serialNumber;
@@ -1160,6 +1181,14 @@ function handleEditEquipmentSubmit(event) {
   item.calibrationIntervalMonths =
     calibrationDetails.calibrationIntervalMonths;
   item.lastCalibrationDate = calibrationDetails.lastCalibrationDate;
+
+  if (changedFields.length > 0) {
+    logHistory(
+      `Details updated for ${name} (${item.id}): ${changedFields.join(
+        ", "
+      )}.`
+    );
+  }
 
   saveState();
   refreshUI();
