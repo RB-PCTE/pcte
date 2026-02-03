@@ -915,6 +915,12 @@ function handleAddEquipment(event) {
     return;
   }
 
+  toggleSerialWarning(
+    elements.addEquipmentSerialWarning,
+    serialNumber,
+    state.equipment
+  );
+
   const calibrationDetails = normalizeCalibrationFields({
     calibrationRequired,
     calibrationIntervalMonths: calibrationInterval,
@@ -935,11 +941,6 @@ function handleAddEquipment(event) {
   });
 
   logHistory(`${name} added to ${location} with status ${status}.`);
-  toggleSerialWarning(
-    elements.addEquipmentSerialWarning,
-    serialNumber,
-    newItemId
-  );
   elements.addEquipmentName.value = "";
   elements.addEquipmentModel.value = "";
   elements.addEquipmentSerial.value = "";
@@ -956,6 +957,11 @@ function handleAddEquipment(event) {
   if (elements.addEquipmentLastCalibration) {
     elements.addEquipmentLastCalibration.value = "";
   }
+  toggleSerialWarning(
+    elements.addEquipmentSerialWarning,
+    "",
+    state.equipment
+  );
   saveState();
   refreshUI();
   syncCalibrationInputs();
@@ -1011,7 +1017,12 @@ function syncEditForm() {
   elements.editEquipmentLastCalibration.value = item.lastCalibrationDate ?? "";
   syncEditCalibrationInputs();
   clearEditNameError();
-  clearSerialWarning(elements.editEquipmentSerialWarning);
+  toggleSerialWarning(
+    elements.editEquipmentSerialWarning,
+    item.serialNumber ?? "",
+    state.equipment,
+    item.id
+  );
 }
 
 function resetEditForm() {
@@ -1118,28 +1129,57 @@ function showEditNameError() {
   }
 }
 
-function findSerialNumberMatch(serialNumber, excludeId) {
-  const normalized = serialNumber.trim().toLowerCase();
+function normalizeSerialNumber(serialNumber) {
+  if (serialNumber == null) {
+    return "";
+  }
+  return String(serialNumber).trim().toLowerCase();
+}
+
+function findDuplicateSerial(
+  serialNumber,
+  equipmentList,
+  excludeEquipmentId
+) {
+  const normalized = normalizeSerialNumber(serialNumber);
   if (!normalized) {
     return null;
   }
-  return state.equipment.find((item) => {
-    if (excludeId && item.id === excludeId) {
-      return false;
-    }
-    const itemSerial = item.serialNumber?.trim().toLowerCase() ?? "";
-    return itemSerial && itemSerial === normalized;
-  });
+  const list = Array.isArray(equipmentList) ? equipmentList : [];
+  return (
+    list.find((item) => {
+      if (excludeEquipmentId && item.id === excludeEquipmentId) {
+        return false;
+      }
+      const itemSerial = normalizeSerialNumber(item.serialNumber);
+      return itemSerial && itemSerial === normalized;
+    }) || null
+  );
 }
 
-function toggleSerialWarning(warningElement, serialNumber, excludeId) {
+function toggleSerialWarning(
+  warningElement,
+  serialNumber,
+  equipmentList,
+  excludeEquipmentId
+) {
   if (!warningElement) {
     return;
   }
-  const hasMatch = Boolean(
-    findSerialNumberMatch(serialNumber, excludeId)
+  const match = findDuplicateSerial(
+    serialNumber,
+    equipmentList,
+    excludeEquipmentId
   );
-  warningElement.classList.toggle("is-hidden", !hasMatch);
+  if (!match) {
+    warningElement.classList.add("is-hidden");
+    return;
+  }
+  const name = match.name?.trim() ? match.name.trim() : "Unnamed equipment";
+  const model = match.model?.trim() ? match.model.trim() : "—";
+  const location = match.location?.trim() ? match.location.trim() : "—";
+  warningElement.textContent = `Serial number already used by: ${name} (${model}, ${location})`;
+  warningElement.classList.remove("is-hidden");
 }
 
 function clearSerialWarning(warningElement) {
@@ -1237,6 +1277,7 @@ function handleEditEquipmentSubmit(event) {
   toggleSerialWarning(
     elements.editEquipmentSerialWarning,
     serialNumber,
+    state.equipment,
     item.id
   );
   saveState();
@@ -1375,9 +1416,15 @@ if (elements.addEquipmentCalibrationInterval) {
 }
 
 if (elements.addEquipmentSerial) {
-  elements.addEquipmentSerial.addEventListener("input", () => {
-    clearSerialWarning(elements.addEquipmentSerialWarning);
-  });
+  const handleAddSerialInput = () => {
+    toggleSerialWarning(
+      elements.addEquipmentSerialWarning,
+      elements.addEquipmentSerial.value,
+      state.equipment
+    );
+  };
+  elements.addEquipmentSerial.addEventListener("input", handleAddSerialInput);
+  elements.addEquipmentSerial.addEventListener("change", handleAddSerialInput);
 }
 
 if (elements.editEquipmentForm) {
@@ -1406,9 +1453,19 @@ if (elements.editEquipmentCalibrationInterval) {
 }
 
 if (elements.editEquipmentSerial) {
-  elements.editEquipmentSerial.addEventListener("input", () => {
-    clearSerialWarning(elements.editEquipmentSerialWarning);
-  });
+  const handleEditSerialInput = () => {
+    toggleSerialWarning(
+      elements.editEquipmentSerialWarning,
+      elements.editEquipmentSerial.value,
+      state.equipment,
+      elements.editEquipmentSelect?.value
+    );
+  };
+  elements.editEquipmentSerial.addEventListener("input", handleEditSerialInput);
+  elements.editEquipmentSerial.addEventListener(
+    "change",
+    handleEditSerialInput
+  );
 }
 
 if (elements.editEquipmentName) {
