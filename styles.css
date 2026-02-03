@@ -33,7 +33,7 @@ body {
   gap: 24px;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .eyebrow {
@@ -64,6 +64,46 @@ h1 {
   flex-wrap: wrap;
   gap: 24px;
   box-shadow: 0 12px 30px rgba(35, 42, 66, 0.08);
+}
+
+.tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.7);
+  margin-bottom: 24px;
+}
+
+.tab-button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.tab-button[aria-selected="true"] {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(75, 110, 245, 0.28);
+}
+
+.tab-button:focus-visible {
+  outline: 2px solid rgba(75, 110, 245, 0.4);
+  outline-offset: 2px;
+}
+
+.tab-panel {
+  display: grid;
+  gap: 24px;
+}
+
+.tab-panel .stats {
+  margin-bottom: 4px;
 }
 
 .stat-label {
