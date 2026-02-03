@@ -122,6 +122,7 @@ function buildDefaultState() {
 const defaultState = buildDefaultState();
 
 const state = loadState();
+const equipmentById = new Map(state.equipment.map((e) => [String(e.id), e]));
 const htmlEscapes = {
   "&": "&amp;",
   "<": "&lt;",
@@ -415,12 +416,32 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     typeof safeEntry.timestamp === "string" && safeEntry.timestamp.trim()
       ? safeEntry.timestamp
       : formatTimestamp();
-  const id =
+  const rawEntryId =
     typeof safeEntry.id === "string" && safeEntry.id.trim()
       ? safeEntry.id
-      : crypto.randomUUID();
-  const equipmentId =
-    typeof safeEntry.equipmentId === "string" ? safeEntry.equipmentId : "";
+      : "";
+  const equipmentIdFromFieldsRaw =
+    typeof safeEntry.equipmentId === "string"
+      ? safeEntry.equipmentId
+      : typeof safeEntry.equipment_id === "string"
+        ? safeEntry.equipment_id
+        : typeof safeEntry.equipment === "string"
+          ? safeEntry.equipment
+          : safeEntry.equipment && typeof safeEntry.equipment === "object"
+            ? safeEntry.equipment.id
+            : "";
+  const equipmentIdFromFields = equipmentIdFromFieldsRaw
+    ? String(equipmentIdFromFieldsRaw)
+    : "";
+  const equipmentIdFromId =
+    !equipmentIdFromFields &&
+    rawEntryId &&
+    Array.isArray(equipmentList) &&
+    equipmentList.some((item) => item.id === rawEntryId)
+      ? rawEntryId
+      : "";
+  const equipmentId = equipmentIdFromFields || equipmentIdFromId;
+  const id = equipmentIdFromId ? crypto.randomUUID() : rawEntryId || crypto.randomUUID();
   const matchedEquipment =
     equipmentId && Array.isArray(equipmentList)
       ? equipmentList.find((item) => item.id === equipmentId)
@@ -441,6 +462,23 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     typeof safeEntry.equipmentSerial === "string"
       ? safeEntry.equipmentSerial
       : matchedEquipment?.serialNumber ?? "";
+  const snapshot =
+    safeEntry.equipmentSnapshot &&
+    typeof safeEntry.equipmentSnapshot === "object"
+      ? safeEntry.equipmentSnapshot
+      : equipmentName || equipmentModel || equipmentSerial
+        ? {
+            name: equipmentName,
+            model: equipmentModel,
+            serialNumber: equipmentSerial,
+          }
+        : matchedEquipment
+          ? {
+              name: matchedEquipment.name ?? "",
+              model: matchedEquipment.model ?? "",
+              serialNumber: matchedEquipment.serialNumber ?? "",
+            }
+          : null;
   const fromLocation =
     typeof safeEntry.fromLocation === "string" ? safeEntry.fromLocation : "";
   const toLocation =
@@ -458,7 +496,8 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     text,
     timestamp,
     type,
-    equipmentId,
+    equipmentId: equipmentId ? String(equipmentId) : "",
+    equipmentSnapshot: snapshot,
     equipmentName,
     equipmentModel,
     equipmentSerial,
@@ -473,6 +512,13 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
 function normalizeHistoryEntries(entries = [], equipmentList = []) {
   const list = Array.isArray(entries) ? entries : [];
   return list.map((entry) => normalizeHistoryEntry(entry, equipmentList));
+}
+
+function syncEquipmentById() {
+  equipmentById.clear();
+  state.equipment.forEach((item) => {
+    equipmentById.set(String(item.id), item);
+  });
 }
 
 function saveState() {
@@ -1013,20 +1059,40 @@ function renderHistory() {
   }
 }
 
+function formatEquipmentLabel({ name, model, serialNumber } = {}) {
+  const safeName = name?.trim() ? name.trim() : "";
+  if (!safeName) {
+    return "Unknown equipment";
+  }
+  const parts = [safeName];
+  if (model?.trim()) {
+    parts.push(model.trim());
+  }
+  if (serialNumber?.trim()) {
+    parts.push(serialNumber.trim());
+  }
+  return parts.join(" — ");
+}
+
 function getEquipmentSummary(entry) {
   const equipmentMatch = entry.equipmentId
-    ? state.equipment.find((item) => item.id === entry.equipmentId)
+    ? equipmentById.get(String(entry.equipmentId))
     : null;
-  const name =
-    equipmentMatch?.name ||
-    (entry.equipmentName?.trim() ? entry.equipmentName : "Unknown equipment");
-  const model =
-    equipmentMatch?.model ||
-    (entry.equipmentModel?.trim() ? entry.equipmentModel : "—");
-  const serial =
-    equipmentMatch?.serialNumber ||
-    (entry.equipmentSerial?.trim() ? entry.equipmentSerial : "—");
-  return `${name} — ${model} — ${serial}`;
+  if (equipmentMatch) {
+    return formatEquipmentLabel({
+      name: equipmentMatch.name ?? "",
+      model: equipmentMatch.model ?? "",
+      serialNumber: equipmentMatch.serialNumber ?? "",
+    });
+  }
+  if (entry.equipmentSnapshot) {
+    return formatEquipmentLabel(entry.equipmentSnapshot);
+  }
+  return formatEquipmentLabel({
+    name: entry.equipmentName ?? "",
+    model: entry.equipmentModel ?? "",
+    serialNumber: entry.equipmentSerial ?? "",
+  });
 }
 
 function getStatusChangeLabel(entry) {
@@ -1070,6 +1136,7 @@ function renderMovesView() {
   if (!elements.movesTableBody || !elements.movesTableHeader) {
     return;
   }
+  syncEquipmentById();
   const filteredMoves = getFilteredMoves();
   const showActions = adminModeEnabled;
 
@@ -1172,6 +1239,7 @@ function renderLocationSummary() {
 }
 
 function refreshUI() {
+  syncEquipmentById();
   renderLocationOptions();
   renderStatusOptions();
   renderCalibrationOptions();
@@ -1305,6 +1373,9 @@ function logHistory(entry) {
   const historyEntry = normalizeHistoryEntry(
     {
       ...baseEntry,
+      equipmentId: baseEntry.equipmentId
+        ? String(baseEntry.equipmentId)
+        : "",
       id: crypto.randomUUID(),
       timestamp: formatTimestamp(),
     },
@@ -1352,10 +1423,12 @@ function handleMoveSubmit(event) {
   logHistory({
     type: "Move",
     text: message,
-    equipmentId: item.id,
-    equipmentName: item.name,
-    equipmentModel: item.model,
-    equipmentSerial: item.serialNumber,
+    equipmentId: String(item.id),
+    equipmentSnapshot: {
+      name: item.name,
+      model: item.model,
+      serialNumber: item.serialNumber,
+    },
     fromLocation: previousLocation,
     toLocation: newLocation,
     statusFrom: previousStatus,
@@ -1420,10 +1493,12 @@ function handleCalibrationSubmit(event) {
   logHistory({
     type: "Calibration",
     text: `${item.name} calibration recorded.`,
-    equipmentId: item.id,
-    equipmentName: item.name,
-    equipmentModel: item.model,
-    equipmentSerial: item.serialNumber,
+    equipmentId: String(item.id),
+    equipmentSnapshot: {
+      name: item.name,
+      model: item.model,
+      serialNumber: item.serialNumber,
+    },
   });
   if (elements.calibrationInterval) {
     elements.calibrationInterval.value = "";
@@ -1488,10 +1563,12 @@ function handleAddEquipment(event) {
   logHistory({
     type: "Details updated",
     text: `${name} added to ${location} with status ${status}.`,
-    equipmentId: newItemId,
-    equipmentName: name,
-    equipmentModel: model,
-    equipmentSerial: serialNumber,
+    equipmentId: String(newItemId),
+    equipmentSnapshot: {
+      name,
+      model,
+      serialNumber,
+    },
     toLocation: location,
     statusTo: status,
   });
@@ -1894,10 +1971,12 @@ function handleEditEquipmentSubmit(event) {
     logHistory({
       type: "Details updated",
       text: `Details updated for ${name} (${item.id}): ${changedLabel}.`,
-      equipmentId: item.id,
-      equipmentName: name,
-      equipmentModel: item.model,
-      equipmentSerial: item.serialNumber,
+      equipmentId: String(item.id),
+      equipmentSnapshot: {
+        name,
+        model: item.model,
+        serialNumber: item.serialNumber,
+      },
       notes: changedLabel,
     });
   }
