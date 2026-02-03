@@ -14,8 +14,6 @@ const statusOptions = [
   "On hire",
   "In transit",
   "In service / repair",
-  "Calibration due",
-  "In calibration",
   "Quarantined",
 ];
 
@@ -27,6 +25,22 @@ const calibrationFilterOptions = [
   "Unknown",
   "Not required",
 ];
+
+function normalizeStatus(rawStatus, rawLocation) {
+  const status = typeof rawStatus === "string" ? rawStatus.trim() : "";
+  if (status && /calibration/i.test(status)) {
+    return "Quarantined";
+  }
+  if (statusOptions.includes(status)) {
+    return status;
+  }
+  const location =
+    typeof rawLocation === "string" ? rawLocation.trim().toLowerCase() : "";
+  if (location === "on hire") {
+    return "On hire";
+  }
+  return "Available";
+}
 
 function getSeedDate({ months = 0, days = 0 } = {}) {
   const date = new Date();
@@ -200,11 +214,10 @@ function loadState() {
       if (rawLocation && !locationSet.has(rawLocation)) {
         locationSet.add(rawLocation);
       }
-      const derivedStatus = statusOptions.includes(normalizedItem.status)
-        ? normalizedItem.status
-        : rawLocation.toLowerCase() === "on hire"
-          ? "On hire"
-          : "Available";
+      const derivedStatus = normalizeStatus(
+        normalizedItem.status,
+        rawLocation
+      );
 
       return {
         ...normalizedItem,
