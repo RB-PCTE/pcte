@@ -240,7 +240,11 @@ const elements = {
   adminModeToggle: document.querySelector("#admin-mode-toggle"),
   adminTabButton: document.querySelector("#tab-button-admin"),
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
+  adminTabButton: document.querySelector("#tab-button-admin"),
+  adminModeToggle: document.querySelector("#admin-mode-toggle"),
 };
+
+let adminModeEnabled = false;
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
@@ -397,29 +401,36 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function setAdminMode(enabled) {
-  isAdminModeEnabled = Boolean(enabled);
-  localStorage.setItem(ADMIN_MODE_KEY, String(isAdminModeEnabled));
+function loadAdminMode() {
+  return localStorage.getItem(ADMIN_MODE_KEY) === "true";
+}
+
+function saveAdminMode(isEnabled) {
+  localStorage.setItem(ADMIN_MODE_KEY, String(Boolean(isEnabled)));
+}
+
+function applyAdminMode(isEnabled, { focus = false } = {}) {
+  adminModeEnabled = Boolean(isEnabled);
+  saveAdminMode(adminModeEnabled);
+
   if (elements.adminModeToggle) {
-    elements.adminModeToggle.checked = isAdminModeEnabled;
+    elements.adminModeToggle.checked = adminModeEnabled;
   }
   if (elements.adminTabButton) {
-    elements.adminTabButton.hidden = !isAdminModeEnabled;
+    elements.adminTabButton.hidden = !adminModeEnabled;
     elements.adminTabButton.setAttribute(
       "aria-hidden",
-      String(!isAdminModeEnabled)
+      String(!adminModeEnabled)
     );
   }
-  if (!isAdminModeEnabled && elements.adminView) {
-    elements.adminView.hidden = true;
+
+  if (!adminModeEnabled) {
+    setActiveTab("operations", { focus });
+  } else {
+    const storedTab = localStorage.getItem(TAB_STORAGE_KEY) ?? "operations";
+    setActiveTab(storedTab, { focus });
   }
-  const storedTab = localStorage.getItem(TAB_STORAGE_KEY) || "operations";
-  const availableTabs = getAvailableTabs();
-  const nextTab = availableTabs.includes(storedTab)
-    ? storedTab
-    : availableTabs[0] ?? "operations";
-  setActiveTab(nextTab);
-  renderMovesView();
+  refreshUI();
 }
 
 function formatTimestamp(date = new Date()) {
@@ -1101,23 +1112,25 @@ function getAvailableTabs() {
 }
 
 function setActiveTab(tabName, { focus = false } = {}) {
-  const availableTabs = getAvailableTabs();
-  const resolvedTab = availableTabs.includes(tabName)
-    ? tabName
-    : availableTabs[0] ?? "operations";
-  const hasViews = Boolean(
-    elements.operationsView || elements.movesView || elements.adminView
-  );
-  const hasButtons = availableTabs.length > 0;
+  const allowedTab =
+    tabName === "admin" && !adminModeEnabled ? "operations" : tabName;
+  const resolvedTab =
+    allowedTab === "admin" || allowedTab === "operations"
+      ? allowedTab
+      : "operations";
+  const hasViews = Boolean(elements.operationsView || elements.adminView);
+  const hasButtons = elements.tabButtons.length > 0;
 
   if (!hasViews && !hasButtons) {
     return;
   }
 
-  const nextTabButton = hasButtons
-    ? getAvailableTabButtons().find(
-        (button) => button.dataset.tab === resolvedTab
-      ) || getAvailableTabButtons()[0]
+  const visibleButtons = hasButtons
+    ? elements.tabButtons.filter((button) => !button.hidden)
+    : [];
+  const nextTabButton = visibleButtons.length
+    ? visibleButtons.find((button) => button.dataset.tab === resolvedTab) ||
+      visibleButtons[0]
     : null;
   const nextName = nextTabButton?.dataset.tab ?? resolvedTab;
 
@@ -1133,6 +1146,9 @@ function setActiveTab(tabName, { focus = false } = {}) {
 
   if (hasButtons) {
     elements.tabButtons.forEach((button) => {
+      if (button.hidden) {
+        return;
+      }
       const isActive = button.dataset.tab === nextName;
       button.setAttribute("aria-selected", String(isActive));
       button.setAttribute("tabindex", isActive ? "0" : "-1");
@@ -1148,7 +1164,9 @@ function setActiveTab(tabName, { focus = false } = {}) {
 
 function initTabs() {
   const stored = localStorage.getItem(TAB_STORAGE_KEY);
-  const availableTabs = getAvailableTabs();
+  const availableTabs = elements.tabButtons
+    .filter((button) => !button.hidden)
+    .map((button) => button.dataset.tab);
   const fallbackTab = availableTabs[0] ?? "operations";
   const initialTab = availableTabs.includes(stored) ? stored : fallbackTab;
   setActiveTab(initialTab);
@@ -1169,6 +1187,13 @@ function initTabs() {
         return;
       }
       event.preventDefault();
+      const availableButtons = elements.tabButtons.filter(
+        (tabButton) => !tabButton.hidden
+      );
+      const currentIndex = availableButtons.indexOf(button);
+      if (currentIndex === -1) {
+        return;
+      }
       const direction = event.key === "ArrowRight" ? 1 : -1;
       const visibleButtons = getAvailableTabButtons();
       const currentIndex = visibleButtons.indexOf(button);
@@ -1176,9 +1201,9 @@ function initTabs() {
         return;
       }
       const nextIndex =
-        (currentIndex + direction + visibleButtons.length) %
-        visibleButtons.length;
-      const nextButton = visibleButtons[nextIndex];
+        (currentIndex + direction + availableButtons.length) %
+        availableButtons.length;
+      const nextButton = availableButtons[nextIndex];
       setActiveTab(nextButton.dataset.tab, { focus: true });
     });
   });
@@ -2062,14 +2087,15 @@ if (elements.clearHistory) {
   elements.clearHistory.addEventListener("click", handleClearHistory);
 }
 
-if (elements.adminModeToggle) {
-  elements.adminModeToggle.addEventListener("change", (event) => {
-    setAdminMode(event.target.checked);
-  });
-}
-
-setAdminMode(isAdminModeEnabled);
+const storedAdminMode = loadAdminMode();
+applyAdminMode(storedAdminMode);
 initTabs();
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();
+
+if (elements.adminModeToggle) {
+  elements.adminModeToggle.addEventListener("change", () => {
+    applyAdminMode(elements.adminModeToggle.checked, { focus: true });
+  });
+}
