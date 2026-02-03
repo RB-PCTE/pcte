@@ -54,7 +54,7 @@ function buildDefaultState() {
         lastMoved: "2024-05-12 16:45",
         calibrationRequired: false,
         calibrationIntervalMonths: 12,
-        lastCalibrationDate: "",
+        lastCalibrationDate: getSeedDate({ months: -6 }),
       },
       {
         id: crypto.randomUUID(),
@@ -65,9 +65,9 @@ function buildDefaultState() {
         location: "Perth",
         status: "On hire",
         lastMoved: "2024-05-10 11:00",
-        calibrationRequired: false,
+        calibrationRequired: true,
         calibrationIntervalMonths: 12,
-        lastCalibrationDate: "",
+        lastCalibrationDate: getSeedDate({ months: -14 }),
       },
       {
         id: crypto.randomUUID(),
@@ -80,7 +80,7 @@ function buildDefaultState() {
         lastMoved: "2024-05-11 13:25",
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
-        lastCalibrationDate: getSeedDate({ months: -8 }),
+        lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
       },
     ],
     history: [
