@@ -316,7 +316,7 @@ function renderTable() {
 
   if (filtered.length === 0) {
     elements.equipmentTable.innerHTML =
-      '<tr><td colspan="7">No equipment matches the current filter.</td></tr>';
+      '<tr><td colspan="4">No equipment matches the current filter.</td></tr>';
     return;
   }
 
@@ -325,6 +325,9 @@ function renderTable() {
       (item) => {
         const ageLabel = getAgeLabel(item.purchaseDate, now);
         const calibrationInfo = getCalibrationInfo(item, now);
+        const calibrationStatusClass = calibrationInfo.status
+          .toLowerCase()
+          .replace(/\s+/g, "-");
         const calibrationMeta = calibrationInfo.dueDate
           ? `Due ${formatDate(calibrationInfo.dueDate)}`
           : item.calibrationRequired
@@ -339,12 +342,9 @@ function renderTable() {
             item.status
           )}</span></td>
           <td><span class="tag">${escapeHTML(item.location)}</span></td>
-          <td>
-            <div><span class="tag tag--status">${escapeHTML(
-              calibrationInfo.status
-            )}</span></div>
-            <div>${escapeHTML(calibrationMeta)}</div>
-          </td>
+          <td><span class="tag tag--status">${escapeHTML(
+            item.status
+          )}</span></td>
           <td>${escapeHTML(item.lastMoved)}</td>
         </tr>
       `;
