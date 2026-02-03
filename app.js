@@ -55,7 +55,6 @@ function getSeedDate({ months = 0, days = 0 } = {}) {
 
 function buildDefaultState() {
   return {
-    locations: [...physicalLocations],
     equipment: [
       {
         id: crypto.randomUUID(),
@@ -110,7 +109,7 @@ function buildDefaultState() {
         lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
       },
     ],
-    history: [
+    moves: [
       {
         id: crypto.randomUUID(),
         text: "Lighting rig moved to Perth with status On hire (Client demo).",
@@ -123,7 +122,6 @@ function buildDefaultState() {
 const defaultState = buildDefaultState();
 
 const state = loadState();
-let isAdminModeEnabled = loadAdminMode();
 const htmlEscapes = {
   "&": "&amp;",
   "<": "&lt;",
@@ -250,69 +248,149 @@ function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
 }
 
-function loadAdminMode() {
-  return localStorage.getItem(ADMIN_MODE_KEY) === "true";
-}
-
 function loadState() {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) {
-    return structuredClone(defaultState);
+    return buildSeededState();
   }
   try {
     const parsed = JSON.parse(stored);
-    const equipment = Array.isArray(parsed.equipment)
-      ? parsed.equipment
-      : defaultState.equipment;
-    const history = Array.isArray(parsed.history)
-      ? parsed.history
-      : defaultState.history;
-    const corrections = [];
-
-    const normalizedEquipment = equipment.map((item) => {
-      const normalizedItem = normalizeEquipment(item);
-      const rawLocation = normalizedItem.location || physicalLocations[0];
-      const safeLocation = physicalLocations.includes(rawLocation)
-        ? rawLocation
-        : physicalLocations[0];
-      if (safeLocation !== rawLocation) {
-        const nameLabel = normalizedItem.name?.trim()
-          ? normalizedItem.name
-          : "equipment";
-        corrections.push({
-          id: crypto.randomUUID(),
-          text: `Location corrected for ${nameLabel} (was "${rawLocation}").`,
-          timestamp: formatTimestamp(),
-        });
-      }
-      const derivedStatus = normalizeStatus(
-        normalizedItem.status,
-        safeLocation
+    const { equipment, moves, migratedKeys } = migrateStoredState(parsed);
+    if (migratedKeys.length) {
+      console.warn(
+        `Migrated stored state: ${migratedKeys.join(", ")}`
       );
+    }
 
-      return {
-        ...normalizedItem,
-        location: safeLocation,
-        status: derivedStatus,
-        ...normalizeCalibrationFields(normalizedItem),
-      };
-    });
+    const normalized = normalizeState({ equipment, moves });
 
-    const normalizedHistory = normalizeHistoryEntries(
-      corrections.length ? [...corrections, ...history] : history,
-      normalizedEquipment
-    );
-    const normalizedState = {
-      locations: [...physicalLocations],
-      equipment: normalizedEquipment,
-      history: normalizedHistory,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedState));
-    return normalizedState;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    return normalized;
   } catch (error) {
     console.warn("Failed to load stored state", error);
-    return structuredClone(defaultState);
+    return buildSeededState();
   }
+}
+
+function buildSeededState() {
+  const seededState = buildDefaultState();
+  return {
+    ...seededState,
+    locations: [...physicalLocations],
+  };
+}
+
+function findArrayFallback(data, predicate) {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  return Object.values(data).find(
+    (value) => Array.isArray(value) && predicate(value)
+  );
+}
+
+function migrateStoredState(parsed) {
+  const safeParsed =
+    parsed && typeof parsed === "object" ? parsed : {};
+  const migratedKeys = [];
+  let equipment = Array.isArray(safeParsed.equipment)
+    ? safeParsed.equipment
+    : null;
+  if (!equipment && Array.isArray(safeParsed.items)) {
+    equipment = safeParsed.items;
+    migratedKeys.push("items→equipment");
+  }
+  if (!equipment) {
+    const fallback = findArrayFallback(
+      safeParsed,
+      (list) =>
+        list.some(
+          (item) =>
+            item &&
+            typeof item === "object" &&
+            ("name" in item || "serialNumber" in item)
+        )
+    );
+    if (fallback) {
+      equipment = fallback;
+      migratedKeys.push("array→equipment");
+    }
+  }
+
+  let moves = Array.isArray(safeParsed.moves) ? safeParsed.moves : null;
+  if (!moves && Array.isArray(safeParsed.log)) {
+    moves = safeParsed.log;
+    migratedKeys.push("log→moves");
+  }
+  if (!moves && Array.isArray(safeParsed.history)) {
+    moves = safeParsed.history;
+    migratedKeys.push("history→moves");
+  }
+  if (!moves) {
+    const fallback = findArrayFallback(
+      safeParsed,
+      (list) =>
+        list.some(
+          (entry) =>
+            entry &&
+            typeof entry === "object" &&
+            ("text" in entry || "timestamp" in entry)
+        )
+    );
+    if (fallback) {
+      moves = fallback;
+      migratedKeys.push("array→moves");
+    }
+  }
+
+  return {
+    equipment: Array.isArray(equipment) ? equipment : [],
+    moves: Array.isArray(moves) ? moves : [],
+    migratedKeys,
+  };
+}
+
+function normalizeState({ equipment = [], moves = [] } = {}) {
+  const corrections = [];
+  const normalizedEquipment = equipment.map((item) => {
+    const normalizedItem = normalizeEquipment(item);
+    const rawLocation = normalizedItem.location || physicalLocations[0];
+    const safeLocation = physicalLocations.includes(rawLocation)
+      ? rawLocation
+      : physicalLocations[0];
+    if (safeLocation !== rawLocation) {
+      const nameLabel = normalizedItem.name?.trim()
+        ? normalizedItem.name
+        : "equipment";
+      corrections.push({
+        id: crypto.randomUUID(),
+        text: `Location corrected for ${nameLabel} (was "${rawLocation}").`,
+        timestamp: formatTimestamp(),
+      });
+    }
+    const derivedStatus = normalizeStatus(
+      normalizedItem.status,
+      safeLocation
+    );
+
+    return {
+      ...normalizedItem,
+      location: safeLocation,
+      status: derivedStatus,
+      ...normalizeCalibrationFields(normalizedItem),
+    };
+  });
+
+  const normalizedMoves = normalizeHistoryEntries(
+    corrections.length ? [...corrections, ...moves] : moves,
+    normalizedEquipment
+  );
+
+  return {
+    locations: [...physicalLocations],
+    equipment: normalizedEquipment,
+    moves: normalizedMoves,
+  };
 }
 
 function inferHistoryTypeFromText(text = "") {
@@ -722,7 +800,7 @@ function normalizeEquipment(item = {}) {
   const calibrationRequired =
     typeof safeItem.calibrationRequired === "boolean"
       ? safeItem.calibrationRequired
-      : true;
+      : false;
 
   return {
     ...safeItem,
@@ -730,9 +808,9 @@ function normalizeEquipment(item = {}) {
       typeof safeItem.id === "string" && safeItem.id.trim()
         ? safeItem.id
         : crypto.randomUUID(),
-    name,
-    location,
-    status,
+    name: name?.trim() ? name : "Unnamed",
+    location: location?.trim() ? location : physicalLocations[0],
+    status: status?.trim() ? status : "Available",
     model,
     serialNumber,
     purchaseDate,
@@ -742,6 +820,10 @@ function normalizeEquipment(item = {}) {
         ? safeItem.calibrationIntervalMonths
         : Number(safeItem.calibrationIntervalMonths) || 12,
     lastCalibrationDate,
+    lastMoved:
+      typeof safeItem.lastMoved === "string"
+        ? safeItem.lastMoved
+        : formatTimestamp(),
   };
 }
 
@@ -911,7 +993,7 @@ function renderTable() {
 }
 
 function renderHistory() {
-  if (state.history.length === 0) {
+  if (state.moves.length === 0) {
     if (elements.historyList) {
       elements.historyList.innerHTML = "<li>No moves logged yet.</li>";
     }
@@ -919,7 +1001,7 @@ function renderHistory() {
   }
 
   if (elements.historyList) {
-    elements.historyList.innerHTML = state.history
+    elements.historyList.innerHTML = state.moves
       .slice(0, 8)
       .map(
         (entry) =>
@@ -966,7 +1048,7 @@ function getFilteredMoves() {
     ? elements.movesSearch.value.trim().toLowerCase()
     : "";
 
-  return state.history.filter((entry) => {
+  return state.moves.filter((entry) => {
     if (equipmentFilter !== "all" && entry.equipmentId !== equipmentFilter) {
       return false;
     }
@@ -989,7 +1071,7 @@ function renderMovesView() {
     return;
   }
   const filteredMoves = getFilteredMoves();
-  const showActions = isAdminModeEnabled;
+  const showActions = adminModeEnabled;
 
   const headers = [
     "Timestamp",
@@ -1111,14 +1193,27 @@ function getAvailableTabs() {
   return getAvailableTabButtons().map((button) => button.dataset.tab);
 }
 
+function normalizeTabName(tabName) {
+  const name =
+    typeof tabName === "string" ? tabName.trim().toLowerCase() : "";
+  if (!name) {
+    return "operations";
+  }
+  return ["operations", "moves", "admin"].includes(name)
+    ? name
+    : "operations";
+}
+
 function setActiveTab(tabName, { focus = false } = {}) {
+  const normalizedTab = normalizeTabName(tabName);
   const allowedTab =
-    tabName === "admin" && !adminModeEnabled ? "operations" : tabName;
-  const resolvedTab =
-    allowedTab === "admin" || allowedTab === "operations"
-      ? allowedTab
-      : "operations";
-  const hasViews = Boolean(elements.operationsView || elements.adminView);
+    normalizedTab === "admin" && !adminModeEnabled
+      ? "operations"
+      : normalizedTab;
+  const resolvedTab = normalizeTabName(allowedTab);
+  const hasViews = Boolean(
+    elements.operationsView || elements.movesView || elements.adminView
+  );
   const hasButtons = elements.tabButtons.length > 0;
 
   if (!hasViews && !hasButtons) {
@@ -1156,19 +1251,21 @@ function setActiveTab(tabName, { focus = false } = {}) {
     });
   }
 
-  localStorage.setItem(TAB_STORAGE_KEY, nextName);
+  localStorage.setItem(TAB_STORAGE_KEY, normalizeTabName(nextName));
   if (focus && nextTabButton) {
     nextTabButton.focus();
   }
 }
 
 function initTabs() {
-  const stored = localStorage.getItem(TAB_STORAGE_KEY);
+  const stored = normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
   const availableTabs = elements.tabButtons
     .filter((button) => !button.hidden)
     .map((button) => button.dataset.tab);
   const fallbackTab = availableTabs[0] ?? "operations";
-  const initialTab = availableTabs.includes(stored) ? stored : fallbackTab;
+  const initialTab = availableTabs.includes(stored)
+    ? stored
+    : normalizeTabName(fallbackTab);
   setActiveTab(initialTab);
 
   if (!elements.tabButtons.length) {
@@ -1187,13 +1284,6 @@ function initTabs() {
         return;
       }
       event.preventDefault();
-      const availableButtons = elements.tabButtons.filter(
-        (tabButton) => !tabButton.hidden
-      );
-      const currentIndex = availableButtons.indexOf(button);
-      if (currentIndex === -1) {
-        return;
-      }
       const direction = event.key === "ArrowRight" ? 1 : -1;
       const visibleButtons = getAvailableTabButtons();
       const currentIndex = visibleButtons.indexOf(button);
@@ -1220,7 +1310,7 @@ function logHistory(entry) {
     },
     state.equipment
   );
-  state.history.unshift(historyEntry);
+  state.moves.unshift(historyEntry);
 }
 
 function handleMoveSubmit(event) {
@@ -1890,7 +1980,7 @@ function syncCalibrationInputs() {
 }
 
 function handleClearHistory() {
-  state.history = [];
+  state.moves = [];
   saveState();
   refreshUI();
 }
@@ -1899,7 +1989,7 @@ function handleDeleteHistoryEntry(entryId) {
   if (!entryId) {
     return;
   }
-  state.history = state.history.filter((entry) => entry.id !== entryId);
+  state.moves = state.moves.filter((entry) => entry.id !== entryId);
   saveState();
   renderHistory();
   renderMovesView();
@@ -1938,7 +2028,7 @@ if (elements.movesTableBody) {
     const button = event.target.closest(
       'button[data-action="delete-move"]'
     );
-    if (!button || !isAdminModeEnabled) {
+    if (!button || !adminModeEnabled) {
       return;
     }
     const entryId = button.dataset.id;
