@@ -1,4 +1,5 @@
 const STORAGE_KEY = "equipmentTrackerState";
+const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
 
 const physicalLocations = [
   "Perth",
@@ -221,6 +222,8 @@ const elements = {
   statOverdue: document.querySelector("#stat-overdue"),
   statDueSoon: document.querySelector("#stat-due-soon"),
   locationSummary: document.querySelector("#location-summary"),
+  tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
+  tabPanels: Array.from(document.querySelectorAll(".tab-panel")),
 };
 
 function escapeHTML(value) {
@@ -776,6 +779,60 @@ function refreshUI() {
   renderLocationSummary();
   syncCalibrationForm();
   syncEditForm();
+}
+
+function setActiveTab(tabName, { focus = false } = {}) {
+  if (!elements.tabButtons.length || !elements.tabPanels.length) {
+    return;
+  }
+  const nextTab =
+    elements.tabButtons.find((button) => button.dataset.tab === tabName) ||
+    elements.tabButtons[0];
+  const nextName = nextTab.dataset.tab;
+  elements.tabButtons.forEach((button) => {
+    const isActive = button.dataset.tab === nextName;
+    button.setAttribute("aria-selected", String(isActive));
+    button.setAttribute("tabindex", isActive ? "0" : "-1");
+  });
+  elements.tabPanels.forEach((panel) => {
+    panel.hidden = panel.id !== `tab-${nextName}`;
+  });
+  localStorage.setItem(TAB_STORAGE_KEY, nextName);
+  if (focus) {
+    nextTab.focus();
+  }
+}
+
+function initTabs() {
+  if (!elements.tabButtons.length || !elements.tabPanels.length) {
+    return;
+  }
+  const stored = localStorage.getItem(TAB_STORAGE_KEY);
+  const availableTabs = elements.tabButtons.map(
+    (button) => button.dataset.tab
+  );
+  const initialTab = availableTabs.includes(stored)
+    ? stored
+    : elements.tabButtons[0].dataset.tab;
+  setActiveTab(initialTab);
+
+  elements.tabButtons.forEach((button, index) => {
+    button.addEventListener("click", () => {
+      setActiveTab(button.dataset.tab, { focus: true });
+    });
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+        return;
+      }
+      event.preventDefault();
+      const direction = event.key === "ArrowRight" ? 1 : -1;
+      const nextIndex =
+        (index + direction + elements.tabButtons.length) %
+        elements.tabButtons.length;
+      const nextButton = elements.tabButtons[nextIndex];
+      setActiveTab(nextButton.dataset.tab, { focus: true });
+    });
+  });
 }
 
 function logHistory(message) {
@@ -1487,6 +1544,7 @@ if (elements.clearHistory) {
   elements.clearHistory.addEventListener("click", handleClearHistory);
 }
 
+initTabs();
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();

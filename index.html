@@ -17,292 +17,355 @@
             customer hires.
           </p>
         </div>
-        <div class="stats" aria-live="polite">
-          <div>
-            <span class="stat-label">Tracked items</span>
-            <strong id="stat-total">0</strong>
-          </div>
-          <div>
-            <span class="stat-label">On hire</span>
-            <strong id="stat-hire">0</strong>
-          </div>
-          <div>
-            <span class="stat-label">Overdue calibration</span>
-            <strong id="stat-overdue">0</strong>
-          </div>
-          <div>
-            <span class="stat-label">Due soon</span>
-            <strong id="stat-due-soon">0</strong>
-          </div>
-        </div>
       </header>
 
-      <main class="grid">
-        <section class="card">
-          <div class="card-header">
+      <nav class="tabs" role="tablist" aria-label="Equipment tracker sections">
+        <button
+          class="tab-button"
+          type="button"
+          id="tab-button-operations"
+          role="tab"
+          aria-selected="true"
+          aria-controls="tab-operations"
+          data-tab="operations"
+        >
+          Operations
+        </button>
+        <button
+          class="tab-button"
+          type="button"
+          id="tab-button-admin"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-admin"
+          data-tab="admin"
+        >
+          Admin
+        </button>
+      </nav>
+
+      <main>
+        <section
+          id="tab-operations"
+          class="tab-panel"
+          role="tabpanel"
+          aria-labelledby="tab-button-operations"
+        >
+          <div class="stats" aria-live="polite">
             <div>
-              <h2>Find equipment</h2>
-              <p>Search by equipment name, location, or status.</p>
+              <span class="stat-label">Tracked items</span>
+              <strong id="stat-total">0</strong>
             </div>
-            <div class="filters">
-              <div class="filter">
-                <label for="location-filter">Location</label>
-                <select id="location-filter"></select>
-              </div>
-              <div class="filter">
-                <label for="status-filter">Status</label>
-                <select id="status-filter"></select>
-              </div>
-              <div class="filter">
-                <label for="calibration-filter">Calibration</label>
-                <select id="calibration-filter"></select>
-              </div>
+            <div>
+              <span class="stat-label">On hire</span>
+              <strong id="stat-hire">0</strong>
             </div>
-          </div>
-          <div class="search">
-            <input
-              id="search-input"
-              type="search"
-              placeholder="Search equipment..."
-              autocomplete="off"
-            />
-          </div>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Equipment</th>
-                  <th>Model</th>
-                  <th>Serial</th>
-                  <th>Status</th>
-                  <th>Location</th>
-                  <th>Calibration</th>
-                  <th>Last moved</th>
-                </tr>
-              </thead>
-              <tbody id="equipment-table"></tbody>
-            </table>
+            <div>
+              <span class="stat-label">Overdue calibration</span>
+              <strong id="stat-overdue">0</strong>
+            </div>
+            <div>
+              <span class="stat-label">Due soon</span>
+              <strong id="stat-due-soon">0</strong>
+            </div>
           </div>
 
-          <div class="location-summary">
-            <div class="summary-header">
-              <h3>Location overview</h3>
-              <p>Quick counts and assigned equipment per location.</p>
-            </div>
-            <div id="location-summary" class="summary-grid" aria-live="polite"></div>
+          <div class="grid">
+            <section class="card">
+              <div class="card-header">
+                <div>
+                  <h2>Find equipment</h2>
+                  <p>Search by equipment name, location, or status.</p>
+                </div>
+                <div class="filters">
+                  <div class="filter">
+                    <label for="location-filter">Location</label>
+                    <select id="location-filter"></select>
+                  </div>
+                  <div class="filter">
+                    <label for="status-filter">Status</label>
+                    <select id="status-filter"></select>
+                  </div>
+                  <div class="filter">
+                    <label for="calibration-filter">Calibration</label>
+                    <select id="calibration-filter"></select>
+                  </div>
+                </div>
+              </div>
+              <div class="search">
+                <input
+                  id="search-input"
+                  type="search"
+                  placeholder="Search equipment..."
+                  autocomplete="off"
+                />
+              </div>
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Equipment</th>
+                      <th>Model</th>
+                      <th>Serial</th>
+                      <th>Status</th>
+                      <th>Location</th>
+                      <th>Calibration</th>
+                      <th>Last moved</th>
+                    </tr>
+                  </thead>
+                  <tbody id="equipment-table"></tbody>
+                </table>
+              </div>
+
+              <div class="location-summary">
+                <div class="summary-header">
+                  <h3>Location overview</h3>
+                  <p>Quick counts and assigned equipment per location.</p>
+                </div>
+                <div
+                  id="location-summary"
+                  class="summary-grid"
+                  aria-live="polite"
+                ></div>
+              </div>
+            </section>
+
+            <section class="card">
+              <h2>Console</h2>
+              <p>Use the console to log moves or record calibration.</p>
+
+              <div class="console">
+                <form id="move-form" class="panel">
+                  <h3>Log a move</h3>
+                  <label>
+                    Equipment
+                    <select id="move-equipment"></select>
+                  </label>
+                  <label>
+                    New location
+                    <select id="move-location"></select>
+                  </label>
+                  <label>
+                    Status (optional)
+                    <select id="move-status"></select>
+                  </label>
+                  <label>
+                    Notes (optional)
+                    <input
+                      id="move-notes"
+                      type="text"
+                      placeholder="Customer name, demo date..."
+                    />
+                  </label>
+                  <button type="submit">Record move</button>
+                </form>
+
+                <form id="calibration-form" class="panel">
+                  <h3>Record calibration</h3>
+                  <label>
+                    Equipment
+                    <select id="calibration-equipment"></select>
+                  </label>
+                  <label>
+                    Calibration date
+                    <input id="calibration-date" type="date" />
+                  </label>
+                  <label>
+                    Interval months (optional override)
+                    <input
+                      id="calibration-interval"
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 18"
+                    />
+                  </label>
+                  <label class="checkbox-field">
+                    Calibration required
+                    <input id="calibration-required" type="checkbox" />
+                  </label>
+                  <button type="submit">Save calibration</button>
+                </form>
+              </div>
+
+              <div class="history">
+                <div class="history-header">
+                  <h3>Recent moves</h3>
+                  <button id="clear-history" type="button">Clear history</button>
+                </div>
+                <ul id="history-list"></ul>
+              </div>
+            </section>
           </div>
         </section>
 
-        <section class="card">
-          <h2>Console</h2>
-          <p>Use the console to log moves or add new equipment.</p>
+        <section
+          id="tab-admin"
+          class="tab-panel"
+          role="tabpanel"
+          aria-labelledby="tab-button-admin"
+          hidden
+        >
+          <section class="card">
+            <h2>Administration</h2>
+            <p>Use these tools to add or update equipment records.</p>
 
-          <div class="console">
-            <form id="move-form" class="panel">
-              <h3>Log a move</h3>
-              <label>
-                Equipment
-                <select id="move-equipment"></select>
-              </label>
-              <label>
-                New location
-                <select id="move-location"></select>
-              </label>
-              <label>
-                Status (optional)
-                <select id="move-status"></select>
-              </label>
-              <label>
-                Notes (optional)
-                <input id="move-notes" type="text" placeholder="Customer name, demo date..." />
-              </label>
-              <button type="submit">Record move</button>
-            </form>
-
-            <form id="calibration-form" class="panel">
-              <h3>Record calibration</h3>
-              <label>
-                Equipment
-                <select id="calibration-equipment"></select>
-              </label>
-              <label>
-                Calibration date
-                <input id="calibration-date" type="date" />
-              </label>
-              <label>
-                Interval months (optional override)
-                <input
-                  id="calibration-interval"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="e.g. 18"
-                />
-              </label>
-              <label class="checkbox-field">
-                Calibration required
-                <input id="calibration-required" type="checkbox" />
-              </label>
-              <button type="submit">Save calibration</button>
-            </form>
-
-            <form id="add-equipment-form" class="panel">
-              <h3>Add new equipment</h3>
-              <label>
-                Equipment name
-                <input id="new-equipment-name" type="text" required />
-              </label>
-              <label>
-                Model
-                <input id="new-equipment-model" type="text" />
-              </label>
-              <label>
-                Serial number
-                <input id="new-equipment-serial" type="text" />
-                <span
-                  id="new-equipment-serial-warning"
-                  class="field-warning is-hidden"
+            <div class="console">
+              <form id="add-equipment-form" class="panel">
+                <h3>Add new equipment</h3>
+                <label>
+                  Equipment name
+                  <input id="new-equipment-name" type="text" required />
+                </label>
+                <label>
+                  Model
+                  <input id="new-equipment-model" type="text" />
+                </label>
+                <label>
+                  Serial number
+                  <input id="new-equipment-serial" type="text" />
+                  <span
+                    id="new-equipment-serial-warning"
+                    class="field-warning is-hidden"
+                  >
+                    Another item already has this serial number.
+                  </span>
+                </label>
+                <label>
+                  Purchase date
+                  <input id="new-equipment-purchase-date" type="date" />
+                </label>
+                <label>
+                  Starting location
+                  <select id="new-equipment-location"></select>
+                </label>
+                <label>
+                  Status
+                  <select id="new-equipment-status"></select>
+                </label>
+                <label class="checkbox-field">
+                  Calibration required
+                  <input
+                    id="new-equipment-calibration-required"
+                    type="checkbox"
+                    checked
+                  />
+                </label>
+                <label id="new-equipment-calibration-interval-field">
+                  Calibration interval
+                  <select id="new-equipment-calibration-interval">
+                    <option value="12">12 months</option>
+                    <option value="24">24 months</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+                <label
+                  id="new-equipment-calibration-interval-custom-field"
+                  class="is-hidden"
                 >
-                  Another item already has this serial number.
-                </span>
-              </label>
-              <label>
-                Purchase date
-                <input id="new-equipment-purchase-date" type="date" />
-              </label>
-              <label>
-                Starting location
-                <select id="new-equipment-location"></select>
-              </label>
-              <label>
-                Status
-                <select id="new-equipment-status"></select>
-              </label>
-              <label class="checkbox-field">
-                Calibration required
-                <input
-                  id="new-equipment-calibration-required"
-                  type="checkbox"
-                  checked
-                />
-              </label>
-              <label id="new-equipment-calibration-interval-field">
-                Calibration interval
-                <select id="new-equipment-calibration-interval">
-                  <option value="12">12 months</option>
-                  <option value="24">24 months</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </label>
-              <label
-                id="new-equipment-calibration-interval-custom-field"
-                class="is-hidden"
-              >
-                Custom interval (months)
-                <input
-                  id="new-equipment-calibration-interval-custom"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="e.g. 18"
-                />
-              </label>
-              <label id="new-equipment-last-calibration-field">
-                Last calibration date
-                <input id="new-equipment-last-calibration" type="date" />
-              </label>
-              <button type="submit">Add equipment</button>
-            </form>
+                  Custom interval (months)
+                  <input
+                    id="new-equipment-calibration-interval-custom"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 18"
+                  />
+                </label>
+                <label id="new-equipment-last-calibration-field">
+                  Last calibration date
+                  <input id="new-equipment-last-calibration" type="date" />
+                </label>
+                <button type="submit">Add equipment</button>
+              </form>
 
-            <form id="edit-equipment-form" class="panel">
-              <h3>Edit equipment</h3>
-              <label>
-                Equipment
-                <select id="edit-equipment-select"></select>
-              </label>
-              <label>
-                Equipment name
-                <input id="edit-equipment-name" type="text" required />
-                <span id="edit-equipment-name-error" class="field-error is-hidden">
-                  Equipment name is required.
-                </span>
-              </label>
-              <label>
-                Model
-                <input id="edit-equipment-model" type="text" />
-              </label>
-              <label>
-                Serial number
-                <input id="edit-equipment-serial" type="text" />
-                <span
-                  id="edit-equipment-serial-warning"
-                  class="field-warning is-hidden"
+              <form id="edit-equipment-form" class="panel">
+                <h3>Edit equipment</h3>
+                <label>
+                  Equipment
+                  <select id="edit-equipment-select"></select>
+                </label>
+                <label>
+                  Equipment name
+                  <input id="edit-equipment-name" type="text" required />
+                  <span
+                    id="edit-equipment-name-error"
+                    class="field-error is-hidden"
+                  >
+                    Equipment name is required.
+                  </span>
+                </label>
+                <label>
+                  Model
+                  <input id="edit-equipment-model" type="text" />
+                </label>
+                <label>
+                  Serial number
+                  <input id="edit-equipment-serial" type="text" />
+                  <span
+                    id="edit-equipment-serial-warning"
+                    class="field-warning is-hidden"
+                  >
+                    Another item already has this serial number.
+                  </span>
+                </label>
+                <label>
+                  Purchase date
+                  <input id="edit-equipment-purchase-date" type="date" />
+                </label>
+                <label>
+                  Physical location
+                  <select id="edit-equipment-location"></select>
+                </label>
+                <label>
+                  Status
+                  <select id="edit-equipment-status"></select>
+                </label>
+                <label class="checkbox-field">
+                  Calibration required
+                  <input
+                    id="edit-equipment-calibration-required"
+                    type="checkbox"
+                  />
+                </label>
+                <label id="edit-equipment-calibration-interval-field">
+                  Calibration interval
+                  <select id="edit-equipment-calibration-interval">
+                    <option value="12">12 months</option>
+                    <option value="24">24 months</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+                <label
+                  id="edit-equipment-calibration-interval-custom-field"
+                  class="is-hidden"
                 >
-                  Another item already has this serial number.
-                </span>
-              </label>
-              <label>
-                Purchase date
-                <input id="edit-equipment-purchase-date" type="date" />
-              </label>
-              <label>
-                Physical location
-                <select id="edit-equipment-location"></select>
-              </label>
-              <label>
-                Status
-                <select id="edit-equipment-status"></select>
-              </label>
-              <label class="checkbox-field">
-                Calibration required
-                <input id="edit-equipment-calibration-required" type="checkbox" />
-              </label>
-              <label id="edit-equipment-calibration-interval-field">
-                Calibration interval
-                <select id="edit-equipment-calibration-interval">
-                  <option value="12">12 months</option>
-                  <option value="24">24 months</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </label>
-              <label
-                id="edit-equipment-calibration-interval-custom-field"
-                class="is-hidden"
-              >
-                Custom interval (months)
-                <input
-                  id="edit-equipment-calibration-interval-custom"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="e.g. 18"
-                />
-              </label>
-              <label id="edit-equipment-last-calibration-field">
-                Last calibration date
-                <input id="edit-equipment-last-calibration" type="date" />
-              </label>
-              <div class="panel-actions">
-                <button type="submit">Save changes</button>
-                <button
-                  type="button"
-                  class="button-secondary"
-                  id="edit-equipment-cancel"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-
-          </div>
-
-          <div class="history">
-            <div class="history-header">
-              <h3>Recent moves</h3>
-              <button id="clear-history" type="button">Clear history</button>
+                  Custom interval (months)
+                  <input
+                    id="edit-equipment-calibration-interval-custom"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 18"
+                  />
+                </label>
+                <label id="edit-equipment-last-calibration-field">
+                  Last calibration date
+                  <input id="edit-equipment-last-calibration" type="date" />
+                </label>
+                <div class="panel-actions">
+                  <button type="submit">Save changes</button>
+                  <button
+                    type="button"
+                    class="button-secondary"
+                    id="edit-equipment-cancel"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
-            <ul id="history-list"></ul>
-          </div>
+          </section>
         </section>
       </main>
     </div>
