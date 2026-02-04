@@ -268,7 +268,23 @@
                         </div>
                       </details>
                     </div>
-                    <button type="submit">Record move</button>
+                    <p
+                      id="move-checklist-lock"
+                      class="field-warning is-hidden"
+                    >
+                      This equipment does not have a condition checklist
+                      defined. An admin must define it before it can be moved.
+                      <button
+                        type="button"
+                        class="link-button"
+                        id="move-checklist-admin-link"
+                      >
+                        Go to Admin → Edit equipment
+                      </button>
+                    </p>
+                    <button type="submit" id="move-submit">
+                      Record move
+                    </button>
                   </form>
 
                   <form id="calibration-form" class="panel">
@@ -563,6 +579,25 @@
                       placeholder="List functional checks, one per line..."
                     ></textarea>
                   </label>
+                  <div class="copy-checklist">
+                    <label>
+                      Copy checklist from
+                      <select id="edit-equipment-copy-source">
+                        <option value="">Select equipment...</option>
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      id="edit-equipment-copy-button"
+                      disabled
+                    >
+                      Copy checklist
+                    </button>
+                    <span
+                      id="edit-equipment-copy-warning"
+                      class="field-warning is-hidden"
+                    ></span>
+                  </div>
                   <div class="panel-actions">
                     <button type="submit">Save changes</button>
                     <button

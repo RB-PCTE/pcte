@@ -572,6 +572,30 @@ button:hover {
   background: var(--accent-dark);
 }
 
+button:disabled {
+  background: #b7bfd6;
+  cursor: not-allowed;
+}
+
+.link-button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent-dark);
+  text-decoration: underline;
+  font: inherit;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--accent);
+}
+
+.copy-checklist {
+  display: grid;
+  gap: 10px;
+}
+
 .icon-button {
   border: 1px solid var(--border);
   background: transparent;
