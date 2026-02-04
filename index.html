@@ -87,8 +87,16 @@
                 <strong id="stat-overdue">0</strong>
               </div>
               <div>
-                <span class="stat-label">Due soon</span>
+                <span class="stat-label">Due soon calibration</span>
                 <strong id="stat-due-soon">0</strong>
+              </div>
+              <div>
+                <span class="stat-label">Overdue subscription</span>
+                <strong id="stat-overdue-subscription">0</strong>
+              </div>
+              <div>
+                <span class="stat-label">Due soon subscription</span>
+                <strong id="stat-due-soon-subscription">0</strong>
               </div>
             </div>
 
@@ -112,6 +120,10 @@
                       <label for="calibration-filter">Calibration</label>
                       <select id="calibration-filter"></select>
                     </div>
+                    <div class="filter">
+                      <label for="subscription-filter">Subscription</label>
+                      <select id="subscription-filter"></select>
+                    </div>
                   </div>
                 </div>
                 <div class="search">
@@ -132,6 +144,7 @@
                         <th>Status</th>
                         <th>Location</th>
                         <th>Calibration</th>
+                        <th>Subscription</th>
                         <th>Last moved</th>
                       </tr>
                     </thead>
@@ -154,7 +167,10 @@
 
               <section class="card">
                 <h2>Console</h2>
-                <p>Use the console to log moves or record calibration.</p>
+                <p>
+                  Use the console to log moves, record calibration, or renew
+                  subscriptions.
+                </p>
 
                 <div class="console">
                   <form id="move-form" class="panel">
@@ -208,6 +224,33 @@
                     </label>
                     <button type="submit">Save calibration</button>
                   </form>
+
+                  <form id="subscription-form" class="panel">
+                    <h3>Record subscription</h3>
+                    <label>
+                      Equipment
+                      <select id="subscription-equipment"></select>
+                    </label>
+                    <label>
+                      Renewal date
+                      <input id="subscription-date" type="date" />
+                    </label>
+                    <label>
+                      Interval months (optional override)
+                      <input
+                        id="subscription-interval"
+                        type="number"
+                        min="1"
+                        step="1"
+                        placeholder="e.g. 18"
+                      />
+                    </label>
+                    <label class="checkbox-field">
+                      Subscription required
+                      <input id="subscription-required" type="checkbox" />
+                    </label>
+                    <button type="submit">Save subscription</button>
+                  </form>
                 </div>
 
                 <div class="history">
@@ -235,7 +278,10 @@
               <div class="card-header">
                 <div>
                   <h2>Moves log</h2>
-                  <p>Review every recorded move, calibration, and update.</p>
+                  <p>
+                    Review every recorded move, calibration, subscription, and
+                    update.
+                  </p>
                 </div>
                 <div class="filters">
                   <div class="filter">
