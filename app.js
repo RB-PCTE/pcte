@@ -2373,7 +2373,7 @@ function handleAddEquipment(event) {
   syncCalibrationInputs();
 }
 
-function downloadEquipmentTemplate() {
+function downloadImportTemplateCSV() {
   const template = buildEquipmentImportTemplate();
   const blob = new Blob([template], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -3102,12 +3102,15 @@ if (elements.addEquipmentSerial) {
   elements.addEquipmentSerial.addEventListener("change", handleAddSerialInput);
 }
 
-if (elements.importTemplateButton) {
-  elements.importTemplateButton.addEventListener(
-    "click",
-    downloadEquipmentTemplate
-  );
-}
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("#import-template-button");
+  if (!button) {
+    return;
+  }
+  event.preventDefault();
+  console.log("Downloading import template...");
+  downloadImportTemplateCSV();
+});
 
 if (elements.importFileInput) {
   elements.importFileInput.addEventListener("change", handleImportFileChange);
