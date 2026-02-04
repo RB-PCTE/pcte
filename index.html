@@ -437,6 +437,77 @@
                     </button>
                   </div>
                 </form>
+
+                <div class="panel import-panel">
+                  <h3>Import equipment</h3>
+                  <p class="panel-hint">
+                    Upload a CSV to bulk add equipment. Existing items are never
+                    removed.
+                  </p>
+                  <div class="panel-actions">
+                    <button type="button" id="import-template-button">
+                      Download CSV template
+                    </button>
+                  </div>
+                  <label>
+                    CSV file
+                    <input
+                      id="import-file-input"
+                      type="file"
+                      accept=".csv"
+                    />
+                  </label>
+                  <label>
+                    On duplicate serial
+                    <select id="import-duplicate-behavior">
+                      <option value="skip" selected>Skip</option>
+                      <option value="import">Import anyway</option>
+                    </select>
+                  </label>
+                  <div class="import-summary" id="import-summary" aria-live="polite">
+                    <div>
+                      <span class="import-label">Rows detected</span>
+                      <strong id="import-total-count">0</strong>
+                    </div>
+                    <div>
+                      <span class="import-label">Valid</span>
+                      <strong id="import-valid-count">0</strong>
+                    </div>
+                    <div>
+                      <span class="import-label">Invalid</span>
+                      <strong id="import-invalid-count">0</strong>
+                    </div>
+                  </div>
+                  <div class="import-preview">
+                    <p id="import-empty-state" class="import-empty">
+                      Select a CSV file to preview the import.
+                    </p>
+                    <div class="import-preview-table table-wrapper is-hidden">
+                      <table>
+                        <thead id="import-preview-header"></thead>
+                        <tbody id="import-preview-body"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div class="import-warnings">
+                    <h4>Warnings</h4>
+                    <ul id="import-warnings" class="import-warning-list">
+                      <li class="import-empty">No warnings yet.</li>
+                    </ul>
+                  </div>
+                  <div class="panel-actions">
+                    <button type="button" id="import-submit" disabled>
+                      Import
+                    </button>
+                    <button
+                      type="button"
+                      class="button-secondary"
+                      id="import-clear"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
               </div>
             </section>
           </section>
