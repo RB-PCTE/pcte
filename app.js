@@ -88,7 +88,6 @@ function buildDefaultState() {
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -3 }),
         subscriptionRequired: false,
-        subscriptionIntervalMonths: 12,
         subscriptionRenewalDate: "",
       },
       {
@@ -104,7 +103,6 @@ function buildDefaultState() {
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -6 }),
         subscriptionRequired: false,
-        subscriptionIntervalMonths: 12,
         subscriptionRenewalDate: "",
       },
       {
@@ -120,7 +118,6 @@ function buildDefaultState() {
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -14 }),
         subscriptionRequired: false,
-        subscriptionIntervalMonths: 12,
         subscriptionRenewalDate: "",
       },
       {
@@ -136,7 +133,6 @@ function buildDefaultState() {
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
         subscriptionRequired: false,
-        subscriptionIntervalMonths: 12,
         subscriptionRenewalDate: "",
       },
     ],
@@ -193,11 +189,6 @@ const elements = {
   calibrationDate: document.querySelector("#calibration-date"),
   calibrationInterval: document.querySelector("#calibration-interval"),
   calibrationRequired: document.querySelector("#calibration-required"),
-  subscriptionForm: document.querySelector("#subscription-form"),
-  subscriptionEquipment: document.querySelector("#subscription-equipment"),
-  subscriptionDate: document.querySelector("#subscription-date"),
-  subscriptionInterval: document.querySelector("#subscription-interval"),
-  subscriptionRequired: document.querySelector("#subscription-required"),
   addEquipmentForm: document.querySelector("#add-equipment-form"),
   addEquipmentName: document.querySelector("#new-equipment-name"),
   addEquipmentModel: document.querySelector("#new-equipment-model"),
@@ -230,6 +221,15 @@ const elements = {
   ),
   addEquipmentLastCalibrationField: document.querySelector(
     "#new-equipment-last-calibration-field"
+  ),
+  addEquipmentSubscriptionRequired: document.querySelector(
+    "#new-equipment-subscription-required"
+  ),
+  addEquipmentSubscriptionDate: document.querySelector(
+    "#new-equipment-subscription-date"
+  ),
+  addEquipmentSubscriptionDateField: document.querySelector(
+    "#new-equipment-subscription-date-field"
   ),
   editEquipmentForm: document.querySelector("#edit-equipment-form"),
   editEquipmentSelect: document.querySelector("#edit-equipment-select"),
@@ -270,6 +270,15 @@ const elements = {
   ),
   editEquipmentLastCalibrationField: document.querySelector(
     "#edit-equipment-last-calibration-field"
+  ),
+  editEquipmentSubscriptionRequired: document.querySelector(
+    "#edit-equipment-subscription-required"
+  ),
+  editEquipmentSubscriptionDate: document.querySelector(
+    "#edit-equipment-subscription-date"
+  ),
+  editEquipmentSubscriptionDateField: document.querySelector(
+    "#edit-equipment-subscription-date-field"
   ),
   editEquipmentCancel: document.querySelector("#edit-equipment-cancel"),
   historyList: document.querySelector("#history-list"),
@@ -1027,7 +1036,6 @@ function renderEquipmentOptions() {
   [
     elements.moveEquipment,
     elements.calibrationEquipment,
-    elements.subscriptionEquipment,
     elements.editEquipmentSelect,
   ].forEach((selectEl) => {
     populateEquipmentSelect(selectEl, equipmentList, selectEl?.value);
@@ -1352,68 +1360,69 @@ function buildEquipmentImportTemplate() {
 
 function normalizeEquipment(item = {}) {
   const safeItem = item && typeof item === "object" ? item : {};
+  const { subscriptionIntervalMonths, ...normalizedBase } = safeItem;
   const name =
-    typeof safeItem.name === "string"
-      ? safeItem.name
-      : safeItem.name != null
-        ? String(safeItem.name)
+    typeof normalizedBase.name === "string"
+      ? normalizedBase.name
+      : normalizedBase.name != null
+        ? String(normalizedBase.name)
         : "";
   const location =
-    typeof safeItem.location === "string"
-      ? safeItem.location
-      : safeItem.location != null
-        ? String(safeItem.location)
+    typeof normalizedBase.location === "string"
+      ? normalizedBase.location
+      : normalizedBase.location != null
+        ? String(normalizedBase.location)
         : "";
   const status =
-    typeof safeItem.status === "string"
-      ? safeItem.status
-      : safeItem.status != null
-        ? String(safeItem.status)
+    typeof normalizedBase.status === "string"
+      ? normalizedBase.status
+      : normalizedBase.status != null
+        ? String(normalizedBase.status)
         : "";
   const model =
-    typeof safeItem.model === "string"
-      ? safeItem.model
-      : safeItem.model != null
-        ? String(safeItem.model)
+    typeof normalizedBase.model === "string"
+      ? normalizedBase.model
+      : normalizedBase.model != null
+        ? String(normalizedBase.model)
         : "";
   const serialNumber =
-    typeof safeItem.serialNumber === "string"
-      ? safeItem.serialNumber
-      : safeItem.serialNumber != null
-        ? String(safeItem.serialNumber)
+    typeof normalizedBase.serialNumber === "string"
+      ? normalizedBase.serialNumber
+      : normalizedBase.serialNumber != null
+        ? String(normalizedBase.serialNumber)
         : "";
   const purchaseDate =
-    typeof safeItem.purchaseDate === "string"
-      ? safeItem.purchaseDate
-      : safeItem.purchaseDate != null
-        ? String(safeItem.purchaseDate)
+    typeof normalizedBase.purchaseDate === "string"
+      ? normalizedBase.purchaseDate
+      : normalizedBase.purchaseDate != null
+        ? String(normalizedBase.purchaseDate)
         : "";
   const lastCalibrationDate =
-    typeof safeItem.lastCalibrationDate === "string"
-      ? safeItem.lastCalibrationDate
-      : safeItem.lastCalibrationDate != null
-        ? String(safeItem.lastCalibrationDate)
+    typeof normalizedBase.lastCalibrationDate === "string"
+      ? normalizedBase.lastCalibrationDate
+      : normalizedBase.lastCalibrationDate != null
+        ? String(normalizedBase.lastCalibrationDate)
         : "";
   const subscriptionRenewalDate =
-    typeof safeItem.subscriptionRenewalDate === "string"
-      ? safeItem.subscriptionRenewalDate
-      : safeItem.subscriptionRenewalDate != null
-        ? String(safeItem.subscriptionRenewalDate)
+    typeof normalizedBase.subscriptionRenewalDate === "string"
+      ? normalizedBase.subscriptionRenewalDate
+      : normalizedBase.subscriptionRenewalDate != null
+        ? String(normalizedBase.subscriptionRenewalDate)
         : "";
   const calibrationRequired =
-    typeof safeItem.calibrationRequired === "boolean"
-      ? safeItem.calibrationRequired
+    typeof normalizedBase.calibrationRequired === "boolean"
+      ? normalizedBase.calibrationRequired
       : false;
   const subscriptionRequired =
-    typeof safeItem.subscriptionRequired === "boolean"
-      ? safeItem.subscriptionRequired
+    typeof normalizedBase.subscriptionRequired === "boolean"
+      ? normalizedBase.subscriptionRequired
       : false;
 
   return {
-    ...safeItem,
+    ...normalizedBase,
     id:
-      typeof safeItem.id === "string" && safeItem.id.trim()
-        ? safeItem.id
+      typeof normalizedBase.id === "string" && normalizedBase.id.trim()
+        ? normalizedBase.id
         : crypto.randomUUID(),
     name: name?.trim() ? name : "Unnamed",
     location: location?.trim() ? location : physicalLocations[0],
@@ -1428,10 +1437,6 @@ function normalizeEquipment(item = {}) {
         : Number(safeItem.calibrationIntervalMonths) || 12,
     lastCalibrationDate,
     subscriptionRequired,
-    subscriptionIntervalMonths:
-      typeof safeItem.subscriptionIntervalMonths === "number"
-        ? safeItem.subscriptionIntervalMonths
-        : Number(safeItem.subscriptionIntervalMonths) || 12,
     subscriptionRenewalDate,
     lastMoved:
       typeof safeItem.lastMoved === "string"
@@ -1458,18 +1463,12 @@ function normalizeCalibrationFields(item) {
 
 function normalizeSubscriptionFields(item) {
   const subscriptionRequired = Boolean(item.subscriptionRequired);
-  const intervalValue = Number(item.subscriptionIntervalMonths);
-  const subscriptionIntervalMonths =
-    Number.isFinite(intervalValue) && intervalValue > 0
-      ? intervalValue
-      : 12;
   const renewalDate = parseSubscriptionDate(item.subscriptionRenewalDate)
     ? item.subscriptionRenewalDate
     : "";
 
   return {
     subscriptionRequired,
-    subscriptionIntervalMonths,
     subscriptionRenewalDate: renewalDate,
   };
 }
@@ -1899,9 +1898,16 @@ function renderTable() {
             : subscriptionInfo.status === "Unknown"
               ? "Renewal date needed"
               : "Subscription not required";
-          const subscriptionCell = `<span class="tag tag--status" title="${escapeHTML(
+          const subscriptionDateLabel = subscriptionInfo.renewalDate
+            ? formatDate(subscriptionInfo.renewalDate)
+            : "";
+          const subscriptionCell = `<div class="status-with-meta"><span class="tag tag--status" title="${escapeHTML(
             subscriptionMeta
-          )}">${escapeHTML(subscriptionInfo.status)}</span>`;
+          )}">${escapeHTML(subscriptionInfo.status)}</span>${
+            subscriptionDateLabel
+              ? `<small class="status-meta">${escapeHTML(subscriptionDateLabel)}</small>`
+              : ""
+          }</div>`;
           const modelLabel = item.model?.trim() ? item.model : "—";
           const serialLabel = item.serialNumber?.trim()
             ? item.serialNumber
@@ -2214,7 +2220,7 @@ function refreshUI() {
   renderLocationSummary();
   renderMovesView();
   syncCalibrationForm();
-  syncSubscriptionForm();
+  syncAddSubscriptionInputs({ clearWhenDisabled: false });
   syncEditForm();
 }
 
@@ -2362,6 +2368,18 @@ function logHistory(entry) {
   state.moves.unshift(historyEntry);
 }
 
+function buildSubscriptionNotes({
+  subscriptionRequired,
+  subscriptionRenewalDate,
+}) {
+  const renewalLabel = subscriptionRenewalDate
+    ? subscriptionRenewalDate
+    : "unknown";
+  return `Subscription required: ${
+    subscriptionRequired ? "true" : "false"
+  }, renewal date: ${renewalLabel}.`;
+}
+
 function handleMoveSubmit(event) {
   event.preventDefault();
   if (
@@ -2438,26 +2456,6 @@ function syncCalibrationForm() {
   }
 }
 
-function syncSubscriptionForm() {
-  if (
-    !elements.subscriptionEquipment ||
-    !elements.subscriptionDate ||
-    !elements.subscriptionRequired
-  ) {
-    return;
-  }
-  const equipmentId = elements.subscriptionEquipment.value;
-  const item = state.equipment.find((entry) => entry.id === equipmentId);
-  if (!item) {
-    return;
-  }
-  elements.subscriptionRequired.checked = Boolean(item.subscriptionRequired);
-  elements.subscriptionDate.value = item.subscriptionRenewalDate ?? "";
-  if (!elements.subscriptionDate.value) {
-    elements.subscriptionDate.value = formatDate(new Date());
-  }
-}
-
 function handleCalibrationSubmit(event) {
   event.preventDefault();
   if (
@@ -2505,59 +2503,6 @@ function handleCalibrationSubmit(event) {
   refreshUI();
 }
 
-function handleSubscriptionSubmit(event) {
-  event.preventDefault();
-  if (
-    !elements.subscriptionEquipment ||
-    !elements.subscriptionDate ||
-    !elements.subscriptionRequired
-  ) {
-    return;
-  }
-
-  const equipmentId = elements.subscriptionEquipment.value;
-  const item = state.equipment.find((entry) => entry.id === equipmentId);
-  if (!item) {
-    return;
-  }
-
-  const subscriptionRequired = elements.subscriptionRequired.checked;
-  const renewalDate = elements.subscriptionDate.value;
-  item.subscriptionRequired = subscriptionRequired;
-  item.subscriptionRenewalDate = subscriptionRequired ? renewalDate : "";
-
-  const intervalValue = elements.subscriptionInterval?.value ?? "";
-  if (String(intervalValue).trim()) {
-    const parsedInterval = Number(intervalValue);
-    if (Number.isFinite(parsedInterval) && parsedInterval > 0) {
-      item.subscriptionIntervalMonths = parsedInterval;
-    }
-  }
-
-  item.lastMoved = formatTimestamp();
-  const notes = `Subscription updated: renewalDate=${
-    item.subscriptionRenewalDate || "unknown"
-  }, interval=${item.subscriptionIntervalMonths ?? 12} months, required=${
-    subscriptionRequired ? "true" : "false"
-  }`;
-  logHistory({
-    type: "subscription_updated",
-    text: `${item.name} subscription updated.`,
-    equipmentId: String(item.id),
-    equipmentSnapshot: {
-      name: item.name,
-      model: item.model,
-      serialNumber: item.serialNumber,
-    },
-    notes,
-  });
-  if (elements.subscriptionInterval) {
-    elements.subscriptionInterval.value = "";
-  }
-  saveState();
-  refreshUI();
-}
-
 function handleAddEquipment(event) {
   event.preventDefault();
   if (
@@ -2582,6 +2527,11 @@ function handleAddEquipment(event) {
   const lastCalibrationDate = calibrationRequired
     ? elements.addEquipmentLastCalibration?.value ?? ""
     : "";
+  const subscriptionRequired =
+    elements.addEquipmentSubscriptionRequired?.checked ?? false;
+  const subscriptionRenewalDate = subscriptionRequired
+    ? elements.addEquipmentSubscriptionDate?.value ?? ""
+    : "";
   if (!name) {
     return;
   }
@@ -2597,7 +2547,10 @@ function handleAddEquipment(event) {
     calibrationIntervalMonths: calibrationInterval,
     lastCalibrationDate,
   });
-  const subscriptionDetails = normalizeSubscriptionFields({});
+  const subscriptionDetails = normalizeSubscriptionFields({
+    subscriptionRequired,
+    subscriptionRenewalDate,
+  });
 
   const newItemId = crypto.randomUUID();
   state.equipment.push({
@@ -2625,6 +2578,22 @@ function handleAddEquipment(event) {
     toLocation: location,
     statusTo: status,
   });
+  if (
+    subscriptionDetails.subscriptionRequired ||
+    subscriptionDetails.subscriptionRenewalDate
+  ) {
+    logHistory({
+      type: "subscription_updated",
+      text: `${name} subscription updated.`,
+      equipmentId: String(newItemId),
+      equipmentSnapshot: {
+        name,
+        model,
+        serialNumber,
+      },
+      notes: buildSubscriptionNotes(subscriptionDetails),
+    });
+  }
   elements.addEquipmentName.value = "";
   elements.addEquipmentModel.value = "";
   elements.addEquipmentSerial.value = "";
@@ -2641,6 +2610,13 @@ function handleAddEquipment(event) {
   if (elements.addEquipmentLastCalibration) {
     elements.addEquipmentLastCalibration.value = "";
   }
+  if (elements.addEquipmentSubscriptionRequired) {
+    elements.addEquipmentSubscriptionRequired.checked = false;
+  }
+  if (elements.addEquipmentSubscriptionDate) {
+    elements.addEquipmentSubscriptionDate.value = "";
+  }
+  syncAddSubscriptionInputs({ clearWhenDisabled: false });
   toggleSerialWarning(
     elements.addEquipmentSerialWarning,
     "",
@@ -2772,8 +2748,6 @@ function handleImportSubmit() {
       calibrationIntervalMonths: calibrationDetails.calibrationIntervalMonths,
       lastCalibrationDate: calibrationDetails.lastCalibrationDate,
       subscriptionRequired: subscriptionDetails.subscriptionRequired,
-      subscriptionIntervalMonths:
-        subscriptionDetails.subscriptionIntervalMonths,
       subscriptionRenewalDate: subscriptionDetails.subscriptionRenewalDate,
       lastMoved: now,
     };
@@ -2811,7 +2785,9 @@ function syncEditForm() {
     !elements.editEquipmentCalibrationRequired ||
     !elements.editEquipmentCalibrationInterval ||
     !elements.editEquipmentCalibrationIntervalCustom ||
-    !elements.editEquipmentLastCalibration
+    !elements.editEquipmentLastCalibration ||
+    !elements.editEquipmentSubscriptionRequired ||
+    !elements.editEquipmentSubscriptionDate
   ) {
     return;
   }
@@ -2847,7 +2823,17 @@ function syncEditForm() {
   }
 
   elements.editEquipmentLastCalibration.value = item.lastCalibrationDate ?? "";
+  const subscriptionRequired = Boolean(item.subscriptionRequired);
+  if (elements.editEquipmentSubscriptionRequired) {
+    elements.editEquipmentSubscriptionRequired.checked = subscriptionRequired;
+  }
+  if (elements.editEquipmentSubscriptionDate) {
+    elements.editEquipmentSubscriptionDate.value = subscriptionRequired
+      ? item.subscriptionRenewalDate ?? ""
+      : "";
+  }
   syncEditCalibrationInputs();
+  syncEditSubscriptionInputs({ clearWhenDisabled: false });
   clearEditNameError();
   toggleNameWarning(
     elements.editEquipmentNameWarning,
@@ -2874,7 +2860,9 @@ function resetEditForm() {
     !elements.editEquipmentCalibrationRequired ||
     !elements.editEquipmentCalibrationInterval ||
     !elements.editEquipmentCalibrationIntervalCustom ||
-    !elements.editEquipmentLastCalibration
+    !elements.editEquipmentLastCalibration ||
+    !elements.editEquipmentSubscriptionRequired ||
+    !elements.editEquipmentSubscriptionDate
   ) {
     return;
   }
@@ -2893,7 +2881,14 @@ function resetEditForm() {
   elements.editEquipmentCalibrationInterval.value = "12";
   elements.editEquipmentCalibrationIntervalCustom.value = "";
   elements.editEquipmentLastCalibration.value = "";
+  if (elements.editEquipmentSubscriptionRequired) {
+    elements.editEquipmentSubscriptionRequired.checked = false;
+  }
+  if (elements.editEquipmentSubscriptionDate) {
+    elements.editEquipmentSubscriptionDate.value = "";
+  }
   syncEditCalibrationInputs();
+  syncEditSubscriptionInputs({ clearWhenDisabled: false });
   clearEditNameError();
   clearNameWarning(elements.editEquipmentNameWarning);
   clearSerialWarning(elements.editEquipmentSerialWarning);
@@ -2932,6 +2927,46 @@ function syncEditCalibrationInputs() {
       "is-hidden",
       !isRequired
     );
+  }
+}
+
+function syncAddSubscriptionInputs({ clearWhenDisabled = true } = {}) {
+  if (
+    !elements.addEquipmentSubscriptionRequired ||
+    !elements.addEquipmentSubscriptionDate
+  ) {
+    return;
+  }
+  const isRequired = elements.addEquipmentSubscriptionRequired.checked;
+  elements.addEquipmentSubscriptionDate.disabled = !isRequired;
+  if (elements.addEquipmentSubscriptionDateField) {
+    elements.addEquipmentSubscriptionDateField.classList.toggle(
+      "is-hidden",
+      !isRequired
+    );
+  }
+  if (!isRequired && clearWhenDisabled) {
+    elements.addEquipmentSubscriptionDate.value = "";
+  }
+}
+
+function syncEditSubscriptionInputs({ clearWhenDisabled = true } = {}) {
+  if (
+    !elements.editEquipmentSubscriptionRequired ||
+    !elements.editEquipmentSubscriptionDate
+  ) {
+    return;
+  }
+  const isRequired = elements.editEquipmentSubscriptionRequired.checked;
+  elements.editEquipmentSubscriptionDate.disabled = !isRequired;
+  if (elements.editEquipmentSubscriptionDateField) {
+    elements.editEquipmentSubscriptionDateField.classList.toggle(
+      "is-hidden",
+      !isRequired
+    );
+  }
+  if (!isRequired && clearWhenDisabled) {
+    elements.editEquipmentSubscriptionDate.value = "";
   }
 }
 
@@ -3128,12 +3163,26 @@ function handleEditEquipmentSubmit(event) {
   const lastCalibrationDate = calibrationRequired
     ? elements.editEquipmentLastCalibration?.value ?? ""
     : "";
+  const subscriptionRequired =
+    elements.editEquipmentSubscriptionRequired?.checked ?? false;
+  const subscriptionRenewalDate = subscriptionRequired
+    ? elements.editEquipmentSubscriptionDate?.value ?? ""
+    : "";
 
   const calibrationDetails = normalizeCalibrationFields({
     calibrationRequired,
     calibrationIntervalMonths: calibrationInterval,
     lastCalibrationDate,
   });
+  const subscriptionDetails = normalizeSubscriptionFields({
+    subscriptionRequired,
+    subscriptionRenewalDate,
+  });
+  const subscriptionChanged =
+    Boolean(item.subscriptionRequired) !==
+      subscriptionDetails.subscriptionRequired ||
+    (item.subscriptionRenewalDate ?? "") !==
+      subscriptionDetails.subscriptionRenewalDate;
 
   const updatedFields = {
     name,
@@ -3166,6 +3215,11 @@ function handleEditEquipmentSubmit(event) {
   item.calibrationIntervalMonths =
     calibrationDetails.calibrationIntervalMonths;
   item.lastCalibrationDate = calibrationDetails.lastCalibrationDate;
+  item.subscriptionRequired = subscriptionDetails.subscriptionRequired;
+  item.subscriptionRenewalDate =
+    subscriptionDetails.subscriptionRequired
+      ? subscriptionDetails.subscriptionRenewalDate
+      : "";
 
   if (changedFields.length > 0) {
     const changedLabel = changedFields.join(", ");
@@ -3179,6 +3233,22 @@ function handleEditEquipmentSubmit(event) {
         serialNumber: item.serialNumber,
       },
       notes: changedLabel,
+    });
+  }
+  if (subscriptionChanged) {
+    logHistory({
+      type: "subscription_updated",
+      text: `${name} subscription updated.`,
+      equipmentId: String(item.id),
+      equipmentSnapshot: {
+        name,
+        model: item.model,
+        serialNumber: item.serialNumber,
+      },
+      notes: buildSubscriptionNotes({
+        subscriptionRequired: item.subscriptionRequired,
+        subscriptionRenewalDate: item.subscriptionRenewalDate,
+      }),
     });
   }
 
@@ -3352,24 +3422,10 @@ if (elements.calibrationForm) {
   );
 }
 
-if (elements.subscriptionForm) {
-  elements.subscriptionForm.addEventListener(
-    "submit",
-    handleSubscriptionSubmit
-  );
-}
-
 if (elements.calibrationEquipment) {
   elements.calibrationEquipment.addEventListener(
     "change",
     syncCalibrationForm
-  );
-}
-
-if (elements.subscriptionEquipment) {
-  elements.subscriptionEquipment.addEventListener(
-    "change",
-    syncSubscriptionForm
   );
 }
 
@@ -3388,6 +3444,13 @@ if (elements.addEquipmentCalibrationInterval) {
   elements.addEquipmentCalibrationInterval.addEventListener(
     "change",
     syncCalibrationInputs
+  );
+}
+
+if (elements.addEquipmentSubscriptionRequired) {
+  elements.addEquipmentSubscriptionRequired.addEventListener(
+    "change",
+    syncAddSubscriptionInputs
   );
 }
 
@@ -3457,6 +3520,13 @@ if (elements.editEquipmentCalibrationInterval) {
   );
 }
 
+if (elements.editEquipmentSubscriptionRequired) {
+  elements.editEquipmentSubscriptionRequired.addEventListener(
+    "change",
+    syncEditSubscriptionInputs
+  );
+}
+
 if (elements.editEquipmentSerial) {
   const handleEditSerialInput = () => {
     toggleSerialWarning(
@@ -3510,6 +3580,8 @@ initTabs();
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();
+syncAddSubscriptionInputs();
+syncEditSubscriptionInputs();
 resetImportState();
 
 if (elements.adminModeToggle) {
