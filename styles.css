@@ -214,6 +214,18 @@ select:focus {
   border: 1px solid var(--border);
 }
 
+.status-with-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.status-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .location-summary {
   margin-top: 20px;
   border-top: 1px solid var(--border);

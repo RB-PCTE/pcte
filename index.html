@@ -168,8 +168,7 @@
               <section class="card">
                 <h2>Console</h2>
                 <p>
-                  Use the console to log moves, record calibration, or renew
-                  subscriptions.
+                  Use the console to log moves or record calibration updates.
                 </p>
 
                 <div class="console">
@@ -225,32 +224,6 @@
                     <button type="submit">Save calibration</button>
                   </form>
 
-                  <form id="subscription-form" class="panel">
-                    <h3>Record subscription</h3>
-                    <label>
-                      Equipment
-                      <select id="subscription-equipment"></select>
-                    </label>
-                    <label>
-                      Renewal date
-                      <input id="subscription-date" type="date" />
-                    </label>
-                    <label>
-                      Interval months (optional override)
-                      <input
-                        id="subscription-interval"
-                        type="number"
-                        min="1"
-                        step="1"
-                        placeholder="e.g. 18"
-                      />
-                    </label>
-                    <label class="checkbox-field">
-                      Subscription required
-                      <input id="subscription-required" type="checkbox" />
-                    </label>
-                    <button type="submit">Save subscription</button>
-                  </form>
                 </div>
 
                 <div class="history">
@@ -389,6 +362,20 @@
                     Last calibration date
                     <input id="new-equipment-last-calibration" type="date" />
                   </label>
+                  <label class="checkbox-field">
+                    Subscription required
+                    <input
+                      id="new-equipment-subscription-required"
+                      type="checkbox"
+                    />
+                  </label>
+                  <label id="new-equipment-subscription-date-field">
+                    Subscription renewal date
+                    <input
+                      id="new-equipment-subscription-date"
+                      type="date"
+                    />
+                  </label>
                   <button type="submit">Add equipment</button>
                 </form>
 
@@ -471,6 +458,20 @@
                   <label id="edit-equipment-last-calibration-field">
                     Last calibration date
                     <input id="edit-equipment-last-calibration" type="date" />
+                  </label>
+                  <label class="checkbox-field">
+                    Subscription required
+                    <input
+                      id="edit-equipment-subscription-required"
+                      type="checkbox"
+                    />
+                  </label>
+                  <label id="edit-equipment-subscription-date-field">
+                    Subscription renewal date
+                    <input
+                      id="edit-equipment-subscription-date"
+                      type="date"
+                    />
                   </label>
                   <div class="panel-actions">
                     <button type="submit">Save changes</button>
