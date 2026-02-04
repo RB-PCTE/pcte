@@ -242,9 +242,45 @@ const elements = {
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
   adminTabButton: document.querySelector("#tab-button-admin"),
   adminModeToggle: document.querySelector("#admin-mode-toggle"),
+  importTemplateButton: document.querySelector("#import-template-button"),
+  importFileInput: document.querySelector("#import-file-input"),
+  importDuplicateBehavior: document.querySelector(
+    "#import-duplicate-behavior"
+  ),
+  importSummary: document.querySelector("#import-summary"),
+  importTotalCount: document.querySelector("#import-total-count"),
+  importValidCount: document.querySelector("#import-valid-count"),
+  importInvalidCount: document.querySelector("#import-invalid-count"),
+  importPreviewHeader: document.querySelector("#import-preview-header"),
+  importPreviewBody: document.querySelector("#import-preview-body"),
+  importPreviewTable: document.querySelector(".import-preview-table"),
+  importWarnings: document.querySelector("#import-warnings"),
+  importEmptyState: document.querySelector("#import-empty-state"),
+  importSubmit: document.querySelector("#import-submit"),
+  importClear: document.querySelector("#import-clear"),
 };
 
 let adminModeEnabled = false;
+const equipmentImportTemplateHeaders = [
+  "name",
+  "model",
+  "serialNumber",
+  "purchaseDate",
+  "location",
+  "status",
+  "calibrationRequired",
+  "calibrationIntervalMonths",
+  "lastCalibrationDate",
+];
+const equipmentImportState = {
+  rawRows: [],
+  rows: [],
+  warnings: [],
+  totalRows: 0,
+  validRows: 0,
+  invalidRows: 0,
+  duplicateBehavior: "skip",
+};
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
@@ -675,6 +711,166 @@ function parseDate(value) {
   return new Date(year, month - 1, day);
 }
 
+function parseFlexibleDate(value) {
+  if (!value) {
+    return "";
+  }
+  const trimmed = String(value).trim();
+  if (!trimmed) {
+    return "";
+  }
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const parsed = parseDate(trimmed);
+    return parsed ? trimmed : "";
+  }
+  const altMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (altMatch) {
+    const [, day, month, year] = altMatch;
+    const normalized = `${year}-${month}-${day}`;
+    const parsed = parseDate(normalized);
+    return parsed ? normalized : "";
+  }
+  return "";
+}
+
+function parseCsvText(text) {
+  const rows = [];
+  let current = "";
+  let row = [];
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '"') {
+      const nextChar = text[index + 1];
+      if (inQuotes && nextChar === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (char === "," && !inQuotes) {
+      row.push(current);
+      current = "";
+      continue;
+    }
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && text[index + 1] === "\n") {
+        index += 1;
+      }
+      row.push(current);
+      if (row.some((value) => String(value).trim() !== "")) {
+        rows.push(row);
+      }
+      row = [];
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  row.push(current);
+  if (row.some((value) => String(value).trim() !== "")) {
+    rows.push(row);
+  }
+
+  return rows.map((columns) => columns.map((value) => String(value).trim()));
+}
+
+function normalizeImportHeader(value) {
+  return String(value).trim().toLowerCase();
+}
+
+function normalizeImportSerial(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function parseCalibrationRequired(value) {
+  if (value == null || value === "") {
+    return true;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (["false", "0", "no"].includes(normalized)) {
+    return false;
+  }
+  return true;
+}
+
+function parseCalibrationInterval(value) {
+  if (value == null || value === "") {
+    return 12;
+  }
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return 12;
+}
+
+function hashString(value) {
+  let hash = 0;
+  const text = String(value);
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function buildStableEquipmentId(row, rowNumber) {
+  const serial = normalizeImportSerial(row.serialNumber);
+  const name = String(row.name || "").trim().toLowerCase();
+  const model = String(row.model || "").trim().toLowerCase();
+  const key = [serial || name, model, row.purchaseDate || ""].join("|");
+  return `import-${hashString(key)}-${rowNumber}`;
+}
+
+function buildEquipmentImportTemplate() {
+  const headerLine = equipmentImportTemplateHeaders.join(",");
+  const rows = [
+    [
+      "Projection kit B",
+      "Epson EB-PU1007B",
+      "PKB-2024-0201",
+      "2023-03-10",
+      "Perth",
+      "Available",
+      "TRUE",
+      "12",
+      "2024-03-01",
+    ],
+    [
+      "Audio demo pack",
+      "Pelican 1510",
+      "ADC-2024-0202",
+      "10/02/2024",
+      "Melbourne",
+      "On demo",
+      "FALSE",
+      "",
+      "",
+    ],
+  ];
+  const body = rows
+    .map((row) =>
+      row
+        .map((value) => {
+          const text = String(value);
+          if (text.includes(",") || text.includes('"')) {
+            return `"${text.replace(/"/g, '""')}"`;
+          }
+          return text;
+        })
+        .join(",")
+    )
+    .join("\n");
+  return `${headerLine}\n${body}\n`;
+}
+
 function normalizeEquipment(item = {}) {
   const safeItem = item && typeof item === "object" ? item : {};
   const name =
@@ -759,6 +955,256 @@ function normalizeCalibrationFields(item) {
     calibrationIntervalMonths,
     lastCalibrationDate,
   };
+}
+
+function parseEquipmentImportRows(rows) {
+  const [headerRow, ...dataRows] = rows;
+  const headerMap = new Map(
+    headerRow.map((header, index) => [normalizeImportHeader(header), index])
+  );
+  const missingHeaders = equipmentImportTemplateHeaders.filter(
+    (header) => !headerMap.has(normalizeImportHeader(header))
+  );
+  if (missingHeaders.length) {
+    return {
+      rawRows: [],
+      warnings: [
+        `Missing required headers: ${missingHeaders.join(", ")}.`,
+      ],
+      totalRows: 0,
+    };
+  }
+
+  const parsedRows = dataRows.map((row, rowIndex) => {
+    const getValue = (key) =>
+      row[headerMap.get(normalizeImportHeader(key))] ?? "";
+    const rawName = getValue("name");
+    const rawModel = getValue("model");
+    const rawSerial = getValue("serialNumber");
+    const rawPurchaseDate = getValue("purchaseDate");
+    const rawLocation = getValue("location");
+    const rawStatus = getValue("status");
+    const rawCalibrationRequired = getValue("calibrationRequired");
+    const rawCalibrationInterval = getValue("calibrationIntervalMonths");
+    const rawLastCalibration = getValue("lastCalibrationDate");
+
+    const issues = [];
+    const name = String(rawName || "").trim();
+    if (!name) {
+      issues.push("Missing equipment name.");
+    }
+
+    const model = String(rawModel || "").trim();
+    const serialNumber = String(rawSerial || "").trim();
+    const purchaseDate = parseFlexibleDate(rawPurchaseDate);
+    if (rawPurchaseDate && !purchaseDate) {
+      issues.push("Invalid purchase date.");
+    }
+
+    let location = String(rawLocation || "").trim();
+    if (!location) {
+      location = physicalLocations[0];
+    }
+    if (!physicalLocations.includes(location)) {
+      issues.push(`Unknown location "${location}", defaulted to Perth.`);
+      location = physicalLocations[0];
+    }
+
+    let status = String(rawStatus || "").trim();
+    if (!status) {
+      status = "Available";
+    }
+    if (!statusOptions.includes(status)) {
+      issues.push(`Unknown status "${status}", defaulted to Available.`);
+      status = "Available";
+    }
+
+    const calibrationRequired = parseCalibrationRequired(
+      rawCalibrationRequired
+    );
+    const calibrationIntervalMonths = calibrationRequired
+      ? parseCalibrationInterval(rawCalibrationInterval)
+      : parseCalibrationInterval(rawCalibrationInterval);
+
+    const lastCalibrationDate = calibrationRequired
+      ? parseFlexibleDate(rawLastCalibration)
+      : "";
+    if (rawLastCalibration && !lastCalibrationDate) {
+      issues.push("Invalid last calibration date.");
+    }
+
+    return {
+      rowNumber: rowIndex + 2,
+      data: {
+        name,
+        model,
+        serialNumber,
+        purchaseDate,
+        location,
+        status,
+        calibrationRequired,
+        calibrationIntervalMonths,
+        lastCalibrationDate,
+      },
+      issues,
+      isValid: Boolean(name),
+      duplicateNote: "",
+    };
+  });
+
+  return {
+    rawRows: parsedRows,
+    warnings: [],
+    totalRows: parsedRows.length,
+  };
+}
+
+function applyDuplicateHandling(parsedRows, duplicateBehavior) {
+  const existingSerials = new Map();
+  state.equipment.forEach((item) => {
+    const serial = normalizeImportSerial(item.serialNumber);
+    if (serial) {
+      existingSerials.set(serial, item);
+    }
+  });
+  const seenSerials = new Map();
+  const warnings = [];
+  const rows = parsedRows.map((entry) => {
+    const cloned = {
+      ...entry,
+      issues: [...entry.issues],
+      isValid: entry.isValid,
+      duplicateNote: "",
+    };
+    const serial = normalizeImportSerial(entry.data.serialNumber);
+    if (serial) {
+      if (existingSerials.has(serial)) {
+        const existingItem = existingSerials.get(serial);
+        const warning = `Row ${entry.rowNumber}: serial number matches existing item "${existingItem.name}".`;
+        warnings.push(warning);
+        cloned.issues.push(warning);
+        cloned.duplicateNote = "Existing serial";
+        if (duplicateBehavior === "skip") {
+          cloned.isValid = false;
+        }
+      }
+      if (seenSerials.has(serial)) {
+        const firstRow = seenSerials.get(serial);
+        const warning = `Row ${entry.rowNumber}: duplicate serial also appears on row ${firstRow}.`;
+        warnings.push(warning);
+        cloned.issues.push(warning);
+        cloned.duplicateNote = "Duplicate in file";
+        if (duplicateBehavior === "skip") {
+          cloned.isValid = false;
+        }
+      } else {
+        seenSerials.set(serial, entry.rowNumber);
+      }
+    }
+    return cloned;
+  });
+
+  const validRows = rows.filter((row) => row.isValid);
+  return {
+    rows,
+    warnings,
+    validRows,
+    invalidRows: rows.length - validRows.length,
+  };
+}
+
+function renderImportPreview() {
+  if (
+    !elements.importTotalCount ||
+    !elements.importValidCount ||
+    !elements.importInvalidCount ||
+    !elements.importPreviewHeader ||
+    !elements.importPreviewBody ||
+    !elements.importWarnings ||
+    !elements.importPreviewTable ||
+    !elements.importEmptyState ||
+    !elements.importSubmit
+  ) {
+    return;
+  }
+
+  elements.importTotalCount.textContent = String(
+    equipmentImportState.totalRows
+  );
+  elements.importValidCount.textContent = String(
+    equipmentImportState.validRows
+  );
+  elements.importInvalidCount.textContent = String(
+    equipmentImportState.invalidRows
+  );
+
+  if (!equipmentImportState.totalRows) {
+    elements.importEmptyState.classList.remove("is-hidden");
+    elements.importPreviewTable.classList.add("is-hidden");
+  } else {
+    elements.importEmptyState.classList.add("is-hidden");
+    elements.importPreviewTable.classList.remove("is-hidden");
+  }
+
+  const previewRows = equipmentImportState.rows.slice(0, 20);
+  const headerCells = [
+    "Row",
+    "Name",
+    "Model",
+    "Serial",
+    "Purchase date",
+    "Location",
+    "Status",
+    "Calibration",
+    "Interval",
+    "Last calibration",
+    "Result",
+  ]
+    .map((label) => `<th>${escapeHTML(label)}</th>`)
+    .join("");
+  elements.importPreviewHeader.innerHTML = `<tr>${headerCells}</tr>`;
+  elements.importPreviewBody.innerHTML = previewRows
+    .map((row) => {
+      const data = row.data;
+      const resultLabel = row.isValid ? "Ready" : "Skipped";
+      return `
+        <tr class="${row.isValid ? "" : "import-row-invalid"}">
+          <td>${row.rowNumber}</td>
+          <td>${escapeHTML(data.name)}</td>
+          <td>${escapeHTML(data.model)}</td>
+          <td>${escapeHTML(data.serialNumber)}</td>
+          <td>${escapeHTML(data.purchaseDate)}</td>
+          <td>${escapeHTML(data.location)}</td>
+          <td>${escapeHTML(data.status)}</td>
+          <td>${data.calibrationRequired ? "Yes" : "No"}</td>
+          <td>${escapeHTML(String(data.calibrationIntervalMonths))}</td>
+          <td>${escapeHTML(data.lastCalibrationDate)}</td>
+          <td>${escapeHTML(resultLabel)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const warningItems = equipmentImportState.warnings.length
+    ? equipmentImportState.warnings.map(
+        (warning) => `<li>${escapeHTML(warning)}</li>`
+      )
+    : ['<li class="import-empty">No warnings.</li>'];
+  elements.importWarnings.innerHTML = warningItems.join("");
+
+  elements.importSubmit.disabled = equipmentImportState.validRows === 0;
+}
+
+function resetImportState() {
+  equipmentImportState.rawRows = [];
+  equipmentImportState.rows = [];
+  equipmentImportState.warnings = [];
+  equipmentImportState.totalRows = 0;
+  equipmentImportState.validRows = 0;
+  equipmentImportState.invalidRows = 0;
+  equipmentImportState.duplicateBehavior =
+    elements.importDuplicateBehavior?.value ?? "skip";
+  renderImportPreview();
 }
 
 function addMonths(date, months) {
@@ -1431,6 +1877,149 @@ function handleAddEquipment(event) {
   syncCalibrationInputs();
 }
 
+function downloadEquipmentTemplate() {
+  const template = buildEquipmentImportTemplate();
+  const blob = new Blob([template], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "equipment-import-template.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function updateImportPreviewWithDuplicates() {
+  const duplicateBehavior =
+    elements.importDuplicateBehavior?.value ?? "skip";
+  equipmentImportState.duplicateBehavior = duplicateBehavior;
+  const result = applyDuplicateHandling(
+    equipmentImportState.rawRows,
+    duplicateBehavior
+  );
+  const issueWarnings = result.rows.flatMap((row) =>
+    row.issues.map((issue) =>
+      issue.startsWith("Row")
+        ? issue
+        : `Row ${row.rowNumber}: ${issue}`
+    )
+  );
+  const combinedWarnings = [
+    ...equipmentImportState.warnings,
+    ...issueWarnings,
+    ...result.warnings,
+  ];
+  const uniqueWarnings = Array.from(new Set(combinedWarnings));
+  equipmentImportState.rows = result.rows;
+  equipmentImportState.warnings = uniqueWarnings;
+  equipmentImportState.validRows = result.validRows.length;
+  equipmentImportState.invalidRows = result.invalidRows;
+  renderImportPreview();
+}
+
+function handleImportFileChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    resetImportState();
+    return;
+  }
+  if (!file.name.toLowerCase().endsWith(".csv")) {
+    equipmentImportState.rawRows = [];
+    equipmentImportState.rows = [];
+    equipmentImportState.totalRows = 0;
+    equipmentImportState.validRows = 0;
+    equipmentImportState.invalidRows = 0;
+    equipmentImportState.warnings = [
+      "Only CSV files are supported in this importer.",
+    ];
+    renderImportPreview();
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = String(reader.result || "");
+    const rows = parseCsvText(text);
+    if (rows.length < 2) {
+      equipmentImportState.rawRows = [];
+      equipmentImportState.rows = [];
+      equipmentImportState.totalRows = 0;
+      equipmentImportState.validRows = 0;
+      equipmentImportState.invalidRows = 0;
+      equipmentImportState.warnings = [
+        "No data rows found in the CSV.",
+      ];
+      renderImportPreview();
+      return;
+    }
+    const parsed = parseEquipmentImportRows(rows);
+    equipmentImportState.rawRows = parsed.rawRows;
+    equipmentImportState.totalRows = parsed.totalRows;
+    equipmentImportState.warnings = parsed.warnings;
+    updateImportPreviewWithDuplicates();
+  };
+  reader.onerror = () => {
+    equipmentImportState.rawRows = [];
+    equipmentImportState.rows = [];
+    equipmentImportState.totalRows = 0;
+    equipmentImportState.validRows = 0;
+    equipmentImportState.invalidRows = 0;
+    equipmentImportState.warnings = [
+      "Failed to read the CSV file. Please try again.",
+    ];
+    renderImportPreview();
+  };
+  reader.readAsText(file);
+}
+
+function handleImportSubmit() {
+  if (!equipmentImportState.rows.length) {
+    return;
+  }
+  const itemsToImport = equipmentImportState.rows.filter((row) => row.isValid);
+  if (!itemsToImport.length) {
+    return;
+  }
+  const now = formatTimestamp();
+  const importedItems = itemsToImport.map((row) => {
+    const data = row.data;
+    const calibrationDetails = normalizeCalibrationFields(data);
+    return {
+      id: buildStableEquipmentId(data, row.rowNumber),
+      name: data.name,
+      model: data.model,
+      serialNumber: data.serialNumber,
+      purchaseDate: data.purchaseDate,
+      location: data.location,
+      status: data.status,
+      calibrationRequired: calibrationDetails.calibrationRequired,
+      calibrationIntervalMonths: calibrationDetails.calibrationIntervalMonths,
+      lastCalibrationDate: calibrationDetails.lastCalibrationDate,
+      lastMoved: now,
+    };
+  });
+
+  state.equipment.push(...importedItems);
+  logHistory({
+    type: "Details updated",
+    text: `Imported equipment (${importedItems.length} items).`,
+  });
+  saveState();
+  refreshUI();
+  resetImportState();
+  if (elements.importFileInput) {
+    elements.importFileInput.value = "";
+  }
+}
+
+function handleImportClear() {
+  resetImportState();
+  if (elements.importFileInput) {
+    elements.importFileInput.value = "";
+  }
+}
+
 function syncEditForm() {
   if (
     !elements.editEquipmentSelect ||
@@ -2015,6 +2604,32 @@ if (elements.addEquipmentSerial) {
   elements.addEquipmentSerial.addEventListener("change", handleAddSerialInput);
 }
 
+if (elements.importTemplateButton) {
+  elements.importTemplateButton.addEventListener(
+    "click",
+    downloadEquipmentTemplate
+  );
+}
+
+if (elements.importFileInput) {
+  elements.importFileInput.addEventListener("change", handleImportFileChange);
+}
+
+if (elements.importDuplicateBehavior) {
+  elements.importDuplicateBehavior.addEventListener(
+    "change",
+    updateImportPreviewWithDuplicates
+  );
+}
+
+if (elements.importSubmit) {
+  elements.importSubmit.addEventListener("click", handleImportSubmit);
+}
+
+if (elements.importClear) {
+  elements.importClear.addEventListener("click", handleImportClear);
+}
+
 if (elements.editEquipmentForm) {
   elements.editEquipmentForm.addEventListener(
     "submit",
@@ -2093,6 +2708,7 @@ initTabs();
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();
+resetImportState();
 
 if (elements.adminModeToggle) {
   elements.adminModeToggle.addEventListener("change", () => {
