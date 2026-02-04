@@ -28,10 +28,20 @@ const calibrationFilterOptions = [
   "Not required",
 ];
 
+const subscriptionFilterOptions = [
+  "All",
+  "OK",
+  "Due soon",
+  "Overdue",
+  "Unknown",
+  "Not required",
+];
+
 const moveTypeOptions = [
   { value: "all", label: "All types" },
   { value: "move", label: "Move" },
   { value: "calibration", label: "Calibration" },
+  { value: "subscription_updated", label: "Subscription" },
   { value: "details_updated", label: "Details updated" },
 ];
 
@@ -77,6 +87,9 @@ function buildDefaultState() {
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -3 }),
+        subscriptionRequired: false,
+        subscriptionIntervalMonths: 12,
+        subscriptionRenewalDate: "",
       },
       {
         id: audioDemoId,
@@ -90,6 +103,9 @@ function buildDefaultState() {
         calibrationRequired: false,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -6 }),
+        subscriptionRequired: false,
+        subscriptionIntervalMonths: 12,
+        subscriptionRenewalDate: "",
       },
       {
         id: lightingRigId,
@@ -103,6 +119,9 @@ function buildDefaultState() {
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -14 }),
+        subscriptionRequired: false,
+        subscriptionIntervalMonths: 12,
+        subscriptionRenewalDate: "",
       },
       {
         id: portableControlId,
@@ -116,6 +135,9 @@ function buildDefaultState() {
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
+        subscriptionRequired: false,
+        subscriptionIntervalMonths: 12,
+        subscriptionRenewalDate: "",
       },
     ],
     moves: [
@@ -158,6 +180,7 @@ const elements = {
   locationFilter: document.querySelector("#location-filter"),
   statusFilter: document.querySelector("#status-filter"),
   calibrationFilter: document.querySelector("#calibration-filter"),
+  subscriptionFilter: document.querySelector("#subscription-filter"),
   searchInput: document.querySelector("#search-input"),
   equipmentTable: document.querySelector("#equipment-table"),
   moveForm: document.querySelector("#move-form"),
@@ -170,6 +193,11 @@ const elements = {
   calibrationDate: document.querySelector("#calibration-date"),
   calibrationInterval: document.querySelector("#calibration-interval"),
   calibrationRequired: document.querySelector("#calibration-required"),
+  subscriptionForm: document.querySelector("#subscription-form"),
+  subscriptionEquipment: document.querySelector("#subscription-equipment"),
+  subscriptionDate: document.querySelector("#subscription-date"),
+  subscriptionInterval: document.querySelector("#subscription-interval"),
+  subscriptionRequired: document.querySelector("#subscription-required"),
   addEquipmentForm: document.querySelector("#add-equipment-form"),
   addEquipmentName: document.querySelector("#new-equipment-name"),
   addEquipmentModel: document.querySelector("#new-equipment-model"),
@@ -250,6 +278,12 @@ const elements = {
   statHire: document.querySelector("#stat-hire"),
   statOverdue: document.querySelector("#stat-overdue"),
   statDueSoon: document.querySelector("#stat-due-soon"),
+  statOverdueSubscription: document.querySelector(
+    "#stat-overdue-subscription"
+  ),
+  statDueSoonSubscription: document.querySelector(
+    "#stat-due-soon-subscription"
+  ),
   locationSummary: document.querySelector("#location-summary"),
   operationsView: document.querySelector("#operations-view"),
   movesView: document.querySelector("#moves-view"),
@@ -446,6 +480,7 @@ function normalizeState({ equipment = [], moves = [], log } = {}) {
       location: safeLocation,
       status: derivedStatus,
       ...normalizeCalibrationFields(normalizedItem),
+      ...normalizeSubscriptionFields(normalizedItem),
     };
   });
 
@@ -494,6 +529,9 @@ function inferHistoryTypeFromText(text = "") {
   if (normalized.includes("calibration")) {
     return "calibration";
   }
+  if (normalized.includes("subscription")) {
+    return "subscription_updated";
+  }
   if (
     normalized.includes("details updated") ||
     normalized.includes("added") ||
@@ -537,11 +575,17 @@ function normalizeHistoryType(rawType, fallbackText = "") {
     if (normalized.includes("calibration")) {
       return "calibration";
     }
+    if (normalized.includes("subscription")) {
+      return "subscription_updated";
+    }
     if (normalized.includes("move")) {
       return "move";
     }
     if (normalized === "details_updated") {
       return "details_updated";
+    }
+    if (normalized === "subscription_updated") {
+      return "subscription_updated";
     }
   }
   return inferHistoryTypeFromText(fallbackText);
@@ -957,11 +1001,33 @@ function renderCalibrationOptions() {
   }
 }
 
+function renderSubscriptionOptions() {
+  const currentFilterValue = elements.subscriptionFilter
+    ? elements.subscriptionFilter.value
+    : "All";
+  const filterOptions = subscriptionFilterOptions
+    .map((status) => {
+      const safeStatus = escapeHTML(status);
+      return `<option value="${safeStatus}">${safeStatus}</option>`;
+    })
+    .join("");
+
+  if (elements.subscriptionFilter) {
+    elements.subscriptionFilter.innerHTML = filterOptions;
+    elements.subscriptionFilter.value = subscriptionFilterOptions.includes(
+      currentFilterValue
+    )
+      ? currentFilterValue
+      : "All";
+  }
+}
+
 function renderEquipmentOptions() {
   const equipmentList = state.equipment;
   [
     elements.moveEquipment,
     elements.calibrationEquipment,
+    elements.subscriptionEquipment,
     elements.editEquipmentSelect,
   ].forEach((selectEl) => {
     populateEquipmentSelect(selectEl, equipmentList, selectEl?.value);
@@ -1080,6 +1146,20 @@ function renderStats(filtered = [], now = new Date()) {
   if (elements.statDueSoon) {
     elements.statDueSoon.textContent = dueSoonCount;
   }
+  const overdueSubscriptionCount = list.filter(
+    (item) => getSubscriptionInfo(item, now).status === "Overdue"
+  ).length;
+  if (elements.statOverdueSubscription) {
+    elements.statOverdueSubscription.textContent =
+      overdueSubscriptionCount;
+  }
+  const dueSoonSubscriptionCount = list.filter(
+    (item) => getSubscriptionInfo(item, now).status === "Due soon"
+  ).length;
+  if (elements.statDueSoonSubscription) {
+    elements.statDueSoonSubscription.textContent =
+      dueSoonSubscriptionCount;
+  }
 }
 
 function parseDate(value) {
@@ -1091,6 +1171,23 @@ function parseDate(value) {
     return null;
   }
   return new Date(year, month - 1, day);
+}
+
+function parseSubscriptionDate(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    const parsedDate = parseDate(value);
+    if (parsedDate) {
+      return parsedDate;
+    }
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed;
 }
 
 function parseFlexibleDate(value) {
@@ -1297,9 +1394,19 @@ function normalizeEquipment(item = {}) {
       : safeItem.lastCalibrationDate != null
         ? String(safeItem.lastCalibrationDate)
         : "";
+  const subscriptionRenewalDate =
+    typeof safeItem.subscriptionRenewalDate === "string"
+      ? safeItem.subscriptionRenewalDate
+      : safeItem.subscriptionRenewalDate != null
+        ? String(safeItem.subscriptionRenewalDate)
+        : "";
   const calibrationRequired =
     typeof safeItem.calibrationRequired === "boolean"
       ? safeItem.calibrationRequired
+      : false;
+  const subscriptionRequired =
+    typeof safeItem.subscriptionRequired === "boolean"
+      ? safeItem.subscriptionRequired
       : false;
 
   return {
@@ -1320,6 +1427,12 @@ function normalizeEquipment(item = {}) {
         ? safeItem.calibrationIntervalMonths
         : Number(safeItem.calibrationIntervalMonths) || 12,
     lastCalibrationDate,
+    subscriptionRequired,
+    subscriptionIntervalMonths:
+      typeof safeItem.subscriptionIntervalMonths === "number"
+        ? safeItem.subscriptionIntervalMonths
+        : Number(safeItem.subscriptionIntervalMonths) || 12,
+    subscriptionRenewalDate,
     lastMoved:
       typeof safeItem.lastMoved === "string"
         ? safeItem.lastMoved
@@ -1340,6 +1453,24 @@ function normalizeCalibrationFields(item) {
     calibrationRequired,
     calibrationIntervalMonths,
     lastCalibrationDate,
+  };
+}
+
+function normalizeSubscriptionFields(item) {
+  const subscriptionRequired = Boolean(item.subscriptionRequired);
+  const intervalValue = Number(item.subscriptionIntervalMonths);
+  const subscriptionIntervalMonths =
+    Number.isFinite(intervalValue) && intervalValue > 0
+      ? intervalValue
+      : 12;
+  const renewalDate = parseSubscriptionDate(item.subscriptionRenewalDate)
+    ? item.subscriptionRenewalDate
+    : "";
+
+  return {
+    subscriptionRequired,
+    subscriptionIntervalMonths,
+    subscriptionRenewalDate: renewalDate,
   };
 }
 
@@ -1656,6 +1787,41 @@ function getCalibrationInfo(item, now) {
   };
 }
 
+function getSubscriptionInfo(item, now) {
+  if (!item.subscriptionRequired) {
+    return {
+      status: "Not required",
+      renewalDate: null,
+    };
+  }
+  const renewalDate = parseSubscriptionDate(item.subscriptionRenewalDate);
+  if (!renewalDate) {
+    return {
+      status: "Unknown",
+      renewalDate: null,
+    };
+  }
+  const diffDays = Math.ceil(
+    (renewalDate - now) / (1000 * 60 * 60 * 24)
+  );
+  if (diffDays < 0) {
+    return {
+      status: "Overdue",
+      renewalDate,
+    };
+  }
+  if (diffDays <= 30) {
+    return {
+      status: "Due soon",
+      renewalDate,
+    };
+  }
+  return {
+    status: "OK",
+    renewalDate,
+  };
+}
+
 function getFilteredEquipment(now = new Date()) {
   const searchTerm = elements.searchInput
     ? elements.searchInput.value.trim().toLowerCase()
@@ -1669,9 +1835,13 @@ function getFilteredEquipment(now = new Date()) {
   const calibrationFilter = elements.calibrationFilter
     ? elements.calibrationFilter.value
     : "All";
+  const subscriptionFilter = elements.subscriptionFilter
+    ? elements.subscriptionFilter.value
+    : "All";
 
   return state.equipment.filter((item) => {
     const calibrationInfo = getCalibrationInfo(item, now);
+    const subscriptionInfo = getSubscriptionInfo(item, now);
     const matchesSearch =
       item.name.toLowerCase().includes(searchTerm) ||
       item.location.toLowerCase().includes(searchTerm) ||
@@ -1683,11 +1853,15 @@ function getFilteredEquipment(now = new Date()) {
     const matchesCalibration =
       calibrationFilter === "All" ||
       calibrationInfo.status === calibrationFilter;
+    const matchesSubscription =
+      subscriptionFilter === "All" ||
+      subscriptionInfo.status === subscriptionFilter;
     return (
       matchesSearch &&
       matchesLocation &&
       matchesStatus &&
-      matchesCalibration
+      matchesCalibration &&
+      matchesSubscription
     );
   });
 }
@@ -1700,7 +1874,7 @@ function renderTable() {
   if (filtered.length === 0) {
     if (elements.equipmentTable) {
       elements.equipmentTable.innerHTML =
-        '<tr><td colspan="7">No equipment matches the current filter.</td></tr>';
+        '<tr><td colspan="8">No equipment matches the current filter.</td></tr>';
     }
     return;
   }
@@ -1719,6 +1893,15 @@ function renderTable() {
           const calibrationCell = `<span class="tag tag--status" title="${escapeHTML(
             calibrationMeta
           )}">${escapeHTML(calibrationInfo.status)}</span>`;
+          const subscriptionInfo = getSubscriptionInfo(item, now);
+          const subscriptionMeta = subscriptionInfo.renewalDate
+            ? `Renewal ${formatDate(subscriptionInfo.renewalDate)}`
+            : subscriptionInfo.status === "Unknown"
+              ? "Renewal date needed"
+              : "Subscription not required";
+          const subscriptionCell = `<span class="tag tag--status" title="${escapeHTML(
+            subscriptionMeta
+          )}">${escapeHTML(subscriptionInfo.status)}</span>`;
           const modelLabel = item.model?.trim() ? item.model : "—";
           const serialLabel = item.serialNumber?.trim()
             ? item.serialNumber
@@ -1733,6 +1916,7 @@ function renderTable() {
           )}</span></td>
           <td><span class="tag">${escapeHTML(item.location)}</span></td>
           <td>${calibrationCell}</td>
+          <td>${subscriptionCell}</td>
           <td>${escapeHTML(item.lastMoved)}</td>
         </tr>
       `;
@@ -1860,17 +2044,32 @@ function getAllMovesFromState() {
 function getFilteredMoves() {
   const equipmentFilter = elements.movesEquipmentFilter?.value ?? "all";
   const typeFilter = elements.movesTypeFilter?.value ?? "all";
+  const subscriptionFilter = elements.subscriptionFilter
+    ? elements.subscriptionFilter.value
+    : "All";
   const searchTerm = elements.movesSearch
     ? elements.movesSearch.value.trim().toLowerCase()
     : "";
 
   const allMoves = getAllMovesFromState();
+  const now = new Date();
   const filtered = allMoves.filter((entry) => {
     if (equipmentFilter !== "all" && entry.equipmentId !== equipmentFilter) {
       return false;
     }
     if (typeFilter !== "all" && entry.type !== typeFilter) {
       return false;
+    }
+    if (subscriptionFilter !== "All") {
+      const equipment = entry.equipmentId
+        ? equipmentById.get(entry.equipmentId)
+        : null;
+      const subscriptionStatus = equipment
+        ? getSubscriptionInfo(equipment, now).status
+        : "Unknown";
+      if (subscriptionStatus !== subscriptionFilter) {
+        return false;
+      }
     }
     if (!searchTerm) {
       return true;
@@ -1938,6 +2137,8 @@ function renderMovesView() {
           ? "Details updated"
           : entry.type === "calibration"
             ? "Calibration"
+            : entry.type === "subscription_updated"
+              ? "Subscription"
             : "Move";
       const actionCell = showActions
         ? `<td><button class="icon-button" type="button" data-action="delete-move" data-id="${escapeHTML(
@@ -2005,6 +2206,7 @@ function refreshUI() {
   renderLocationOptions();
   renderStatusOptions();
   renderCalibrationOptions();
+  renderSubscriptionOptions();
   renderEquipmentOptions();
   renderMovesFilters();
   renderTable();
@@ -2012,6 +2214,7 @@ function refreshUI() {
   renderLocationSummary();
   renderMovesView();
   syncCalibrationForm();
+  syncSubscriptionForm();
   syncEditForm();
 }
 
@@ -2235,6 +2438,26 @@ function syncCalibrationForm() {
   }
 }
 
+function syncSubscriptionForm() {
+  if (
+    !elements.subscriptionEquipment ||
+    !elements.subscriptionDate ||
+    !elements.subscriptionRequired
+  ) {
+    return;
+  }
+  const equipmentId = elements.subscriptionEquipment.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    return;
+  }
+  elements.subscriptionRequired.checked = Boolean(item.subscriptionRequired);
+  elements.subscriptionDate.value = item.subscriptionRenewalDate ?? "";
+  if (!elements.subscriptionDate.value) {
+    elements.subscriptionDate.value = formatDate(new Date());
+  }
+}
+
 function handleCalibrationSubmit(event) {
   event.preventDefault();
   if (
@@ -2282,6 +2505,59 @@ function handleCalibrationSubmit(event) {
   refreshUI();
 }
 
+function handleSubscriptionSubmit(event) {
+  event.preventDefault();
+  if (
+    !elements.subscriptionEquipment ||
+    !elements.subscriptionDate ||
+    !elements.subscriptionRequired
+  ) {
+    return;
+  }
+
+  const equipmentId = elements.subscriptionEquipment.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    return;
+  }
+
+  const subscriptionRequired = elements.subscriptionRequired.checked;
+  const renewalDate = elements.subscriptionDate.value;
+  item.subscriptionRequired = subscriptionRequired;
+  item.subscriptionRenewalDate = subscriptionRequired ? renewalDate : "";
+
+  const intervalValue = elements.subscriptionInterval?.value ?? "";
+  if (String(intervalValue).trim()) {
+    const parsedInterval = Number(intervalValue);
+    if (Number.isFinite(parsedInterval) && parsedInterval > 0) {
+      item.subscriptionIntervalMonths = parsedInterval;
+    }
+  }
+
+  item.lastMoved = formatTimestamp();
+  const notes = `Subscription updated: renewalDate=${
+    item.subscriptionRenewalDate || "unknown"
+  }, interval=${item.subscriptionIntervalMonths ?? 12} months, required=${
+    subscriptionRequired ? "true" : "false"
+  }`;
+  logHistory({
+    type: "subscription_updated",
+    text: `${item.name} subscription updated.`,
+    equipmentId: String(item.id),
+    equipmentSnapshot: {
+      name: item.name,
+      model: item.model,
+      serialNumber: item.serialNumber,
+    },
+    notes,
+  });
+  if (elements.subscriptionInterval) {
+    elements.subscriptionInterval.value = "";
+  }
+  saveState();
+  refreshUI();
+}
+
 function handleAddEquipment(event) {
   event.preventDefault();
   if (
@@ -2321,6 +2597,7 @@ function handleAddEquipment(event) {
     calibrationIntervalMonths: calibrationInterval,
     lastCalibrationDate,
   });
+  const subscriptionDetails = normalizeSubscriptionFields({});
 
   const newItemId = crypto.randomUUID();
   state.equipment.push({
@@ -2330,6 +2607,7 @@ function handleAddEquipment(event) {
     serialNumber,
     purchaseDate,
     ...calibrationDetails,
+    ...subscriptionDetails,
     location,
     status,
     lastMoved: formatTimestamp(),
@@ -2481,6 +2759,7 @@ function handleImportSubmit() {
   const importedItems = itemsToImport.map((row) => {
     const data = row.data;
     const calibrationDetails = normalizeCalibrationFields(data);
+    const subscriptionDetails = normalizeSubscriptionFields(data);
     return {
       id: buildStableEquipmentId(data, row.rowNumber),
       name: data.name,
@@ -2492,6 +2771,10 @@ function handleImportSubmit() {
       calibrationRequired: calibrationDetails.calibrationRequired,
       calibrationIntervalMonths: calibrationDetails.calibrationIntervalMonths,
       lastCalibrationDate: calibrationDetails.lastCalibrationDate,
+      subscriptionRequired: subscriptionDetails.subscriptionRequired,
+      subscriptionIntervalMonths:
+        subscriptionDetails.subscriptionIntervalMonths,
+      subscriptionRenewalDate: subscriptionDetails.subscriptionRenewalDate,
       lastMoved: now,
     };
   });
@@ -3008,6 +3291,10 @@ if (elements.calibrationFilter) {
   elements.calibrationFilter.addEventListener("change", refreshUI);
 }
 
+if (elements.subscriptionFilter) {
+  elements.subscriptionFilter.addEventListener("change", refreshUI);
+}
+
 if (elements.movesEquipmentFilter) {
   elements.movesEquipmentFilter.addEventListener("change", renderMovesView);
 }
@@ -3065,10 +3352,24 @@ if (elements.calibrationForm) {
   );
 }
 
+if (elements.subscriptionForm) {
+  elements.subscriptionForm.addEventListener(
+    "submit",
+    handleSubscriptionSubmit
+  );
+}
+
 if (elements.calibrationEquipment) {
   elements.calibrationEquipment.addEventListener(
     "change",
     syncCalibrationForm
+  );
+}
+
+if (elements.subscriptionEquipment) {
+  elements.subscriptionEquipment.addEventListener(
+    "change",
+    syncSubscriptionForm
   );
 }
 
