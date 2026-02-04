@@ -43,6 +43,10 @@ const moveTypeOptions = [
   { value: "calibration", label: "Calibration" },
   { value: "subscription_updated", label: "Subscription" },
   { value: "details_updated", label: "Details updated" },
+  {
+    value: "condition_reference_updated",
+    label: "Condition checklist",
+  },
 ];
 
 function normalizeStatus(rawStatus, rawLocation) {
@@ -217,6 +221,11 @@ const elements = {
   moveFunctionalChecklistEmpty: document.querySelector(
     "#move-functional-checklist-empty"
   ),
+  moveChecklistLock: document.querySelector("#move-checklist-lock"),
+  moveChecklistAdminLink: document.querySelector(
+    "#move-checklist-admin-link"
+  ),
+  moveSubmit: document.querySelector("#move-submit"),
   calibrationForm: document.querySelector("#calibration-form"),
   calibrationEquipment: document.querySelector("#calibration-equipment"),
   calibrationDate: document.querySelector("#calibration-date"),
@@ -319,6 +328,15 @@ const elements = {
   editEquipmentFunctionalChecklist: document.querySelector(
     "#edit-equipment-functional-checklist"
   ),
+  editEquipmentCopySource: document.querySelector(
+    "#edit-equipment-copy-source"
+  ),
+  editEquipmentCopyButton: document.querySelector(
+    "#edit-equipment-copy-button"
+  ),
+  editEquipmentCopyWarning: document.querySelector(
+    "#edit-equipment-copy-warning"
+  ),
   editEquipmentCancel: document.querySelector("#edit-equipment-cancel"),
   historyList: document.querySelector("#history-list"),
   clearHistory: document.querySelector("#clear-history"),
@@ -385,6 +403,8 @@ const equipmentImportState = {
   invalidRows: 0,
   duplicateBehavior: "skip",
 };
+let editChecklistCopySourceId = "";
+let editChecklistCopyMetadata = null;
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
@@ -626,6 +646,12 @@ function normalizeHistoryType(rawType, fallbackText = "") {
     if (normalized.includes("subscription")) {
       return "subscription_updated";
     }
+    if (normalized.includes("condition_reference")) {
+      return "condition_reference_updated";
+    }
+    if (normalized.includes("condition checklist")) {
+      return "condition_reference_updated";
+    }
     if (normalized.includes("move")) {
       return "move";
     }
@@ -634,6 +660,9 @@ function normalizeHistoryType(rawType, fallbackText = "") {
     }
     if (normalized === "subscription_updated") {
       return "subscription_updated";
+    }
+    if (normalized === "condition_reference_updated") {
+      return "condition_reference_updated";
     }
   }
   return inferHistoryTypeFromText(fallbackText);
@@ -1079,6 +1108,52 @@ function renderEquipmentOptions() {
   ].forEach((selectEl) => {
     populateEquipmentSelect(selectEl, equipmentList, selectEl?.value);
   });
+  renderChecklistCopySourceOptions({ resetSelection: false });
+}
+
+function updateCopyChecklistButtonState() {
+  if (!elements.editEquipmentCopyButton) {
+    return;
+  }
+  elements.editEquipmentCopyButton.disabled =
+    !elements.editEquipmentCopySource?.value;
+}
+
+function renderChecklistCopySourceOptions({
+  resetSelection = false,
+} = {}) {
+  if (!elements.editEquipmentCopySource) {
+    return;
+  }
+  const currentEquipmentId = elements.editEquipmentSelect?.value ?? "";
+  const sourceList = state.equipment.filter(
+    (item) => item.id !== currentEquipmentId
+  );
+  if (!sourceList.length) {
+    elements.editEquipmentCopySource.innerHTML =
+      '<option value="" disabled selected>No other equipment available</option>';
+    elements.editEquipmentCopySource.value = "";
+    updateCopyChecklistButtonState();
+    return;
+  }
+  const options = [
+    '<option value="">Select equipment...</option>',
+    ...sourceList.map((item) => {
+      const label = formatEquipmentLabel(item);
+      return `<option value="${escapeHTML(
+        item.id
+      )}">${escapeHTML(label)}</option>`;
+    }),
+  ].join("");
+  elements.editEquipmentCopySource.innerHTML = options;
+  const nextSelection =
+    !resetSelection &&
+    editChecklistCopySourceId &&
+    sourceList.some((item) => item.id === editChecklistCopySourceId)
+      ? editChecklistCopySourceId
+      : "";
+  elements.editEquipmentCopySource.value = nextSelection;
+  updateCopyChecklistButtonState();
 }
 
 function renderMovesFilters() {
@@ -1507,6 +1582,14 @@ function normalizeConditionReference(reference = {}) {
     contentsChecklist,
     functionalChecklist,
   };
+}
+
+function hasChecklistDefined(reference = {}) {
+  const normalized = normalizeConditionReference(reference);
+  return Boolean(
+    normalized.contentsChecklist.trim() &&
+      normalized.functionalChecklist.trim()
+  );
 }
 
 function normalizeCalibrationFields(item) {
@@ -2209,6 +2292,8 @@ function renderMovesView() {
             ? "Calibration"
             : entry.type === "subscription_updated"
               ? "Subscription"
+              : entry.type === "condition_reference_updated"
+                ? "Condition checklist"
             : "Move";
       const actionCell = showActions
         ? `<td><button class="icon-button" type="button" data-action="delete-move" data-id="${escapeHTML(
@@ -2361,6 +2446,18 @@ function setActiveTab(tabName, { focus = false } = {}) {
   }
 }
 
+function goToAdminEditEquipment(equipmentId) {
+  if (!equipmentId) {
+    return;
+  }
+  applyAdminMode(true);
+  setActiveTab("admin", { focus: true });
+  if (elements.editEquipmentSelect) {
+    elements.editEquipmentSelect.value = equipmentId;
+    syncEditForm();
+  }
+}
+
 function initTabs() {
   const stored = normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
   const availableTabs = elements.tabButtons
@@ -2469,6 +2566,26 @@ function renderChecklistList(listElement, emptyElement, entries) {
   emptyElement.classList.toggle("is-hidden", items.length > 0);
 }
 
+function updateMoveChecklistLock() {
+  if (
+    !elements.moveEquipment ||
+    !elements.moveChecklistLock ||
+    !elements.moveSubmit
+  ) {
+    return;
+  }
+  const equipmentId = elements.moveEquipment.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  const checklistDefined = item
+    ? hasChecklistDefined(item.conditionReference)
+    : false;
+  elements.moveChecklistLock.classList.toggle("is-hidden", checklistDefined);
+  elements.moveSubmit.disabled = !checklistDefined;
+  if (elements.moveChecklistAdminLink) {
+    elements.moveChecklistAdminLink.dataset.equipmentId = equipmentId;
+  }
+}
+
 function syncMoveConditionReference() {
   if (
     !elements.moveEquipment ||
@@ -2500,6 +2617,7 @@ function syncMoveConditionReference() {
     elements.moveFunctionalChecklistEmpty,
     functionalEntries
   );
+  updateMoveChecklistLock();
 }
 
 function syncMoveConditionNotesError() {
@@ -2559,6 +2677,10 @@ function handleMoveSubmit(event) {
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
   if (!item) {
+    return;
+  }
+  if (!hasChecklistDefined(item.conditionReference)) {
+    updateMoveChecklistLock();
     return;
   }
 
@@ -3019,6 +3141,10 @@ function syncEditForm() {
     conditionReference.contentsChecklist;
   elements.editEquipmentFunctionalChecklist.value =
     conditionReference.functionalChecklist;
+  editChecklistCopySourceId = "";
+  editChecklistCopyMetadata = null;
+  renderChecklistCopySourceOptions({ resetSelection: true });
+  clearEditChecklistCopyWarning();
   syncEditCalibrationInputs();
   syncEditSubscriptionInputs({ clearWhenDisabled: false });
   clearEditNameError();
@@ -3078,11 +3204,65 @@ function resetEditForm() {
   }
   elements.editEquipmentContentsChecklist.value = "";
   elements.editEquipmentFunctionalChecklist.value = "";
+  editChecklistCopySourceId = "";
+  editChecklistCopyMetadata = null;
+  renderChecklistCopySourceOptions({ resetSelection: true });
+  clearEditChecklistCopyWarning();
   syncEditCalibrationInputs();
   syncEditSubscriptionInputs({ clearWhenDisabled: false });
   clearEditNameError();
   clearNameWarning(elements.editEquipmentNameWarning);
   clearSerialWarning(elements.editEquipmentSerialWarning);
+}
+
+function handleCopyChecklist() {
+  if (
+    !elements.editEquipmentCopySource ||
+    !elements.editEquipmentContentsChecklist ||
+    !elements.editEquipmentFunctionalChecklist
+  ) {
+    return;
+  }
+  const sourceId = elements.editEquipmentCopySource.value;
+  if (!sourceId) {
+    return;
+  }
+  const source = state.equipment.find((entry) => entry.id === sourceId);
+  if (!source) {
+    return;
+  }
+  const sourceReference = normalizeConditionReference(
+    source.conditionReference
+  );
+  const sourceHasChecklist =
+    Boolean(sourceReference.contentsChecklist.trim()) ||
+    Boolean(sourceReference.functionalChecklist.trim());
+  if (!sourceHasChecklist) {
+    showEditChecklistCopyWarning(
+      "The selected equipment does not have a checklist defined."
+    );
+    return;
+  }
+  const currentHasChecklist =
+    Boolean(elements.editEquipmentContentsChecklist.value.trim()) ||
+    Boolean(elements.editEquipmentFunctionalChecklist.value.trim());
+  if (currentHasChecklist) {
+    const confirmed = window.confirm(
+      "This will overwrite the current checklist for this equipment. Continue?"
+    );
+    if (!confirmed) {
+      return;
+    }
+  }
+  elements.editEquipmentContentsChecklist.value =
+    sourceReference.contentsChecklist;
+  elements.editEquipmentFunctionalChecklist.value =
+    sourceReference.functionalChecklist;
+  editChecklistCopyMetadata = {
+    id: source.id,
+    label: formatEquipmentLabel(source),
+  };
+  clearEditChecklistCopyWarning();
 }
 
 function syncEditCalibrationInputs() {
@@ -3191,6 +3371,20 @@ function clearEditNameError() {
 function showEditNameError() {
   if (elements.editEquipmentNameError) {
     elements.editEquipmentNameError.classList.remove("is-hidden");
+  }
+}
+
+function clearEditChecklistCopyWarning() {
+  if (elements.editEquipmentCopyWarning) {
+    elements.editEquipmentCopyWarning.textContent = "";
+    elements.editEquipmentCopyWarning.classList.add("is-hidden");
+  }
+}
+
+function showEditChecklistCopyWarning(message) {
+  if (elements.editEquipmentCopyWarning) {
+    elements.editEquipmentCopyWarning.textContent = message;
+    elements.editEquipmentCopyWarning.classList.remove("is-hidden");
   }
 }
 
@@ -3367,6 +3561,17 @@ function handleEditEquipmentSubmit(event) {
     functionalChecklist:
       elements.editEquipmentFunctionalChecklist?.value ?? "",
   });
+  const previousConditionReference = normalizeConditionReference(
+    item.conditionReference
+  );
+  const contentsChecklistChanged =
+    previousConditionReference.contentsChecklist !==
+    conditionReference.contentsChecklist;
+  const functionalChecklistChanged =
+    previousConditionReference.functionalChecklist !==
+    conditionReference.functionalChecklist;
+  const checklistChanged =
+    contentsChecklistChanged || functionalChecklistChanged;
 
   const calibrationDetails = normalizeCalibrationFields({
     calibrationRequired,
@@ -3403,16 +3608,10 @@ function handleEditEquipmentSubmit(event) {
     }
     return currentValue !== nextValue;
   });
-  if (
-    (item.conditionReference?.contentsChecklist ?? "") !==
-    conditionReference.contentsChecklist
-  ) {
+  if (contentsChecklistChanged) {
     changedFields.push("contents checklist reference");
   }
-  if (
-    (item.conditionReference?.functionalChecklist ?? "") !==
-    conditionReference.functionalChecklist
-  ) {
+  if (functionalChecklistChanged) {
     changedFields.push("functional check guide reference");
   }
 
@@ -3446,6 +3645,23 @@ function handleEditEquipmentSubmit(event) {
       },
       notes: changedLabel,
     });
+  }
+  if (checklistChanged) {
+    const copyNote = editChecklistCopyMetadata
+      ? `Copied from ${editChecklistCopyMetadata.label}.`
+      : "Updated manually.";
+    logHistory({
+      type: "condition_reference_updated",
+      text: `Condition checklist updated for ${name}.`,
+      equipmentId: String(item.id),
+      equipmentSnapshot: {
+        name,
+        model: item.model,
+        serialNumber: item.serialNumber,
+      },
+      notes: copyNote,
+    });
+    editChecklistCopyMetadata = null;
   }
   if (subscriptionChanged) {
     logHistory({
@@ -3634,6 +3850,14 @@ if (elements.moveEquipment) {
   );
 }
 
+if (elements.moveChecklistAdminLink) {
+  elements.moveChecklistAdminLink.addEventListener("click", () => {
+    const equipmentId =
+      elements.moveChecklistAdminLink?.dataset.equipmentId ?? "";
+    goToAdminEditEquipment(equipmentId);
+  });
+}
+
 if (elements.moveContentsOk) {
   elements.moveContentsOk.addEventListener(
     "change",
@@ -3744,6 +3968,22 @@ if (elements.editEquipmentForm) {
 
 if (elements.editEquipmentSelect) {
   elements.editEquipmentSelect.addEventListener("change", syncEditForm);
+}
+
+if (elements.editEquipmentCopySource) {
+  elements.editEquipmentCopySource.addEventListener("change", () => {
+    editChecklistCopySourceId = elements.editEquipmentCopySource.value;
+    editChecklistCopyMetadata = null;
+    clearEditChecklistCopyWarning();
+    updateCopyChecklistButtonState();
+  });
+}
+
+if (elements.editEquipmentCopyButton) {
+  elements.editEquipmentCopyButton.addEventListener(
+    "click",
+    handleCopyChecklist
+  );
 }
 
 if (elements.editEquipmentCalibrationRequired) {
