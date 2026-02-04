@@ -84,6 +84,10 @@ function buildDefaultState() {
         location: "Perth",
         status: "Available",
         lastMoved: "2024-05-14 09:10",
+        conditionReference: {
+          contentsChecklist: "",
+          functionalChecklist: "",
+        },
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -3 }),
@@ -99,6 +103,10 @@ function buildDefaultState() {
         location: "Melbourne",
         status: "On demo",
         lastMoved: "2024-05-12 16:45",
+        conditionReference: {
+          contentsChecklist: "",
+          functionalChecklist: "",
+        },
         calibrationRequired: false,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -6 }),
@@ -114,6 +122,10 @@ function buildDefaultState() {
         location: "Perth",
         status: "On hire",
         lastMoved: "2024-05-10 11:00",
+        conditionReference: {
+          contentsChecklist: "",
+          functionalChecklist: "",
+        },
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -14 }),
@@ -129,6 +141,10 @@ function buildDefaultState() {
         location: "Sydney",
         status: "In service / repair",
         lastMoved: "2024-05-11 13:25",
+        conditionReference: {
+          contentsChecklist: "",
+          functionalChecklist: "",
+        },
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
@@ -184,6 +200,23 @@ const elements = {
   moveLocation: document.querySelector("#move-location"),
   moveStatus: document.querySelector("#move-status"),
   moveNotes: document.querySelector("#move-notes"),
+  moveConditionRating: document.querySelector("#move-condition-rating"),
+  moveContentsOk: document.querySelector("#move-contents-ok"),
+  moveFunctionalOk: document.querySelector("#move-functional-ok"),
+  moveConditionNotes: document.querySelector("#move-condition-notes"),
+  moveConditionNotesError: document.querySelector(
+    "#move-condition-notes-error"
+  ),
+  moveContentsChecklist: document.querySelector("#move-contents-checklist"),
+  moveContentsChecklistEmpty: document.querySelector(
+    "#move-contents-checklist-empty"
+  ),
+  moveFunctionalChecklist: document.querySelector(
+    "#move-functional-checklist"
+  ),
+  moveFunctionalChecklistEmpty: document.querySelector(
+    "#move-functional-checklist-empty"
+  ),
   calibrationForm: document.querySelector("#calibration-form"),
   calibrationEquipment: document.querySelector("#calibration-equipment"),
   calibrationDate: document.querySelector("#calibration-date"),
@@ -279,6 +312,12 @@ const elements = {
   ),
   editEquipmentSubscriptionDateField: document.querySelector(
     "#edit-equipment-subscription-date-field"
+  ),
+  editEquipmentContentsChecklist: document.querySelector(
+    "#edit-equipment-contents-checklist"
+  ),
+  editEquipmentFunctionalChecklist: document.querySelector(
+    "#edit-equipment-functional-checklist"
   ),
   editEquipmentCancel: document.querySelector("#edit-equipment-cancel"),
   historyList: document.querySelector("#history-list"),
@@ -1361,6 +1400,9 @@ function buildEquipmentImportTemplate() {
 function normalizeEquipment(item = {}) {
   const safeItem = item && typeof item === "object" ? item : {};
   const { subscriptionIntervalMonths, ...normalizedBase } = safeItem;
+  const conditionReference = normalizeConditionReference(
+    normalizedBase.conditionReference
+  );
   const name =
     typeof normalizedBase.name === "string"
       ? normalizedBase.name
@@ -1430,6 +1472,7 @@ function normalizeEquipment(item = {}) {
     model,
     serialNumber,
     purchaseDate,
+    conditionReference,
     calibrationRequired,
     calibrationIntervalMonths:
       typeof safeItem.calibrationIntervalMonths === "number"
@@ -1442,6 +1485,27 @@ function normalizeEquipment(item = {}) {
       typeof safeItem.lastMoved === "string"
         ? safeItem.lastMoved
         : formatTimestamp(),
+  };
+}
+
+function normalizeConditionReference(reference = {}) {
+  const safeReference =
+    reference && typeof reference === "object" ? reference : {};
+  const contentsChecklist =
+    typeof safeReference.contentsChecklist === "string"
+      ? safeReference.contentsChecklist
+      : safeReference.contentsChecklist != null
+        ? String(safeReference.contentsChecklist)
+        : "";
+  const functionalChecklist =
+    typeof safeReference.functionalChecklist === "string"
+      ? safeReference.functionalChecklist
+      : safeReference.functionalChecklist != null
+        ? String(safeReference.functionalChecklist)
+        : "";
+  return {
+    contentsChecklist,
+    functionalChecklist,
   };
 }
 
@@ -2219,6 +2283,7 @@ function refreshUI() {
   renderHistory();
   renderLocationSummary();
   renderMovesView();
+  syncMoveConditionReference();
   syncCalibrationForm();
   syncAddSubscriptionInputs({ clearWhenDisabled: false });
   syncEditForm();
@@ -2380,13 +2445,93 @@ function buildSubscriptionNotes({
   }, renewal date: ${renewalLabel}.`;
 }
 
+function parseChecklistEntries(rawText = "") {
+  const normalized = String(rawText || "").replace(/•/g, "\n");
+  return normalized
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .trim()
+        .replace(/^[-*]\s+/, "")
+        .replace(/^\d+[.)]\s+/, "")
+    )
+    .filter(Boolean);
+}
+
+function renderChecklistList(listElement, emptyElement, entries) {
+  if (!listElement || !emptyElement) {
+    return;
+  }
+  const items = Array.isArray(entries) ? entries : [];
+  listElement.innerHTML = items
+    .map((entry) => `<li>${escapeHTML(entry)}</li>`)
+    .join("");
+  emptyElement.classList.toggle("is-hidden", items.length > 0);
+}
+
+function syncMoveConditionReference() {
+  if (
+    !elements.moveEquipment ||
+    !elements.moveContentsChecklist ||
+    !elements.moveContentsChecklistEmpty ||
+    !elements.moveFunctionalChecklist ||
+    !elements.moveFunctionalChecklistEmpty
+  ) {
+    return;
+  }
+  const equipmentId = elements.moveEquipment.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  const conditionReference = normalizeConditionReference(
+    item?.conditionReference
+  );
+  const contentsEntries = parseChecklistEntries(
+    conditionReference.contentsChecklist
+  );
+  const functionalEntries = parseChecklistEntries(
+    conditionReference.functionalChecklist
+  );
+  renderChecklistList(
+    elements.moveContentsChecklist,
+    elements.moveContentsChecklistEmpty,
+    contentsEntries
+  );
+  renderChecklistList(
+    elements.moveFunctionalChecklist,
+    elements.moveFunctionalChecklistEmpty,
+    functionalEntries
+  );
+}
+
+function syncMoveConditionNotesError() {
+  if (
+    !elements.moveContentsOk ||
+    !elements.moveFunctionalOk ||
+    !elements.moveConditionNotes ||
+    !elements.moveConditionNotesError
+  ) {
+    return;
+  }
+  const failedChecks = [
+    elements.moveContentsOk.value === "No",
+    elements.moveFunctionalOk.value === "No",
+  ].some(Boolean);
+  const hasNotes = Boolean(elements.moveConditionNotes.value.trim());
+  if (!failedChecks || hasNotes) {
+    elements.moveConditionNotesError.classList.add("is-hidden");
+  }
+}
+
 function handleMoveSubmit(event) {
   event.preventDefault();
   if (
     !elements.moveEquipment ||
     !elements.moveLocation ||
     !elements.moveStatus ||
-    !elements.moveNotes
+    !elements.moveNotes ||
+    !elements.moveConditionRating ||
+    !elements.moveContentsOk ||
+    !elements.moveFunctionalOk ||
+    !elements.moveConditionNotes
   ) {
     return;
   }
@@ -2394,6 +2539,23 @@ function handleMoveSubmit(event) {
   const newLocation = elements.moveLocation.value;
   const newStatus = elements.moveStatus.value;
   const notes = elements.moveNotes.value.trim();
+  const conditionRating = elements.moveConditionRating.value;
+  const contentsOk = elements.moveContentsOk.value;
+  const functionalOk = elements.moveFunctionalOk.value;
+  const conditionNotes = elements.moveConditionNotes.value.trim();
+  const failedChecks = [contentsOk === "No", functionalOk === "No"].some(
+    Boolean
+  );
+  if (failedChecks && !conditionNotes) {
+    if (elements.moveConditionNotesError) {
+      elements.moveConditionNotesError.classList.remove("is-hidden");
+    }
+    elements.moveConditionNotes.focus();
+    return;
+  }
+  if (elements.moveConditionNotesError) {
+    elements.moveConditionNotesError.classList.add("is-hidden");
+  }
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
   if (!item) {
@@ -2430,9 +2592,17 @@ function handleMoveSubmit(event) {
     statusFrom: previousStatus,
     statusTo: item.status,
     notes,
+    conditionRating,
+    contentsOk,
+    functionalOk,
+    conditionNotes,
   });
   elements.moveNotes.value = "";
   elements.moveStatus.value = "Keep current status";
+  elements.moveConditionNotes.value = "";
+  elements.moveContentsOk.value = "Yes";
+  elements.moveFunctionalOk.value = "Yes";
+  elements.moveConditionRating.value = "Good";
   saveState();
   refreshUI();
 }
@@ -2559,6 +2729,10 @@ function handleAddEquipment(event) {
     model,
     serialNumber,
     purchaseDate,
+    conditionReference: {
+      contentsChecklist: "",
+      functionalChecklist: "",
+    },
     ...calibrationDetails,
     ...subscriptionDetails,
     location,
@@ -2744,6 +2918,10 @@ function handleImportSubmit() {
       purchaseDate: data.purchaseDate,
       location: data.location,
       status: data.status,
+      conditionReference: {
+        contentsChecklist: "",
+        functionalChecklist: "",
+      },
       calibrationRequired: calibrationDetails.calibrationRequired,
       calibrationIntervalMonths: calibrationDetails.calibrationIntervalMonths,
       lastCalibrationDate: calibrationDetails.lastCalibrationDate,
@@ -2787,7 +2965,9 @@ function syncEditForm() {
     !elements.editEquipmentCalibrationIntervalCustom ||
     !elements.editEquipmentLastCalibration ||
     !elements.editEquipmentSubscriptionRequired ||
-    !elements.editEquipmentSubscriptionDate
+    !elements.editEquipmentSubscriptionDate ||
+    !elements.editEquipmentContentsChecklist ||
+    !elements.editEquipmentFunctionalChecklist
   ) {
     return;
   }
@@ -2832,6 +3012,13 @@ function syncEditForm() {
       ? item.subscriptionRenewalDate ?? ""
       : "";
   }
+  const conditionReference = normalizeConditionReference(
+    item.conditionReference
+  );
+  elements.editEquipmentContentsChecklist.value =
+    conditionReference.contentsChecklist;
+  elements.editEquipmentFunctionalChecklist.value =
+    conditionReference.functionalChecklist;
   syncEditCalibrationInputs();
   syncEditSubscriptionInputs({ clearWhenDisabled: false });
   clearEditNameError();
@@ -2862,7 +3049,9 @@ function resetEditForm() {
     !elements.editEquipmentCalibrationIntervalCustom ||
     !elements.editEquipmentLastCalibration ||
     !elements.editEquipmentSubscriptionRequired ||
-    !elements.editEquipmentSubscriptionDate
+    !elements.editEquipmentSubscriptionDate ||
+    !elements.editEquipmentContentsChecklist ||
+    !elements.editEquipmentFunctionalChecklist
   ) {
     return;
   }
@@ -2887,6 +3076,8 @@ function resetEditForm() {
   if (elements.editEquipmentSubscriptionDate) {
     elements.editEquipmentSubscriptionDate.value = "";
   }
+  elements.editEquipmentContentsChecklist.value = "";
+  elements.editEquipmentFunctionalChecklist.value = "";
   syncEditCalibrationInputs();
   syncEditSubscriptionInputs({ clearWhenDisabled: false });
   clearEditNameError();
@@ -3133,7 +3324,9 @@ function handleEditEquipmentSubmit(event) {
     !elements.editEquipmentSerial ||
     !elements.editEquipmentPurchaseDate ||
     !elements.editEquipmentLocation ||
-    !elements.editEquipmentStatus
+    !elements.editEquipmentStatus ||
+    !elements.editEquipmentContentsChecklist ||
+    !elements.editEquipmentFunctionalChecklist
   ) {
     return;
   }
@@ -3168,6 +3361,12 @@ function handleEditEquipmentSubmit(event) {
   const subscriptionRenewalDate = subscriptionRequired
     ? elements.editEquipmentSubscriptionDate?.value ?? ""
     : "";
+  const conditionReference = normalizeConditionReference({
+    contentsChecklist:
+      elements.editEquipmentContentsChecklist?.value ?? "",
+    functionalChecklist:
+      elements.editEquipmentFunctionalChecklist?.value ?? "",
+  });
 
   const calibrationDetails = normalizeCalibrationFields({
     calibrationRequired,
@@ -3204,6 +3403,18 @@ function handleEditEquipmentSubmit(event) {
     }
     return currentValue !== nextValue;
   });
+  if (
+    (item.conditionReference?.contentsChecklist ?? "") !==
+    conditionReference.contentsChecklist
+  ) {
+    changedFields.push("contents checklist reference");
+  }
+  if (
+    (item.conditionReference?.functionalChecklist ?? "") !==
+    conditionReference.functionalChecklist
+  ) {
+    changedFields.push("functional check guide reference");
+  }
 
   item.name = name;
   item.model = model;
@@ -3220,6 +3431,7 @@ function handleEditEquipmentSubmit(event) {
     subscriptionDetails.subscriptionRequired
       ? subscriptionDetails.subscriptionRenewalDate
       : "";
+  item.conditionReference = conditionReference;
 
   if (changedFields.length > 0) {
     const changedLabel = changedFields.join(", ");
@@ -3413,6 +3625,34 @@ if (elements.locationSummary) {
 
 if (elements.moveForm) {
   elements.moveForm.addEventListener("submit", handleMoveSubmit);
+}
+
+if (elements.moveEquipment) {
+  elements.moveEquipment.addEventListener(
+    "change",
+    syncMoveConditionReference
+  );
+}
+
+if (elements.moveContentsOk) {
+  elements.moveContentsOk.addEventListener(
+    "change",
+    syncMoveConditionNotesError
+  );
+}
+
+if (elements.moveFunctionalOk) {
+  elements.moveFunctionalOk.addEventListener(
+    "change",
+    syncMoveConditionNotesError
+  );
+}
+
+if (elements.moveConditionNotes) {
+  elements.moveConditionNotes.addEventListener(
+    "input",
+    syncMoveConditionNotesError
+  );
 }
 
 if (elements.calibrationForm) {

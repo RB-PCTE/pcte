@@ -194,6 +194,80 @@
                         placeholder="Customer name, demo date..."
                       />
                     </label>
+                    <div class="condition-section">
+                      <h4>Condition check</h4>
+                      <div class="condition-grid">
+                        <label>
+                          Condition rating
+                          <select id="move-condition-rating">
+                            <option value="Excellent">Excellent</option>
+                            <option value="Good" selected>Good</option>
+                            <option value="Fair">Fair</option>
+                            <option value="Poor">Poor</option>
+                            <option value="Damaged">Damaged</option>
+                          </select>
+                        </label>
+                        <label>
+                          Contents OK?
+                          <select id="move-contents-ok">
+                            <option value="Yes" selected>Yes</option>
+                            <option value="No">No</option>
+                          </select>
+                        </label>
+                        <label>
+                          Functional OK?
+                          <select id="move-functional-ok">
+                            <option value="Yes" selected>Yes</option>
+                            <option value="No">No</option>
+                          </select>
+                        </label>
+                      </div>
+                      <label>
+                        Condition notes
+                        <textarea
+                          id="move-condition-notes"
+                          rows="3"
+                          placeholder="Record any issues if checks failed..."
+                        ></textarea>
+                        <span
+                          id="move-condition-notes-error"
+                          class="field-error is-hidden"
+                        >
+                          Notes are required when a condition check fails.
+                        </span>
+                      </label>
+                      <details class="reference-panel">
+                        <summary>What should I check?</summary>
+                        <div class="reference-panel-body">
+                          <div class="reference-section">
+                            <h5>Contents checklist</h5>
+                            <ul
+                              id="move-contents-checklist"
+                              class="reference-list"
+                            ></ul>
+                            <p
+                              id="move-contents-checklist-empty"
+                              class="reference-empty"
+                            >
+                              No reference defined for this equipment.
+                            </p>
+                          </div>
+                          <div class="reference-section">
+                            <h5>Functional check guide</h5>
+                            <ul
+                              id="move-functional-checklist"
+                              class="reference-list"
+                            ></ul>
+                            <p
+                              id="move-functional-checklist-empty"
+                              class="reference-empty"
+                            >
+                              No reference defined for this equipment.
+                            </p>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
                     <button type="submit">Record move</button>
                   </form>
 
@@ -472,6 +546,22 @@
                       id="edit-equipment-subscription-date"
                       type="date"
                     />
+                  </label>
+                  <label>
+                    Contents checklist (reference)
+                    <textarea
+                      id="edit-equipment-contents-checklist"
+                      rows="4"
+                      placeholder="List contents to verify, one per line..."
+                    ></textarea>
+                  </label>
+                  <label>
+                    Functional check guide (reference)
+                    <textarea
+                      id="edit-equipment-functional-checklist"
+                      rows="4"
+                      placeholder="List functional checks, one per line..."
+                    ></textarea>
                   </label>
                   <div class="panel-actions">
                     <button type="submit">Save changes</button>
