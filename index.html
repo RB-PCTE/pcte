@@ -725,13 +725,29 @@
     </div>
 
 
-    <dialog id="condition-history-modal" class="condition-history-modal">
+    <div id="condition-history-backdrop" class="condition-history-backdrop" hidden></div>
+    <aside
+      id="condition-history-drawer"
+      class="condition-history-drawer"
+      aria-hidden="true"
+      aria-label="Condition history drawer"
+    >
       <div class="condition-history-header">
-        <h3 id="condition-history-title">Condition history</h3>
-        <button type="button" class="icon-button" id="condition-history-close">Close</button>
+        <div>
+          <h3 id="condition-history-title">Condition history</h3>
+          <p id="condition-history-equipment" class="condition-history-equipment"></p>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          id="condition-history-close"
+          aria-label="Close condition history"
+        >
+          ✕
+        </button>
       </div>
       <ul id="condition-history-list" class="condition-history-list"></ul>
-    </dialog>
+    </aside>
 
     <script src="app.js"></script>
   </body>
