@@ -145,6 +145,7 @@
                         <th>Location</th>
                         <th>Calibration</th>
                         <th>Subscription</th>
+                        <th>Condition</th>
                         <th>Last moved</th>
                       </tr>
                     </thead>
@@ -234,8 +235,8 @@
                             <option value="Excellent">Excellent</option>
                             <option value="Good">Good</option>
                             <option value="Fair">Fair</option>
-                            <option value="Poor">Poor</option>
-                            <option value="Damaged">Damaged</option>
+                            <option value="Needs attention">Needs attention</option>
+                            <option value="Unserviceable">Unserviceable</option>
                           </select>
                         </label>
                         <label>
@@ -722,6 +723,15 @@
         </div>
       </main>
     </div>
+
+
+    <dialog id="condition-history-modal" class="condition-history-modal">
+      <div class="condition-history-header">
+        <h3 id="condition-history-title">Condition history</h3>
+        <button type="button" class="icon-button" id="condition-history-close">Close</button>
+      </div>
+      <ul id="condition-history-list" class="condition-history-list"></ul>
+    </dialog>
 
     <script src="app.js"></script>
   </body>

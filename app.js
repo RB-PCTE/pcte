@@ -97,6 +97,12 @@ function buildDefaultState() {
           contentsChecklist: "",
           functionalChecklist: "",
         },
+        conditionRating: "",
+        conditionContentsOk: null,
+        conditionFunctionalOk: null,
+        conditionLastCheckedAt: "",
+        conditionLastCheckedBy: "",
+        conditionLastNotes: "",
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -3 }),
@@ -116,6 +122,12 @@ function buildDefaultState() {
           contentsChecklist: "",
           functionalChecklist: "",
         },
+        conditionRating: "",
+        conditionContentsOk: null,
+        conditionFunctionalOk: null,
+        conditionLastCheckedAt: "",
+        conditionLastCheckedBy: "",
+        conditionLastNotes: "",
         calibrationRequired: false,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -6 }),
@@ -135,6 +147,12 @@ function buildDefaultState() {
           contentsChecklist: "",
           functionalChecklist: "",
         },
+        conditionRating: "",
+        conditionContentsOk: null,
+        conditionFunctionalOk: null,
+        conditionLastCheckedAt: "",
+        conditionLastCheckedBy: "",
+        conditionLastNotes: "",
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -14 }),
@@ -154,6 +172,12 @@ function buildDefaultState() {
           contentsChecklist: "",
           functionalChecklist: "",
         },
+        conditionRating: "",
+        conditionContentsOk: null,
+        conditionFunctionalOk: null,
+        conditionLastCheckedAt: "",
+        conditionLastCheckedBy: "",
+        conditionLastNotes: "",
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
@@ -391,6 +415,10 @@ const elements = {
   importEmptyState: document.querySelector("#import-empty-state"),
   importSubmit: document.querySelector("#import-submit"),
   importClear: document.querySelector("#import-clear"),
+  conditionHistoryModal: document.querySelector("#condition-history-modal"),
+  conditionHistoryTitle: document.querySelector("#condition-history-title"),
+  conditionHistoryList: document.querySelector("#condition-history-list"),
+  conditionHistoryClose: document.querySelector("#condition-history-close"),
 };
 
 let adminModeEnabled = false;
@@ -686,6 +714,75 @@ function normalizeHistoryType(rawType, fallbackText = "") {
   return inferHistoryTypeFromText(fallbackText);
 }
 
+function normalizeConditionRating(value) {
+  const allowed = [
+    "Excellent",
+    "Good",
+    "Fair",
+    "Needs attention",
+    "Unserviceable",
+  ];
+  const text = typeof value === "string" ? value.trim() : "";
+  return allowed.includes(text) ? text : "";
+}
+
+function normalizeConditionCheckValue(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "yes" || normalized === "true") {
+      return true;
+    }
+    if (normalized === "no" || normalized === "false") {
+      return false;
+    }
+  }
+  return null;
+}
+
+function normalizeConditionLogEntry(rawCondition = {}) {
+  const safeCondition =
+    rawCondition && typeof rawCondition === "object" ? rawCondition : {};
+  const rating = normalizeConditionRating(safeCondition.rating);
+  const contentsOk = normalizeConditionCheckValue(safeCondition.contentsOk);
+  const functionalOk = normalizeConditionCheckValue(safeCondition.functionalOk);
+  const notes =
+    typeof safeCondition.notes === "string" ? safeCondition.notes.trim() : "";
+  const checkedAt =
+    typeof safeCondition.checkedAt === "string" && safeCondition.checkedAt.trim()
+      ? safeCondition.checkedAt
+      : "";
+  const checkedBy =
+    typeof safeCondition.checkedBy === "string" ? safeCondition.checkedBy.trim() : "";
+  if (!rating && contentsOk === null && functionalOk === null && !notes && !checkedAt && !checkedBy) {
+    return null;
+  }
+  return {
+    rating,
+    contentsOk,
+    functionalOk,
+    notes,
+    checkedAt,
+    checkedBy,
+  };
+}
+
+function normalizeEquipmentConditionFields(item = {}) {
+  return {
+    conditionRating: normalizeConditionRating(item.conditionRating),
+    conditionContentsOk: normalizeConditionCheckValue(item.conditionContentsOk),
+    conditionFunctionalOk: normalizeConditionCheckValue(item.conditionFunctionalOk),
+    conditionLastCheckedAt:
+      typeof item.conditionLastCheckedAt === "string" ? item.conditionLastCheckedAt : "",
+    conditionLastCheckedBy:
+      typeof item.conditionLastCheckedBy === "string" ? item.conditionLastCheckedBy : "",
+    conditionLastNotes:
+      typeof item.conditionLastNotes === "string" ? item.conditionLastNotes : "",
+  };
+}
+
 function normalizeShippingDetails(shipping) {
   const safeShipping = shipping && typeof shipping === "object" ? shipping : {};
   const carrier =
@@ -797,22 +894,18 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     typeof safeEntry.statusTo === "string" ? safeEntry.statusTo : "";
   const notes =
     typeof safeEntry.notes === "string" ? safeEntry.notes : "";
-  const conditionRating =
-    typeof safeEntry.conditionRating === "string"
-      ? safeEntry.conditionRating.trim()
-      : "";
-  const contentsOk =
-    typeof safeEntry.contentsOk === "string"
-      ? safeEntry.contentsOk.trim()
-      : "";
-  const functionalOk =
-    typeof safeEntry.functionalOk === "string"
-      ? safeEntry.functionalOk.trim()
-      : "";
-  const conditionNotes =
-    typeof safeEntry.conditionNotes === "string"
-      ? safeEntry.conditionNotes.trim()
-      : "";
+  const condition = normalizeConditionLogEntry(
+    safeEntry.condition && typeof safeEntry.condition === "object"
+      ? safeEntry.condition
+      : {
+          rating: safeEntry.conditionRating,
+          contentsOk: safeEntry.contentsOk,
+          functionalOk: safeEntry.functionalOk,
+          notes: safeEntry.conditionNotes,
+          checkedAt: safeEntry.timestamp,
+          checkedBy: safeEntry.checkedBy,
+        }
+  );
   const shipping = normalizeShippingDetails(safeEntry.shipping);
 
   return {
@@ -831,10 +924,7 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     statusFrom,
     statusTo,
     notes,
-    conditionRating,
-    contentsOk,
-    functionalOk,
-    conditionNotes,
+    condition,
     shipping,
   };
 }
@@ -1044,6 +1134,20 @@ function formatTimestamp(date = new Date()) {
 
 function formatTimestampISO(date = new Date()) {
   return date.toISOString();
+}
+
+function formatDateTime(value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return typeof value === "string" && value.trim() ? value : "—";
+  }
+  return parsed.toLocaleString("en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function renderLocationOptions() {
@@ -1619,6 +1723,7 @@ function normalizeEquipment(item = {}) {
     lastCalibrationDate,
     subscriptionRequired,
     subscriptionRenewalDate,
+    ...normalizeEquipmentConditionFields(normalizedBase),
     lastMoved:
       typeof safeItem.lastMoved === "string"
         ? safeItem.lastMoved
@@ -2165,6 +2270,69 @@ function getFilteredEquipment(now = new Date()) {
   });
 }
 
+function formatConditionCheckLabel(value) {
+  if (value === true) {
+    return "OK";
+  }
+  if (value === false) {
+    return "Not OK";
+  }
+  return "—";
+}
+
+function formatConditionSummary(condition) {
+  if (!condition) {
+    return "—";
+  }
+  const parts = [];
+  if (condition.rating) {
+    parts.push(condition.rating);
+  }
+  if (condition.contentsOk !== null) {
+    parts.push(`Contents ${condition.contentsOk ? "OK" : "Not OK"}`);
+  }
+  if (condition.functionalOk !== null) {
+    parts.push(`Functional ${condition.functionalOk ? "OK" : "Not OK"}`);
+  }
+  return parts.length ? parts.join(" • ") : "—";
+}
+
+function buildEquipmentConditionCell(item) {
+  const rating = item.conditionRating || "—";
+  const hasWarning =
+    item.conditionContentsOk === false || item.conditionFunctionalOk === false;
+  const checkedDate = item.conditionLastCheckedAt
+    ? formatDateTime(item.conditionLastCheckedAt)
+    : "—";
+  return `<div class="status-with-meta"><button class="tag tag--status condition-badge ${hasWarning ? "condition-badge--warn" : ""}" type="button" data-action="view-condition-history" data-equipment-id="${escapeHTML(item.id)}">${escapeHTML(rating)}${hasWarning ? " ⚠️" : ""}</button><small class="status-meta">Last checked: ${escapeHTML(checkedDate)}</small></div>`;
+}
+
+function getConditionHistoryEntries(equipmentId) {
+  const moves = getAllMovesFromState();
+  return moves
+    .filter((entry) => entry.equipmentId === equipmentId && entry.condition)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+function openConditionHistory(equipmentId) {
+  if (!elements.conditionHistoryModal || !elements.conditionHistoryList || !elements.conditionHistoryTitle) {
+    return;
+  }
+  const equipment = state.equipment.find((item) => item.id === equipmentId);
+  const title = equipment ? equipment.name : "Equipment";
+  elements.conditionHistoryTitle.textContent = `${title} condition history`;
+  const entries = getConditionHistoryEntries(equipmentId);
+  if (!entries.length) {
+    elements.conditionHistoryList.innerHTML = "<li>No condition checks recorded yet.</li>";
+  } else {
+    elements.conditionHistoryList.innerHTML = entries.map((entry) => {
+      const c = entry.condition;
+      return `<li><strong>${escapeHTML(formatDateTime(entry.timestamp))}</strong> — ${escapeHTML(c.rating || "—")} • Contents ${escapeHTML(formatConditionCheckLabel(c.contentsOk))} • Functional ${escapeHTML(formatConditionCheckLabel(c.functionalOk))}${c.checkedBy ? ` • Checked by ${escapeHTML(c.checkedBy)}` : ""}${c.notes ? `<br>${escapeHTML(c.notes)}` : ""}</li>`;
+    }).join("");
+  }
+  elements.conditionHistoryModal.showModal();
+}
+
 function renderTable() {
   const now = new Date();
   const filtered = getFilteredEquipment(now);
@@ -2173,7 +2341,7 @@ function renderTable() {
   if (filtered.length === 0) {
     if (elements.equipmentTable) {
       elements.equipmentTable.innerHTML =
-        '<tr><td colspan="8">No equipment matches the current filter.</td></tr>';
+        '<tr><td colspan="9">No equipment matches the current filter.</td></tr>';
     }
     return;
   }
@@ -2233,9 +2401,10 @@ function renderTable() {
           <td><span class="tag">${escapeHTML(locationDisplay.text)}</span>${locationDisplay.inTransit ? " <span class=\"tag tag--status\">In transit</span>" : ""}</td>
           <td>${calibrationCell}</td>
           <td>${subscriptionCell}</td>
+          <td>${buildEquipmentConditionCell(item)}</td>
           <td>${escapeHTML(item.lastMoved)}</td>
         </tr>
-        ${hasDetailsAction ? `<tr class="equipment-shipping-details-row is-hidden" data-shipping-details-for="${escapeHTML(item.id)}"><td colspan="8"><div class="shipping-details-card"><div class="shipping-details-grid"><div><strong>Carrier</strong><span>${escapeHTML(activeShippingMove.shipping?.carrier || "—")}</span></div><div><strong>Tracking number</strong><span>${escapeHTML(activeShippingMove.shipping?.trackingNumber || "—")}</span><button class="icon-button icon-button--inline" type="button" data-action="copy-tracking" data-tracking-number="${escapeHTML(activeShippingMove.shipping?.trackingNumber || "")}">Copy</button></div><div><strong>Ship date</strong><span>${escapeHTML(activeShippingMove.shipping?.shipDate || "—")}</span></div><div><strong>ETA</strong><span>${escapeHTML(activeShippingMove.shipping?.etaDate || "—")}</span></div><div><strong>Delivered</strong><span>${escapeHTML(activeShippingMove.shipping?.deliveredAt || "—")}</span></div><div><strong>Route</strong><span>${escapeHTML(activeShippingMove.fromLocation || "—")} → ${escapeHTML(activeShippingMove.toLocation || "—")}</span></div><div><strong>Notes</strong><span>${escapeHTML(activeShippingMove.notes || "—")}</span></div></div></div></td></tr>` : ""}
+        ${hasDetailsAction ? `<tr class="equipment-shipping-details-row is-hidden" data-shipping-details-for="${escapeHTML(item.id)}"><td colspan="9"><div class="shipping-details-card"><div class="shipping-details-grid"><div><strong>Carrier</strong><span>${escapeHTML(activeShippingMove.shipping?.carrier || "—")}</span></div><div><strong>Tracking number</strong><span>${escapeHTML(activeShippingMove.shipping?.trackingNumber || "—")}</span><button class="icon-button icon-button--inline" type="button" data-action="copy-tracking" data-tracking-number="${escapeHTML(activeShippingMove.shipping?.trackingNumber || "")}">Copy</button></div><div><strong>Ship date</strong><span>${escapeHTML(activeShippingMove.shipping?.shipDate || "—")}</span></div><div><strong>ETA</strong><span>${escapeHTML(activeShippingMove.shipping?.etaDate || "—")}</span></div><div><strong>Delivered</strong><span>${escapeHTML(activeShippingMove.shipping?.deliveredAt || "—")}</span></div><div><strong>Route</strong><span>${escapeHTML(activeShippingMove.fromLocation || "—")} → ${escapeHTML(activeShippingMove.toLocation || "—")}</span></div><div><strong>Notes</strong><span>${escapeHTML(activeShippingMove.notes || "—")}</span></div></div></div></td></tr>` : ""}
       `;
         }
       )
@@ -2508,6 +2677,7 @@ function renderMovesView() {
     "To location",
     "Status change",
     "Shipping",
+    "Condition",
     "Notes",
     "Type",
   ];
@@ -2538,24 +2708,12 @@ function renderMovesView() {
         ? entry.fromLocation
         : "";
       const toLocation = entry.toLocation?.trim() ? entry.toLocation : "";
-      const fallback =
+      const notes =
         entry.notes?.trim() ||
         entry.text?.trim() ||
         entry.message?.trim() ||
         "";
-      const conditionSummaryParts = [];
-      if (entry.type === "move") {
-        conditionSummaryParts.push(`Overall: ${entry.conditionRating?.trim() || "—"}`);
-        conditionSummaryParts.push(`Contents: ${entry.contentsOk?.trim() || "—"}`);
-        conditionSummaryParts.push(`Functional: ${entry.functionalOk?.trim() || "—"}`);
-        conditionSummaryParts.push(`Condition notes: ${entry.conditionNotes?.trim() || "—"}`);
-      }
-      const conditionSummary = conditionSummaryParts.join(" | ");
-      const notes =
-        conditionSummary && fallback
-          ? `${conditionSummary}
-${fallback}`
-          : conditionSummary || fallback;
+      const conditionSummary = formatConditionSummary(entry.condition);
       const shippingSummary = getMovesShippingSummary(entry);
       const typeLabel =
         entry.type === "details_updated"
@@ -2597,6 +2755,7 @@ ${fallback}`
           <td>${escapeHTML(toLocation)}</td>
           <td>${escapeHTML(getStatusChangeLabel(entry))}</td>
           <td><div class="moves-shipping-cell">${escapeHTML(shippingSummary)}</div></td>
+          <td>${escapeHTML(conditionSummary)}</td>
           <td>${escapeHTML(notes)}</td>
           <td>${escapeHTML(typeLabel)}</td>
           ${actionCell}
@@ -2874,8 +3033,8 @@ function hasMoveConditionFailures() {
     return false;
   }
   return (
-    elements.moveConditionRating.value === "Poor" ||
-    elements.moveConditionRating.value === "Damaged" ||
+    elements.moveConditionRating.value === "Needs attention" ||
+    elements.moveConditionRating.value === "Unserviceable" ||
     elements.moveContentsOk.value === "No" ||
     elements.moveFunctionalOk.value === "No"
   );
@@ -2887,17 +3046,22 @@ function validateMoveConditionChecklist({ showErrors = false } = {}) {
   }
   const equipmentId = elements.moveEquipment.value;
   const item = state.equipment.find((entry) => entry.id === equipmentId);
-  const checklistDefined = item ? hasChecklistDefined(item.conditionReference) : false;
   const completeChecklist = isMoveConditionChecklistComplete();
   const failedChecks = hasMoveConditionFailures();
   const hasNotes = Boolean(elements.moveConditionNotes?.value.trim());
+  const hasAnyConditionInput = Boolean(
+    elements.moveConditionRating?.value ||
+      elements.moveContentsOk?.value ||
+      elements.moveFunctionalOk?.value ||
+      hasNotes
+  );
   const requiresFailureNotes = failedChecks;
   const notesValid = !requiresFailureNotes || hasNotes;
-  const canSubmit = checklistDefined && completeChecklist && notesValid;
+  const canSubmit = !hasAnyConditionInput || (completeChecklist && notesValid);
 
   elements.moveSubmit.disabled = !canSubmit;
   if (elements.moveSubmitBlocked) {
-    elements.moveSubmitBlocked.classList.toggle("is-hidden", canSubmit || !checklistDefined);
+    elements.moveSubmitBlocked.classList.add("is-hidden");
   }
   if (elements.moveConditionNotesError) {
     const shouldShowError = showErrors ? requiresFailureNotes && !hasNotes : false;
@@ -3046,8 +3210,8 @@ function handleMoveSubmit(event) {
   const shippingShipDate = parseFlexibleDate(elements.moveShippingShipDate.value);
   const shippingEtaDate = parseFlexibleDate(elements.moveShippingEtaDate.value);
   const failedChecks = [
-    conditionRating === "Poor",
-    conditionRating === "Damaged",
+    conditionRating === "Needs attention",
+    conditionRating === "Unserviceable",
     contentsOk === "No",
     functionalOk === "No",
   ].some(Boolean);
@@ -3063,11 +3227,6 @@ function handleMoveSubmit(event) {
   if (!item) {
     return;
   }
-  if (!hasChecklistDefined(item.conditionReference)) {
-    updateMoveChecklistLock();
-    return;
-  }
-
   const previousLocation = item.location;
   const previousStatus = item.status;
   item.location = newLocation;
@@ -3084,6 +3243,27 @@ function handleMoveSubmit(event) {
     notes ? ` (${notes}).` : "."
   }`;
 
+  const conditionCheckCompleted =
+    Boolean(conditionRating && contentsOk && functionalOk) && checklistValid;
+  const conditionEntry = conditionCheckCompleted
+    ? {
+        rating: conditionRating,
+        contentsOk: contentsOk === "Yes",
+        functionalOk: functionalOk === "Yes",
+        notes: conditionNotes,
+        checkedAt: formatTimestampISO(),
+        checkedBy: "",
+      }
+    : null;
+  if (conditionEntry) {
+    item.conditionRating = conditionEntry.rating;
+    item.conditionContentsOk = conditionEntry.contentsOk;
+    item.conditionFunctionalOk = conditionEntry.functionalOk;
+    item.conditionLastCheckedAt = conditionEntry.checkedAt;
+    item.conditionLastCheckedBy = conditionEntry.checkedBy;
+    item.conditionLastNotes = conditionEntry.notes;
+  }
+
   logHistory({
     type: "move",
     text: message,
@@ -3098,10 +3278,7 @@ function handleMoveSubmit(event) {
     statusFrom: previousStatus,
     statusTo: getEffectiveStatus(item),
     notes,
-    conditionRating,
-    contentsOk,
-    functionalOk,
-    conditionNotes,
+    condition: conditionEntry,
     shipping: {
       carrier: shippingCarrier,
       trackingNumber: shippingTracking,
@@ -4313,6 +4490,14 @@ if (elements.equipmentTable) {
     const copyButton = event.target.closest('button[data-action="copy-tracking"]');
     if (copyButton) {
       handleCopyTrackingNumber(copyButton.dataset.trackingNumber || "");
+      return;
+    }
+
+    const conditionButton = event.target.closest(
+      'button[data-action="view-condition-history"]'
+    );
+    if (conditionButton) {
+      openConditionHistory(conditionButton.dataset.equipmentId || "");
     }
   });
 }
@@ -4562,6 +4747,12 @@ if (elements.clearHistory) {
 const storedAdminMode = loadAdminMode();
 applyAdminMode(storedAdminMode);
 initTabs();
+
+if (elements.conditionHistoryClose) {
+  elements.conditionHistoryClose.addEventListener("click", () => {
+    elements.conditionHistoryModal?.close();
+  });
+}
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();
