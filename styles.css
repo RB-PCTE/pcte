@@ -234,6 +234,46 @@ textarea:focus {
   color: var(--muted);
 }
 
+.moves-shipping-cell {
+  white-space: pre-line;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.shipping-details-card {
+  background: #f7f9ff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.shipping-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 14px;
+}
+
+.shipping-details-grid div {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.shipping-details-grid strong {
+  color: var(--text);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.icon-button--inline {
+  width: fit-content;
+  margin-top: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
 .location-summary {
   margin-top: 20px;
   border-top: 1px solid var(--border);
