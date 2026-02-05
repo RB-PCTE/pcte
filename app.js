@@ -103,6 +103,8 @@ function buildDefaultState() {
         conditionLastCheckedAt: "",
         conditionLastCheckedBy: "",
         conditionLastNotes: "",
+        currentCondition: null,
+        lastConditionCheckAt: "",
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -3 }),
@@ -128,6 +130,8 @@ function buildDefaultState() {
         conditionLastCheckedAt: "",
         conditionLastCheckedBy: "",
         conditionLastNotes: "",
+        currentCondition: null,
+        lastConditionCheckAt: "",
         calibrationRequired: false,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -6 }),
@@ -153,6 +157,8 @@ function buildDefaultState() {
         conditionLastCheckedAt: "",
         conditionLastCheckedBy: "",
         conditionLastNotes: "",
+        currentCondition: null,
+        lastConditionCheckAt: "",
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -14 }),
@@ -178,6 +184,8 @@ function buildDefaultState() {
         conditionLastCheckedAt: "",
         conditionLastCheckedBy: "",
         conditionLastNotes: "",
+        currentCondition: null,
+        lastConditionCheckAt: "",
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
@@ -631,6 +639,20 @@ function normalizeState({ equipment = [], moves = [], log } = {}) {
     moves: normalizedMoves,
   };
 
+  normalizedState.equipment.forEach((item) => {
+    const derivedCondition = getLatestConditionEntryFromMoves(
+      item.id,
+      normalizedMoves
+    );
+    if (derivedCondition) {
+      applyConditionSnapshot(item, derivedCondition);
+      return;
+    }
+    if (!item.currentCondition || !item.lastConditionCheckAt) {
+      applyConditionSnapshot(item, item.currentCondition || null);
+    }
+  });
+
   if (Array.isArray(log)) {
     normalizedState.log = log;
   }
@@ -720,6 +742,8 @@ function normalizeConditionRating(value) {
     "Good",
     "Fair",
     "Needs attention",
+    "Missing",
+    "Fault",
     "Unserviceable",
   ];
   const text = typeof value === "string" ? value.trim() : "";
@@ -770,17 +794,70 @@ function normalizeConditionLogEntry(rawCondition = {}) {
 }
 
 function normalizeEquipmentConditionFields(item = {}) {
+  const currentCondition = normalizeConditionLogEntry(item.currentCondition);
+  const conditionRating = normalizeConditionRating(item.conditionRating);
+  const conditionContentsOk = normalizeConditionCheckValue(item.conditionContentsOk);
+  const conditionFunctionalOk = normalizeConditionCheckValue(item.conditionFunctionalOk);
+  const conditionLastCheckedAt =
+    typeof item.conditionLastCheckedAt === "string" ? item.conditionLastCheckedAt : "";
+  const conditionLastCheckedBy =
+    typeof item.conditionLastCheckedBy === "string" ? item.conditionLastCheckedBy : "";
+  const conditionLastNotes =
+    typeof item.conditionLastNotes === "string" ? item.conditionLastNotes : "";
+  const fallbackCurrentCondition =
+    currentCondition ||
+    normalizeConditionLogEntry({
+      rating: conditionRating,
+      contentsOk: conditionContentsOk,
+      functionalOk: conditionFunctionalOk,
+      checkedAt: conditionLastCheckedAt,
+      checkedBy: conditionLastCheckedBy,
+      notes: conditionLastNotes,
+    });
+  const lastConditionCheckAtRaw =
+    typeof item.lastConditionCheckAt === "string" ? item.lastConditionCheckAt : "";
+  const lastConditionCheckAt =
+    lastConditionCheckAtRaw ||
+    fallbackCurrentCondition?.checkedAt ||
+    conditionLastCheckedAt;
   return {
-    conditionRating: normalizeConditionRating(item.conditionRating),
-    conditionContentsOk: normalizeConditionCheckValue(item.conditionContentsOk),
-    conditionFunctionalOk: normalizeConditionCheckValue(item.conditionFunctionalOk),
-    conditionLastCheckedAt:
-      typeof item.conditionLastCheckedAt === "string" ? item.conditionLastCheckedAt : "",
-    conditionLastCheckedBy:
-      typeof item.conditionLastCheckedBy === "string" ? item.conditionLastCheckedBy : "",
-    conditionLastNotes:
-      typeof item.conditionLastNotes === "string" ? item.conditionLastNotes : "",
+    conditionRating,
+    conditionContentsOk,
+    conditionFunctionalOk,
+    conditionLastCheckedAt,
+    conditionLastCheckedBy,
+    conditionLastNotes,
+    currentCondition: fallbackCurrentCondition,
+    lastConditionCheckAt,
   };
+}
+
+function applyConditionSnapshot(item, conditionEntry) {
+  const normalizedEntry = normalizeConditionLogEntry(conditionEntry);
+  item.currentCondition = normalizedEntry;
+  item.lastConditionCheckAt = normalizedEntry?.checkedAt || "";
+  item.conditionRating = normalizedEntry?.rating || "";
+  item.conditionContentsOk = normalizedEntry?.contentsOk ?? null;
+  item.conditionFunctionalOk = normalizedEntry?.functionalOk ?? null;
+  item.conditionLastCheckedAt = normalizedEntry?.checkedAt || "";
+  item.conditionLastCheckedBy = normalizedEntry?.checkedBy || "";
+  item.conditionLastNotes = normalizedEntry?.notes || "";
+}
+
+function getLatestConditionEntryFromMoves(equipmentId, moves = []) {
+  if (!equipmentId || !Array.isArray(moves)) {
+    return null;
+  }
+  const [latest] = moves
+    .filter((entry) => entry.equipmentId === equipmentId && entry.condition)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  if (!latest || !latest.condition) {
+    return null;
+  }
+  return normalizeConditionLogEntry({
+    ...latest.condition,
+    checkedAt: latest.condition.checkedAt || latest.timestamp,
+  });
 }
 
 function normalizeShippingDetails(shipping) {
@@ -2298,13 +2375,26 @@ function formatConditionSummary(condition) {
 }
 
 function buildEquipmentConditionCell(item) {
-  const rating = item.conditionRating || "—";
-  const hasWarning =
-    item.conditionContentsOk === false || item.conditionFunctionalOk === false;
-  const checkedDate = item.conditionLastCheckedAt
-    ? formatDateTime(item.conditionLastCheckedAt)
+  const currentCondition = normalizeConditionLogEntry(item.currentCondition);
+  const rating = currentCondition?.rating || "Not checked";
+  const checkedDate = item.lastConditionCheckAt
+    ? formatDateTime(item.lastConditionCheckAt)
     : "—";
-  return `<div class="status-with-meta"><button class="tag tag--status condition-badge ${hasWarning ? "condition-badge--warn" : ""}" type="button" data-action="view-condition-history" data-equipment-id="${escapeHTML(item.id)}">${escapeHTML(rating)}${hasWarning ? " ⚠️" : ""}</button><small class="status-meta">Last checked: ${escapeHTML(checkedDate)}</small></div>`;
+  const metaText = item.lastConditionCheckAt
+    ? `Last checked: ${checkedDate}`
+    : "—";
+  const styleClass =
+    rating === "Excellent" || rating === "Good"
+      ? "condition-badge--good"
+      : rating === "Needs attention" ||
+          rating === "Missing" ||
+          rating === "Fault" ||
+          rating === "Unserviceable"
+        ? "condition-badge--bad"
+        : rating === "Not checked"
+          ? "condition-badge--neutral"
+          : "condition-badge--warn";
+  return `<div class="status-with-meta"><button class="tag tag--status condition-badge ${styleClass}" type="button" data-action="view-condition-history" data-equipment-id="${escapeHTML(item.id)}">${escapeHTML(rating)}</button><small class="status-meta">${escapeHTML(metaText)}</small></div>`;
 }
 
 function getConditionHistoryEntries(equipmentId) {
@@ -3256,12 +3346,7 @@ function handleMoveSubmit(event) {
       }
     : null;
   if (conditionEntry) {
-    item.conditionRating = conditionEntry.rating;
-    item.conditionContentsOk = conditionEntry.contentsOk;
-    item.conditionFunctionalOk = conditionEntry.functionalOk;
-    item.conditionLastCheckedAt = conditionEntry.checkedAt;
-    item.conditionLastCheckedBy = conditionEntry.checkedBy;
-    item.conditionLastNotes = conditionEntry.notes;
+    applyConditionSnapshot(item, conditionEntry);
   }
 
   logHistory({
