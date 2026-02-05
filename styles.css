@@ -743,9 +743,24 @@ button:disabled {
   cursor: pointer;
 }
 
+.condition-badge--good {
+  background: rgba(35, 176, 125, 0.15);
+  color: var(--success);
+}
+
 .condition-badge--warn {
   background: rgba(245, 158, 11, 0.2);
   color: #9a6100;
+}
+
+.condition-badge--bad {
+  background: rgba(220, 38, 38, 0.14);
+  color: #b91c1c;
+}
+
+.condition-badge--neutral {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
 }
 
 .condition-history-modal {
