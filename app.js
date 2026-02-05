@@ -10,14 +10,15 @@ const physicalLocations = [
   "New Zealand",
 ];
 
-const statusOptions = [
+const editableStatusOptions = [
   "Available",
   "On demo",
   "On hire",
-  "In transit",
   "In service / repair",
   "Quarantined",
 ];
+
+const statusFilterOptions = [...editableStatusOptions, "In transit"];
 
 const calibrationFilterOptions = [
   "All",
@@ -47,6 +48,10 @@ const moveTypeOptions = [
     value: "condition_reference_updated",
     label: "Condition checklist",
   },
+  {
+    value: "received",
+    label: "Received",
+  },
 ];
 
 function normalizeStatus(rawStatus, rawLocation) {
@@ -54,7 +59,7 @@ function normalizeStatus(rawStatus, rawLocation) {
   if (status && /calibration/i.test(status)) {
     return "Quarantined";
   }
-  if (statusOptions.includes(status)) {
+  if (editableStatusOptions.includes(status)) {
     return status;
   }
   const location =
@@ -208,7 +213,7 @@ const elements = {
   moveShippingTracking: document.querySelector("#move-shipping-tracking"),
   moveShippingShipDate: document.querySelector("#move-shipping-ship-date"),
   moveShippingEtaDate: document.querySelector("#move-shipping-eta-date"),
-  moveAutoInTransit: document.querySelector("#move-auto-in-transit"),
+  moveShippingOverrideNote: document.querySelector("#move-shipping-override-note"),
   moveConditionRating: document.querySelector("#move-condition-rating"),
   moveContentsOk: document.querySelector("#move-contents-ok"),
   moveFunctionalOk: document.querySelector("#move-functional-ok"),
@@ -547,6 +552,13 @@ function normalizeState({ equipment = [], moves = [], log } = {}) {
       normalizedItem.status,
       safeLocation
     );
+    if (normalizedItem.status === "In transit" && derivedStatus !== "In transit") {
+      corrections.push({
+        id: crypto.randomUUID(),
+        text: `Legacy status migrated for ${normalizedItem.name} (In transit → ${derivedStatus}).`,
+        timestamp: formatTimestamp(),
+      });
+    }
 
     return {
       ...normalizedItem,
@@ -683,7 +695,8 @@ function normalizeShippingDetails(shipping) {
       : "";
   const shipDate = parseFlexibleDate(safeShipping.shipDate);
   const etaDate = parseFlexibleDate(safeShipping.etaDate);
-  if (!carrier && !trackingNumber && !shipDate && !etaDate) {
+  const deliveredAt = parseFlexibleDate(safeShipping.deliveredAt);
+  if (!carrier && !trackingNumber && !shipDate && !etaDate && !deliveredAt) {
     return null;
   }
   return {
@@ -691,6 +704,7 @@ function normalizeShippingDetails(shipping) {
     trackingNumber,
     shipDate,
     etaDate,
+    deliveredAt,
   };
 }
 
@@ -1052,7 +1066,7 @@ function renderStatusOptions() {
   const currentFilterValue = elements.statusFilter
     ? elements.statusFilter.value
     : "All statuses";
-  const filterOptions = ["All statuses", ...statusOptions]
+  const filterOptions = ["All statuses", ...statusFilterOptions]
     .map((status) => {
       const safeStatus = escapeHTML(status);
       return `<option value="${safeStatus}">${safeStatus}</option>`;
@@ -1061,12 +1075,12 @@ function renderStatusOptions() {
 
   if (elements.statusFilter) {
     elements.statusFilter.innerHTML = filterOptions;
-    elements.statusFilter.value = statusOptions.includes(currentFilterValue)
+    elements.statusFilter.value = statusFilterOptions.includes(currentFilterValue)
       ? currentFilterValue
       : "All statuses";
   }
 
-  const selectionOptions = statusOptions
+  const selectionOptions = editableStatusOptions
     .map((status) => {
       const safeStatus = escapeHTML(status);
       return `<option value="${safeStatus}">${safeStatus}</option>`;
@@ -1279,7 +1293,7 @@ function renderStats(filtered = [], now = new Date()) {
     elements.statTotal.textContent = list.length;
   }
   const hireCount = list.filter(
-    (item) => item.status.toLowerCase() === "on hire"
+    (item) => getEffectiveStatus(item).toLowerCase() === "on hire"
   ).length;
   if (elements.statHire) {
     elements.statHire.textContent = hireCount;
@@ -1705,7 +1719,7 @@ function parseEquipmentImportRows(rows) {
     if (!status) {
       status = "Available";
     }
-    if (!statusOptions.includes(status)) {
+    if (!editableStatusOptions.includes(status)) {
       issues.push(`Unknown status "${status}", defaulted to Available.`);
       status = "Available";
     }
@@ -1996,6 +2010,71 @@ function getSubscriptionInfo(item, now) {
   };
 }
 
+function hasShippingCoreDetails(shipping) {
+  if (!shipping || typeof shipping !== "object") {
+    return false;
+  }
+  const hasCarrierOrTracking = Boolean(
+    shipping.carrier?.trim() || shipping.trackingNumber?.trim()
+  );
+  return hasCarrierOrTracking && Boolean(parseFlexibleDate(shipping.shipDate));
+}
+
+function getLatestShippingMoveEntryForEquipment(equipmentId) {
+  if (!equipmentId) {
+    return null;
+  }
+  const shippingMoves = getAllMovesFromState().filter(
+    (entry) =>
+      entry.equipmentId === equipmentId &&
+      entry.type === "move" &&
+      hasShippingCoreDetails(entry.shipping)
+  );
+  if (!shippingMoves.length) {
+    return null;
+  }
+  return shippingMoves.reduce((latest, entry) => {
+    const latestTime = Date.parse(latest.timestamp || "");
+    const entryTime = Date.parse(entry.timestamp || "");
+    if (Number.isFinite(entryTime) && !Number.isFinite(latestTime)) {
+      return entry;
+    }
+    return entryTime > latestTime ? entry : latest;
+  }, shippingMoves[0]);
+}
+
+function isShippingActive(item) {
+  if (!item || !item.id) {
+    return false;
+  }
+  const shippingMove = getLatestShippingMoveEntryForEquipment(item.id);
+  if (!shippingMove || !shippingMove.shipping) {
+    return false;
+  }
+  if (!hasShippingCoreDetails(shippingMove.shipping)) {
+    return false;
+  }
+  if (parseFlexibleDate(shippingMove.shipping.deliveredAt)) {
+    return false;
+  }
+  const moveTime = Date.parse(shippingMove.timestamp || "");
+  const receivedAfter = getAllMovesFromState().some((entry) => {
+    if (entry.equipmentId !== item.id || entry.type !== "received") {
+      return false;
+    }
+    const entryTime = Date.parse(entry.timestamp || "");
+    if (!Number.isFinite(moveTime) || !Number.isFinite(entryTime)) {
+      return true;
+    }
+    return entryTime >= moveTime;
+  });
+  return !receivedAfter;
+}
+
+function getEffectiveStatus(item) {
+  return isShippingActive(item) ? "In transit" : item.status;
+}
+
 function getFilteredEquipment(now = new Date()) {
   const searchTerm = elements.searchInput
     ? elements.searchInput.value.trim().toLowerCase()
@@ -2019,11 +2098,11 @@ function getFilteredEquipment(now = new Date()) {
     const matchesSearch =
       item.name.toLowerCase().includes(searchTerm) ||
       item.location.toLowerCase().includes(searchTerm) ||
-      item.status.toLowerCase().includes(searchTerm);
+      getEffectiveStatus(item).toLowerCase().includes(searchTerm);
     const matchesLocation =
       locationFilter === "All locations" || item.location === locationFilter;
     const matchesStatus =
-      statusFilter === "All statuses" || item.status === statusFilter;
+      statusFilter === "All statuses" || getEffectiveStatus(item) === statusFilter;
     const matchesCalibration =
       calibrationFilter === "All" ||
       calibrationInfo.status === calibrationFilter;
@@ -2093,8 +2172,8 @@ function renderTable() {
           <td>${escapeHTML(item.name)}</td>
           <td>${escapeHTML(modelLabel)}</td>
           <td>${escapeHTML(serialLabel)}</td>
-          <td><span class="tag tag--status">${escapeHTML(
-            item.status
+          <td><span class="tag tag--status ${getEffectiveStatus(item) === "In transit" ? "tag--in-transit" : ""}">${escapeHTML(
+            getEffectiveStatus(item)
           )}</span></td>
           <td><span class="tag">${escapeHTML(locationDisplay.text)}</span>${locationDisplay.inTransit ? " <span class=\"tag tag--status\">In transit</span>" : ""}</td>
           <td>${calibrationCell}</td>
@@ -2289,7 +2368,7 @@ function getEquipmentLocationDisplay(item) {
   const latestMove = getLatestMoveEntryForEquipment(item.id);
   if (
     latestMove &&
-    item.status === "In transit" &&
+    isShippingActive(item) &&
     latestMove.fromLocation?.trim() &&
     latestMove.toLocation?.trim() &&
     latestMove.fromLocation !== latestMove.toLocation
@@ -2301,7 +2380,7 @@ function getEquipmentLocationDisplay(item) {
   }
   return {
     text: item.location,
-    inTransit: item.status === "In transit",
+    inTransit: isShippingActive(item),
   };
 }
 
@@ -2320,6 +2399,9 @@ function getShippingSummary(entry) {
   if (shipping.etaDate) {
     parts.push(`ETA: ${shipping.etaDate}`);
   }
+  if (shipping.deliveredAt) {
+    parts.push(`Received: ${shipping.deliveredAt}`);
+  }
   return parts.join(" | ");
 }
 
@@ -2329,7 +2411,17 @@ function renderMovesView() {
   }
   syncEquipmentById();
   const filteredMoves = getFilteredMoves();
-  const showActions = adminModeEnabled;
+  const showDeleteActions = adminModeEnabled;
+  const hasReceivableMove = filteredMoves.some(
+    (entry) =>
+      entry.type === "move" &&
+      entry.equipmentId &&
+      entry.shipping &&
+      hasShippingCoreDetails(entry.shipping) &&
+      !entry.shipping.deliveredAt &&
+      isShippingActive(equipmentById.get(entry.equipmentId))
+  );
+  const showActions = showDeleteActions || hasReceivableMove;
 
   const headers = [
     "Timestamp",
@@ -2383,12 +2475,29 @@ function renderMovesView() {
               ? "Subscription"
               : entry.type === "condition_reference_updated"
                 ? "Condition checklist"
-            : "Move";
-      const actionCell = showActions
-        ? `<td><button class="icon-button" type="button" data-action="delete-move" data-id="${escapeHTML(
-            entry.id
-          )}">Delete</button></td>`
-        : "";
+                : entry.type === "received"
+                  ? "Received"
+                  : "Move";
+      const equipment = entry.equipmentId ? equipmentById.get(entry.equipmentId) : null;
+      const canMarkReceived =
+        entry.type === "move" &&
+        Boolean(equipment) &&
+        entry.shipping &&
+        hasShippingCoreDetails(entry.shipping) &&
+        !entry.shipping.deliveredAt &&
+        isShippingActive(equipment);
+      const actions = [];
+      if (canMarkReceived) {
+        actions.push(
+          `<button class="icon-button" type="button" data-action="mark-received" data-id="${escapeHTML(entry.id)}">Mark received</button>`
+        );
+      }
+      if (showDeleteActions) {
+        actions.push(
+          `<button class="icon-button" type="button" data-action="delete-move" data-id="${escapeHTML(entry.id)}">Delete</button>`
+        );
+      }
+      const actionCell = showActions ? `<td>${actions.join(" ")}</td>` : "";
       return `
         <tr>
           <td>${escapeHTML(entry.timestamp)}</td>
@@ -2712,6 +2821,31 @@ function syncMoveConditionReference() {
   updateMoveChecklistLock();
 }
 
+function syncMoveShippingStatusOverride() {
+  if (
+    !elements.moveStatus ||
+    !elements.moveShippingCarrier ||
+    !elements.moveShippingTracking ||
+    !elements.moveShippingShipDate ||
+    !elements.moveShippingOverrideNote
+  ) {
+    return;
+  }
+  const hasCarrierOrTracking = Boolean(
+    elements.moveShippingCarrier.value.trim() ||
+      elements.moveShippingTracking.value.trim()
+  );
+  const hasShipDate = Boolean(parseFlexibleDate(elements.moveShippingShipDate.value));
+  const shippingActive = hasCarrierOrTracking && hasShipDate;
+  elements.moveStatus.disabled = shippingActive;
+  if (shippingActive) {
+    elements.moveStatus.value = "Keep current status";
+    elements.moveShippingOverrideNote.classList.remove("is-hidden");
+  } else {
+    elements.moveShippingOverrideNote.classList.add("is-hidden");
+  }
+}
+
 function syncMoveShippingDefaults() {
   if (!elements.moveShippingShipDate) {
     return;
@@ -2719,6 +2853,7 @@ function syncMoveShippingDefaults() {
   if (!parseFlexibleDate(elements.moveShippingShipDate.value)) {
     elements.moveShippingShipDate.value = formatDate(new Date());
   }
+  syncMoveShippingStatusOverride();
 }
 
 function syncMoveConditionNotesError() {
@@ -2768,9 +2903,7 @@ function handleMoveSubmit(event) {
   const conditionNotes = elements.moveConditionNotes.value.trim();
   const shippingCarrier = elements.moveShippingCarrier.value.trim();
   const shippingTracking = elements.moveShippingTracking.value.trim();
-  const shippingShipDate = parseFlexibleDate(
-    elements.moveShippingShipDate.value || formatDate(new Date())
-  );
+  const shippingShipDate = parseFlexibleDate(elements.moveShippingShipDate.value);
   const shippingEtaDate = parseFlexibleDate(elements.moveShippingEtaDate.value);
   const failedChecks = [contentsOk === "No", functionalOk === "No"].some(
     Boolean
@@ -2797,14 +2930,9 @@ function handleMoveSubmit(event) {
 
   const previousLocation = item.location;
   const previousStatus = item.status;
-  const autoInTransitEnabled = Boolean(elements.moveAutoInTransit?.checked);
-  const movedBetweenOffices =
-    previousLocation && newLocation && previousLocation !== newLocation;
   item.location = newLocation;
   if (newStatus && newStatus !== "Keep current status") {
     item.status = newStatus;
-  } else if (autoInTransitEnabled && movedBetweenOffices) {
-    item.status = "In transit";
   }
   item.lastMoved = formatTimestamp();
 
@@ -2828,7 +2956,7 @@ function handleMoveSubmit(event) {
     fromLocation: previousLocation,
     toLocation: newLocation,
     statusFrom: previousStatus,
-    statusTo: item.status,
+    statusTo: getEffectiveStatus(item),
     notes,
     conditionRating,
     contentsOk,
@@ -2839,6 +2967,7 @@ function handleMoveSubmit(event) {
       trackingNumber: shippingTracking,
       shipDate: shippingShipDate,
       etaDate: shippingEtaDate,
+      deliveredAt: "",
     },
   });
   elements.moveNotes.value = "";
@@ -3889,6 +4018,50 @@ function handleClearHistory() {
   refreshUI();
 }
 
+function handleMarkReceived(moveEntryId) {
+  if (!moveEntryId) {
+    return;
+  }
+  const moveEntry = state.moves.find((entry) => entry.id === moveEntryId);
+  if (!moveEntry || moveEntry.type !== "move") {
+    return;
+  }
+  const equipmentId = moveEntry.equipmentId;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    return;
+  }
+  if (!moveEntry.shipping || !hasShippingCoreDetails(moveEntry.shipping)) {
+    return;
+  }
+  const receivedDate = formatDate(new Date());
+  moveEntry.shipping = {
+    ...moveEntry.shipping,
+    deliveredAt: receivedDate,
+  };
+  if (moveEntry.toLocation?.trim()) {
+    item.location = moveEntry.toLocation;
+  }
+  item.lastMoved = formatTimestamp();
+  logHistory({
+    type: "received",
+    text: `${item.name} marked as received at ${item.location}.`,
+    equipmentId: String(item.id),
+    equipmentSnapshot: {
+      name: item.name,
+      model: item.model,
+      serialNumber: item.serialNumber,
+    },
+    fromLocation: moveEntry.fromLocation,
+    toLocation: moveEntry.toLocation || item.location,
+    statusFrom: "In transit",
+    statusTo: item.status,
+    notes: "Shipping completed",
+  });
+  saveState();
+  refreshUI();
+}
+
 function handleDeleteHistoryEntry(entryId) {
   if (!entryId) {
     return;
@@ -3933,13 +4106,25 @@ if (elements.movesSearch) {
 
 if (elements.movesTableBody) {
   elements.movesTableBody.addEventListener("click", (event) => {
-    const button = event.target.closest(
-      'button[data-action="delete-move"]'
+    const receiveButton = event.target.closest(
+      'button[data-action="mark-received"]'
     );
-    if (!button || !adminModeEnabled) {
+    if (receiveButton) {
+      const moveEntryId = receiveButton.dataset.id;
+      if (!moveEntryId) {
+        return;
+      }
+      handleMarkReceived(moveEntryId);
       return;
     }
-    const entryId = button.dataset.id;
+
+    const deleteButton = event.target.closest(
+      'button[data-action="delete-move"]'
+    );
+    if (!deleteButton || !adminModeEnabled) {
+      return;
+    }
+    const entryId = deleteButton.dataset.id;
     if (!entryId) {
       return;
     }
@@ -3975,6 +4160,14 @@ if (elements.moveEquipment) {
     syncMoveConditionReference
   );
 }
+
+[elements.moveShippingCarrier, elements.moveShippingTracking, elements.moveShippingShipDate].forEach((input) => {
+  if (!input) {
+    return;
+  }
+  input.addEventListener("change", syncMoveShippingStatusOverride);
+  input.addEventListener("input", syncMoveShippingStatusOverride);
+});
 
 if (elements.moveChecklistAdminLink) {
   elements.moveChecklistAdminLink.addEventListener("click", () => {

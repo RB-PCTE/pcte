@@ -687,6 +687,11 @@ button:disabled {
   color: var(--accent-dark);
 }
 
+
+.tag--in-transit {
+  background: rgba(245, 158, 11, 0.2);
+  color: #9a6100;
+}
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
