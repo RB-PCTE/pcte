@@ -388,6 +388,33 @@ tr:last-child td {
   color: var(--muted);
 }
 
+
+.shipping-section {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.shipping-section legend {
+  padding: 0 6px;
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.inline-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-checkbox input[type="checkbox"] {
+  width: auto;
+}
+
 .condition-section {
   display: grid;
   gap: 12px;

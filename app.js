@@ -204,6 +204,11 @@ const elements = {
   moveLocation: document.querySelector("#move-location"),
   moveStatus: document.querySelector("#move-status"),
   moveNotes: document.querySelector("#move-notes"),
+  moveShippingCarrier: document.querySelector("#move-shipping-carrier"),
+  moveShippingTracking: document.querySelector("#move-shipping-tracking"),
+  moveShippingShipDate: document.querySelector("#move-shipping-ship-date"),
+  moveShippingEtaDate: document.querySelector("#move-shipping-eta-date"),
+  moveAutoInTransit: document.querySelector("#move-auto-in-transit"),
   moveConditionRating: document.querySelector("#move-condition-rating"),
   moveContentsOk: document.querySelector("#move-contents-ok"),
   moveFunctionalOk: document.querySelector("#move-functional-ok"),
@@ -668,6 +673,27 @@ function normalizeHistoryType(rawType, fallbackText = "") {
   return inferHistoryTypeFromText(fallbackText);
 }
 
+function normalizeShippingDetails(shipping) {
+  const safeShipping = shipping && typeof shipping === "object" ? shipping : {};
+  const carrier =
+    typeof safeShipping.carrier === "string" ? safeShipping.carrier.trim() : "";
+  const trackingNumber =
+    typeof safeShipping.trackingNumber === "string"
+      ? safeShipping.trackingNumber.trim()
+      : "";
+  const shipDate = parseFlexibleDate(safeShipping.shipDate);
+  const etaDate = parseFlexibleDate(safeShipping.etaDate);
+  if (!carrier && !trackingNumber && !shipDate && !etaDate) {
+    return null;
+  }
+  return {
+    carrier,
+    trackingNumber,
+    shipDate,
+    etaDate,
+  };
+}
+
 function normalizeHistoryEntry(entry, equipmentList = []) {
   const safeEntry = entry && typeof entry === "object" ? entry : {};
   const text = typeof safeEntry.text === "string" ? safeEntry.text : "";
@@ -756,6 +782,7 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     typeof safeEntry.statusTo === "string" ? safeEntry.statusTo : "";
   const notes =
     typeof safeEntry.notes === "string" ? safeEntry.notes : "";
+  const shipping = normalizeShippingDetails(safeEntry.shipping);
 
   return {
     ...safeEntry,
@@ -773,6 +800,7 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     statusFrom,
     statusTo,
     notes,
+    shipping,
   };
 }
 
@@ -2059,6 +2087,7 @@ function renderTable() {
           const serialLabel = item.serialNumber?.trim()
             ? item.serialNumber
             : "—";
+          const locationDisplay = getEquipmentLocationDisplay(item);
           return `
         <tr>
           <td>${escapeHTML(item.name)}</td>
@@ -2067,7 +2096,7 @@ function renderTable() {
           <td><span class="tag tag--status">${escapeHTML(
             item.status
           )}</span></td>
-          <td><span class="tag">${escapeHTML(item.location)}</span></td>
+          <td><span class="tag">${escapeHTML(locationDisplay.text)}</span>${locationDisplay.inTransit ? " <span class=\"tag tag--status\">In transit</span>" : ""}</td>
           <td>${calibrationCell}</td>
           <td>${subscriptionCell}</td>
           <td>${escapeHTML(item.lastMoved)}</td>
@@ -2236,6 +2265,64 @@ function getFilteredMoves() {
   return filtered;
 }
 
+function getLatestMoveEntryForEquipment(equipmentId) {
+  if (!equipmentId) {
+    return null;
+  }
+  const entries = getAllMovesFromState().filter(
+    (entry) => entry.equipmentId === equipmentId && entry.type === "move"
+  );
+  if (!entries.length) {
+    return null;
+  }
+  return entries.reduce((latest, entry) => {
+    const latestTime = Date.parse(latest.timestamp || "");
+    const entryTime = Date.parse(entry.timestamp || "");
+    if (Number.isFinite(entryTime) && !Number.isFinite(latestTime)) {
+      return entry;
+    }
+    return entryTime > latestTime ? entry : latest;
+  }, entries[0]);
+}
+
+function getEquipmentLocationDisplay(item) {
+  const latestMove = getLatestMoveEntryForEquipment(item.id);
+  if (
+    latestMove &&
+    item.status === "In transit" &&
+    latestMove.fromLocation?.trim() &&
+    latestMove.toLocation?.trim() &&
+    latestMove.fromLocation !== latestMove.toLocation
+  ) {
+    return {
+      text: `In transit (${latestMove.fromLocation} → ${latestMove.toLocation})`,
+      inTransit: true,
+    };
+  }
+  return {
+    text: item.location,
+    inTransit: item.status === "In transit",
+  };
+}
+
+function getShippingSummary(entry) {
+  const shipping = entry.shipping;
+  if (!shipping) {
+    return "";
+  }
+  const parts = [];
+  if (shipping.carrier) {
+    parts.push(`Carrier: ${shipping.carrier}`);
+  }
+  if (shipping.trackingNumber) {
+    parts.push(`Tracking: ${shipping.trackingNumber}`);
+  }
+  if (shipping.etaDate) {
+    parts.push(`ETA: ${shipping.etaDate}`);
+  }
+  return parts.join(" | ");
+}
+
 function renderMovesView() {
   if (!elements.movesTableBody || !elements.movesTableHeader) {
     return;
@@ -2250,6 +2337,7 @@ function renderMovesView() {
     "From location",
     "To location",
     "Status change",
+    "Shipping",
     "Notes",
     "Type",
   ];
@@ -2285,6 +2373,7 @@ function renderMovesView() {
         entry.text?.trim() ||
         entry.message?.trim() ||
         "";
+      const shippingSummary = getShippingSummary(entry);
       const typeLabel =
         entry.type === "details_updated"
           ? "Details updated"
@@ -2307,6 +2396,7 @@ function renderMovesView() {
           <td>${escapeHTML(fromLocation)}</td>
           <td>${escapeHTML(toLocation)}</td>
           <td>${escapeHTML(getStatusChangeLabel(entry))}</td>
+          <td>${escapeHTML(shippingSummary)}</td>
           <td>${escapeHTML(notes)}</td>
           <td>${escapeHTML(typeLabel)}</td>
           ${actionCell}
@@ -2369,6 +2459,8 @@ function refreshUI() {
   renderLocationSummary();
   renderMovesView();
   syncMoveConditionReference();
+  syncMoveConditionNotesError();
+  syncMoveShippingDefaults();
   syncCalibrationForm();
   syncAddSubscriptionInputs({ clearWhenDisabled: false });
   syncEditForm();
@@ -2620,6 +2712,15 @@ function syncMoveConditionReference() {
   updateMoveChecklistLock();
 }
 
+function syncMoveShippingDefaults() {
+  if (!elements.moveShippingShipDate) {
+    return;
+  }
+  if (!parseFlexibleDate(elements.moveShippingShipDate.value)) {
+    elements.moveShippingShipDate.value = formatDate(new Date());
+  }
+}
+
 function syncMoveConditionNotesError() {
   if (
     !elements.moveContentsOk ||
@@ -2649,7 +2750,11 @@ function handleMoveSubmit(event) {
     !elements.moveConditionRating ||
     !elements.moveContentsOk ||
     !elements.moveFunctionalOk ||
-    !elements.moveConditionNotes
+    !elements.moveConditionNotes ||
+    !elements.moveShippingCarrier ||
+    !elements.moveShippingTracking ||
+    !elements.moveShippingShipDate ||
+    !elements.moveShippingEtaDate
   ) {
     return;
   }
@@ -2661,6 +2766,12 @@ function handleMoveSubmit(event) {
   const contentsOk = elements.moveContentsOk.value;
   const functionalOk = elements.moveFunctionalOk.value;
   const conditionNotes = elements.moveConditionNotes.value.trim();
+  const shippingCarrier = elements.moveShippingCarrier.value.trim();
+  const shippingTracking = elements.moveShippingTracking.value.trim();
+  const shippingShipDate = parseFlexibleDate(
+    elements.moveShippingShipDate.value || formatDate(new Date())
+  );
+  const shippingEtaDate = parseFlexibleDate(elements.moveShippingEtaDate.value);
   const failedChecks = [contentsOk === "No", functionalOk === "No"].some(
     Boolean
   );
@@ -2686,9 +2797,14 @@ function handleMoveSubmit(event) {
 
   const previousLocation = item.location;
   const previousStatus = item.status;
+  const autoInTransitEnabled = Boolean(elements.moveAutoInTransit?.checked);
+  const movedBetweenOffices =
+    previousLocation && newLocation && previousLocation !== newLocation;
   item.location = newLocation;
   if (newStatus && newStatus !== "Keep current status") {
     item.status = newStatus;
+  } else if (autoInTransitEnabled && movedBetweenOffices) {
+    item.status = "In transit";
   }
   item.lastMoved = formatTimestamp();
 
@@ -2718,6 +2834,12 @@ function handleMoveSubmit(event) {
     contentsOk,
     functionalOk,
     conditionNotes,
+    shipping: {
+      carrier: shippingCarrier,
+      trackingNumber: shippingTracking,
+      shipDate: shippingShipDate,
+      etaDate: shippingEtaDate,
+    },
   });
   elements.moveNotes.value = "";
   elements.moveStatus.value = "Keep current status";
@@ -2725,6 +2847,10 @@ function handleMoveSubmit(event) {
   elements.moveContentsOk.value = "Yes";
   elements.moveFunctionalOk.value = "Yes";
   elements.moveConditionRating.value = "Good";
+  elements.moveShippingCarrier.value = "";
+  elements.moveShippingTracking.value = "";
+  elements.moveShippingShipDate.value = formatDate(new Date());
+  elements.moveShippingEtaDate.value = "";
   saveState();
   refreshUI();
 }
