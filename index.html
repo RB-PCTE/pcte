@@ -230,8 +230,9 @@
                         <label>
                           Condition rating
                           <select id="move-condition-rating">
+                            <option value="" selected>Select...</option>
                             <option value="Excellent">Excellent</option>
-                            <option value="Good" selected>Good</option>
+                            <option value="Good">Good</option>
                             <option value="Fair">Fair</option>
                             <option value="Poor">Poor</option>
                             <option value="Damaged">Damaged</option>
@@ -240,14 +241,16 @@
                         <label>
                           Contents OK?
                           <select id="move-contents-ok">
-                            <option value="Yes" selected>Yes</option>
+                            <option value="" selected>Select...</option>
+                            <option value="Yes">Yes</option>
                             <option value="No">No</option>
                           </select>
                         </label>
                         <label>
                           Functional OK?
                           <select id="move-functional-ok">
-                            <option value="Yes" selected>Yes</option>
+                            <option value="" selected>Select...</option>
+                            <option value="Yes">Yes</option>
                             <option value="No">No</option>
                           </select>
                         </label>
@@ -263,7 +266,7 @@
                           id="move-condition-notes-error"
                           class="field-error is-hidden"
                         >
-                          Notes are required when a condition check fails.
+                          Please add notes for failed checks.
                         </span>
                       </label>
                       <details class="reference-panel">
@@ -311,6 +314,9 @@
                       >
                         Go to Admin → Edit equipment
                       </button>
+                    </p>
+                    <p id="move-submit-blocked" class="field-warning">
+                      Complete the condition checklist before recording the move.
                     </p>
                     <button type="submit" id="move-submit">
                       Record move
