@@ -717,6 +717,9 @@ function normalizeHistoryType(rawType, fallbackText = "") {
     if (normalized.includes("condition_reference")) {
       return "condition_reference_updated";
     }
+    if (normalized === "condition") {
+      return "condition";
+    }
     if (normalized.includes("condition checklist")) {
       return "condition_reference_updated";
     }
@@ -731,6 +734,9 @@ function normalizeHistoryType(rawType, fallbackText = "") {
     }
     if (normalized === "condition_reference_updated") {
       return "condition_reference_updated";
+    }
+    if (normalized === "condition") {
+      return "condition";
     }
   }
   return inferHistoryTypeFromText(fallbackText);
@@ -844,19 +850,58 @@ function applyConditionSnapshot(item, conditionEntry) {
   item.conditionLastNotes = normalizedEntry?.notes || "";
 }
 
+function isConditionCheckEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return false;
+  }
+  if (entry.type === "condition") {
+    return true;
+  }
+  return Boolean(normalizeConditionLogEntry(entry.condition));
+}
+
+function getConditionCheckTimestamp(entry) {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+  const checkedAt =
+    typeof entry.condition?.checkedAt === "string" ? entry.condition.checkedAt : "";
+  if (checkedAt.trim()) {
+    return checkedAt;
+  }
+  return typeof entry.timestamp === "string" ? entry.timestamp : "";
+}
+
 function getLatestConditionEntryFromMoves(equipmentId, moves = []) {
   if (!equipmentId || !Array.isArray(moves)) {
     return null;
   }
-  const [latest] = moves
-    .filter((entry) => entry.equipmentId === equipmentId && entry.condition)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  if (!latest || !latest.condition) {
+  const latest = moves
+    .filter(
+      (entry) =>
+        entry.equipmentId === equipmentId &&
+        isConditionCheckEntry(entry)
+    )
+    .reduce((currentLatest, candidate) => {
+      const candidateTime = new Date(getConditionCheckTimestamp(candidate)).getTime();
+      if (!Number.isFinite(candidateTime)) {
+        return currentLatest;
+      }
+      if (!currentLatest) {
+        return candidate;
+      }
+      const latestTime = new Date(getConditionCheckTimestamp(currentLatest)).getTime();
+      if (!Number.isFinite(latestTime) || candidateTime > latestTime) {
+        return candidate;
+      }
+      return currentLatest;
+    }, null);
+  if (!latest) {
     return null;
   }
   return normalizeConditionLogEntry({
-    ...latest.condition,
-    checkedAt: latest.condition.checkedAt || latest.timestamp,
+    ...(latest.condition && typeof latest.condition === "object" ? latest.condition : {}),
+    checkedAt: getConditionCheckTimestamp(latest),
   });
 }
 
@@ -2380,9 +2425,7 @@ function buildEquipmentConditionCell(item) {
   const checkedDate = item.lastConditionCheckAt
     ? formatDateTime(item.lastConditionCheckAt)
     : "—";
-  const metaText = item.lastConditionCheckAt
-    ? `Last checked: ${checkedDate}`
-    : "—";
+  const metaText = `Last checked: ${checkedDate}`;
   const styleClass =
     rating === "Excellent" || rating === "Good"
       ? "condition-badge--good"
@@ -2400,8 +2443,16 @@ function buildEquipmentConditionCell(item) {
 function getConditionHistoryEntries(equipmentId) {
   const moves = getAllMovesFromState();
   return moves
-    .filter((entry) => entry.equipmentId === equipmentId && entry.condition)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    .filter(
+      (entry) =>
+        entry.equipmentId === equipmentId &&
+        isConditionCheckEntry(entry)
+    )
+    .sort(
+      (a, b) =>
+        new Date(getConditionCheckTimestamp(b)).getTime() -
+        new Date(getConditionCheckTimestamp(a)).getTime()
+    );
 }
 
 function openConditionHistory(equipmentId) {
