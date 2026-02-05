@@ -748,37 +748,96 @@ button:disabled {
   color: #9a6100;
 }
 
-.condition-history-modal {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px;
-  width: min(680px, 92vw);
+.inline-link {
+  border: 0;
+  background: transparent;
+  color: var(--accent-dark);
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
-.condition-history-modal::backdrop {
+.condition-history-backdrop {
+  position: fixed;
+  inset: 0;
   background: rgba(15, 23, 42, 0.35);
+  z-index: 70;
+}
+
+.condition-history-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(440px, 100vw);
+  background: #ffffff;
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 28px rgba(15, 23, 42, 0.2);
+  padding: 18px;
+  z-index: 80;
+  transform: translateX(100%);
+  transition: transform 180ms ease;
+  overflow-y: auto;
+}
+
+.condition-history-drawer.is-open {
+  transform: translateX(0);
 }
 
 .condition-history-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+}
+
+.condition-history-equipment {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .condition-history-list {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 14px 0 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
-.condition-history-list li {
+.condition-history-entry {
   background: #f7f9ff;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 10px;
+  padding: 10px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.condition-history-entry-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.condition-history-entry p {
+  margin: 4px 0 0;
+}
+
+.condition-history-empty {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  color: var(--muted);
+  background: #f7f9ff;
+}
+
+@media (max-width: 720px) {
+  .condition-history-drawer {
+    width: 100vw;
+    border-left: 0;
+  }
 }
