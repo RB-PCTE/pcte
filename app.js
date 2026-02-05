@@ -415,10 +415,8 @@ const elements = {
   importEmptyState: document.querySelector("#import-empty-state"),
   importSubmit: document.querySelector("#import-submit"),
   importClear: document.querySelector("#import-clear"),
-  conditionHistoryBackdrop: document.querySelector("#condition-history-backdrop"),
-  conditionHistoryDrawer: document.querySelector("#condition-history-drawer"),
+  conditionHistoryModal: document.querySelector("#condition-history-modal"),
   conditionHistoryTitle: document.querySelector("#condition-history-title"),
-  conditionHistoryEquipment: document.querySelector("#condition-history-equipment"),
   conditionHistoryList: document.querySelector("#condition-history-list"),
   conditionHistoryClose: document.querySelector("#condition-history-close"),
 };
@@ -446,8 +444,6 @@ const equipmentImportState = {
 };
 let editChecklistCopySourceId = "";
 let editChecklistCopyMetadata = null;
-let isConditionDrawerOpen = false;
-let conditionDrawerEquipmentId = null;
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
@@ -2281,7 +2277,7 @@ function formatConditionCheckLabel(value) {
   if (value === false) {
     return "Not OK";
   }
-  return "";
+  return "—";
 }
 
 function formatConditionSummary(condition) {
@@ -2308,140 +2304,33 @@ function buildEquipmentConditionCell(item) {
   const checkedDate = item.conditionLastCheckedAt
     ? formatDateTime(item.conditionLastCheckedAt)
     : "—";
-  return `<div class="status-with-meta"><button class="tag tag--status condition-badge ${hasWarning ? "condition-badge--warn" : ""}" type="button" data-action="view-condition-history" data-equipment-id="${escapeHTML(item.id)}">${escapeHTML(rating)}${hasWarning ? " ⚠️" : ""}</button><small class="status-meta">Last checked: ${escapeHTML(checkedDate)} · <button type="button" class="inline-link" data-action="view-condition-history" data-equipment-id="${escapeHTML(item.id)}">View history</button></small></div>`;
-}
-
-function getConditionEntrySortTime(entry) {
-  const conditionCheckedAt = entry?.condition?.checkedAt;
-  const conditionTime = conditionCheckedAt
-    ? new Date(conditionCheckedAt).getTime()
-    : Number.NaN;
-  if (!Number.isNaN(conditionTime)) {
-    return conditionTime;
-  }
-  const entryTime = entry?.timestamp ? new Date(entry.timestamp).getTime() : Number.NaN;
-  if (!Number.isNaN(entryTime)) {
-    return entryTime;
-  }
-  return 0;
+  return `<div class="status-with-meta"><button class="tag tag--status condition-badge ${hasWarning ? "condition-badge--warn" : ""}" type="button" data-action="view-condition-history" data-equipment-id="${escapeHTML(item.id)}">${escapeHTML(rating)}${hasWarning ? " ⚠️" : ""}</button><small class="status-meta">Last checked: ${escapeHTML(checkedDate)}</small></div>`;
 }
 
 function getConditionHistoryEntries(equipmentId) {
-  if (!equipmentId) {
-    return [];
-  }
   const moves = getAllMovesFromState();
   return moves
-    .filter(
-      (entry) =>
-        entry?.equipmentId === equipmentId &&
-        entry.condition &&
-        typeof entry.condition === "object"
-    )
-    .sort((a, b) => getConditionEntrySortTime(b) - getConditionEntrySortTime(a));
+    .filter((entry) => entry.equipmentId === equipmentId && entry.condition)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
-function getConditionHistoryEquipmentLabel(equipment) {
-  if (!equipment) {
-    return "";
-  }
-  const parts = [equipment.name, equipment.model, equipment.serialNumber].filter(
-    (value) => typeof value === "string" && value.trim()
-  );
-  return parts.join(" · ");
-}
-
-function renderConditionHistoryDrawer() {
-  if (!elements.conditionHistoryList || !elements.conditionHistoryEquipment) {
+function openConditionHistory(equipmentId) {
+  if (!elements.conditionHistoryModal || !elements.conditionHistoryList || !elements.conditionHistoryTitle) {
     return;
   }
-
-  const equipment = state.equipment.find(
-    (item) => item.id === conditionDrawerEquipmentId
-  );
-  elements.conditionHistoryEquipment.textContent =
-    getConditionHistoryEquipmentLabel(equipment);
-
-  const entries = getConditionHistoryEntries(conditionDrawerEquipmentId);
+  const equipment = state.equipment.find((item) => item.id === equipmentId);
+  const title = equipment ? equipment.name : "Equipment";
+  elements.conditionHistoryTitle.textContent = `${title} condition history`;
+  const entries = getConditionHistoryEntries(equipmentId);
   if (!entries.length) {
-    elements.conditionHistoryList.innerHTML =
-      '<li class="condition-history-empty">No condition checks recorded yet.</li>';
-    return;
+    elements.conditionHistoryList.innerHTML = "<li>No condition checks recorded yet.</li>";
+  } else {
+    elements.conditionHistoryList.innerHTML = entries.map((entry) => {
+      const c = entry.condition;
+      return `<li><strong>${escapeHTML(formatDateTime(entry.timestamp))}</strong> — ${escapeHTML(c.rating || "—")} • Contents ${escapeHTML(formatConditionCheckLabel(c.contentsOk))} • Functional ${escapeHTML(formatConditionCheckLabel(c.functionalOk))}${c.checkedBy ? ` • Checked by ${escapeHTML(c.checkedBy)}` : ""}${c.notes ? `<br>${escapeHTML(c.notes)}` : ""}</li>`;
+    }).join("");
   }
-
-  elements.conditionHistoryList.innerHTML = entries
-    .map((entry) => {
-      const condition = entry.condition || {};
-      const timestampLabel = formatDateTime(condition.checkedAt || entry.timestamp || "");
-      const rating =
-        typeof condition.rating === "string" && condition.rating.trim()
-          ? condition.rating.trim()
-          : "Unrated";
-      const contentsLabel = formatConditionCheckLabel(condition.contentsOk);
-      const functionalLabel = formatConditionCheckLabel(condition.functionalOk);
-      const notes =
-        typeof condition.notes === "string" && condition.notes.trim()
-          ? condition.notes.trim()
-          : "";
-      const checkedBy =
-        typeof condition.checkedBy === "string" && condition.checkedBy.trim()
-          ? condition.checkedBy.trim()
-          : "";
-      const fromLocation =
-        typeof entry.fromLocation === "string" && entry.fromLocation.trim()
-          ? entry.fromLocation.trim()
-          : "";
-      const toLocation =
-        typeof entry.toLocation === "string" && entry.toLocation.trim()
-          ? entry.toLocation.trim()
-          : "";
-      const hasMoveRoute = entry.type === "move" && fromLocation && toLocation;
-
-      return `<li class="condition-history-entry"><div class="condition-history-entry-head"><strong>${escapeHTML(
-        timestampLabel
-      )}</strong><span class="tag tag--status">${escapeHTML(
-        rating
-      )}</span></div>${contentsLabel ? `<p>Contents: ${escapeHTML(contentsLabel)}</p>` : ""}${functionalLabel ? `<p>Functional: ${escapeHTML(functionalLabel)}</p>` : ""}${hasMoveRoute ? `<p>${escapeHTML(fromLocation)} → ${escapeHTML(toLocation)}</p>` : ""}${checkedBy ? `<p>Checked by: ${escapeHTML(checkedBy)}</p>` : ""}${notes ? `<p>${escapeHTML(notes)}</p>` : ""}</li>`;
-    })
-    .join("");
-}
-
-function openConditionDrawer(equipmentId) {
-  if (
-    !elements.conditionHistoryDrawer ||
-    !elements.conditionHistoryBackdrop ||
-    !elements.conditionHistoryTitle
-  ) {
-    return;
-  }
-  conditionDrawerEquipmentId = equipmentId || null;
-  isConditionDrawerOpen = Boolean(conditionDrawerEquipmentId);
-
-  if (!isConditionDrawerOpen) {
-    closeConditionDrawer();
-    return;
-  }
-
-  elements.conditionHistoryTitle.textContent = "Condition history";
-  renderConditionHistoryDrawer();
-
-  elements.conditionHistoryBackdrop.hidden = false;
-  elements.conditionHistoryBackdrop.classList.add("is-open");
-  elements.conditionHistoryDrawer.classList.add("is-open");
-  elements.conditionHistoryDrawer.setAttribute("aria-hidden", "false");
-}
-
-function closeConditionDrawer() {
-  isConditionDrawerOpen = false;
-  conditionDrawerEquipmentId = null;
-  if (elements.conditionHistoryBackdrop) {
-    elements.conditionHistoryBackdrop.classList.remove("is-open");
-    elements.conditionHistoryBackdrop.hidden = true;
-  }
-  if (elements.conditionHistoryDrawer) {
-    elements.conditionHistoryDrawer.classList.remove("is-open");
-    elements.conditionHistoryDrawer.setAttribute("aria-hidden", "true");
-  }
+  elements.conditionHistoryModal.showModal();
 }
 
 function renderTable() {
@@ -4608,7 +4497,7 @@ if (elements.equipmentTable) {
       'button[data-action="view-condition-history"]'
     );
     if (conditionButton) {
-      openConditionDrawer(conditionButton.dataset.equipmentId || "");
+      openConditionHistory(conditionButton.dataset.equipmentId || "");
     }
   });
 }
@@ -4860,18 +4749,10 @@ applyAdminMode(storedAdminMode);
 initTabs();
 
 if (elements.conditionHistoryClose) {
-  elements.conditionHistoryClose.addEventListener("click", closeConditionDrawer);
+  elements.conditionHistoryClose.addEventListener("click", () => {
+    elements.conditionHistoryModal?.close();
+  });
 }
-
-if (elements.conditionHistoryBackdrop) {
-  elements.conditionHistoryBackdrop.addEventListener("click", closeConditionDrawer);
-}
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && isConditionDrawerOpen) {
-    closeConditionDrawer();
-  }
-});
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();
