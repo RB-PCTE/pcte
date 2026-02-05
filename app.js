@@ -2092,6 +2092,21 @@ function isShippingActive(item) {
   return !receivedAfter;
 }
 
+function getActiveShippingMoveEntryForEquipment(equipmentId) {
+  if (!equipmentId) {
+    return null;
+  }
+  const equipment = equipmentById.get(String(equipmentId));
+  if (!equipment || !isShippingActive(equipment)) {
+    return null;
+  }
+  const shippingMove = getLatestShippingMoveEntryForEquipment(String(equipmentId));
+  if (!shippingMove || !shippingMove.shipping) {
+    return null;
+  }
+  return shippingMove;
+}
+
 function getEffectiveStatus(item) {
   return isShippingActive(item) ? "In transit" : item.status;
 }
@@ -2119,7 +2134,17 @@ function getFilteredEquipment(now = new Date()) {
     const matchesSearch =
       item.name.toLowerCase().includes(searchTerm) ||
       item.location.toLowerCase().includes(searchTerm) ||
-      getEffectiveStatus(item).toLowerCase().includes(searchTerm);
+      getEffectiveStatus(item).toLowerCase().includes(searchTerm) ||
+      (() => {
+        const shippingMove = getActiveShippingMoveEntryForEquipment(item.id);
+        if (!shippingMove || !shippingMove.shipping) {
+          return false;
+        }
+        const shippingText = `${shippingMove.shipping.carrier ?? ""} ${shippingMove.shipping.trackingNumber ?? ""}`
+          .trim()
+          .toLowerCase();
+        return shippingText.includes(searchTerm);
+      })();
     const matchesLocation =
       locationFilter === "All locations" || item.location === locationFilter;
     const matchesStatus =
@@ -2188,19 +2213,29 @@ function renderTable() {
             ? item.serialNumber
             : "—";
           const locationDisplay = getEquipmentLocationDisplay(item);
+          const activeShippingMove = getActiveShippingMoveEntryForEquipment(item.id);
+          const compactShippingMeta = getCompactShippingMeta(activeShippingMove?.shipping);
+          const hasDetailsAction = Boolean(activeShippingMove && compactShippingMeta);
           return `
         <tr>
           <td>${escapeHTML(item.name)}</td>
           <td>${escapeHTML(modelLabel)}</td>
           <td>${escapeHTML(serialLabel)}</td>
-          <td><span class="tag tag--status ${getEffectiveStatus(item) === "In transit" ? "tag--in-transit" : ""}">${escapeHTML(
+          <td>
+            <div class="status-with-meta">
+              <span class="tag tag--status ${getEffectiveStatus(item) === "In transit" ? "tag--in-transit" : ""}">${escapeHTML(
             getEffectiveStatus(item)
-          )}</span></td>
+          )}</span>
+              ${compactShippingMeta ? `<small class="status-meta">${escapeHTML(compactShippingMeta)}</small>` : ""}
+              ${hasDetailsAction ? `<button class="icon-button icon-button--inline" type="button" data-action="toggle-equipment-shipping-details" data-equipment-id="${escapeHTML(item.id)}">View</button>` : ""}
+            </div>
+          </td>
           <td><span class="tag">${escapeHTML(locationDisplay.text)}</span>${locationDisplay.inTransit ? " <span class=\"tag tag--status\">In transit</span>" : ""}</td>
           <td>${calibrationCell}</td>
           <td>${subscriptionCell}</td>
           <td>${escapeHTML(item.lastMoved)}</td>
         </tr>
+        ${hasDetailsAction ? `<tr class="equipment-shipping-details-row is-hidden" data-shipping-details-for="${escapeHTML(item.id)}"><td colspan="8"><div class="shipping-details-card"><div class="shipping-details-grid"><div><strong>Carrier</strong><span>${escapeHTML(activeShippingMove.shipping?.carrier || "—")}</span></div><div><strong>Tracking number</strong><span>${escapeHTML(activeShippingMove.shipping?.trackingNumber || "—")}</span><button class="icon-button icon-button--inline" type="button" data-action="copy-tracking" data-tracking-number="${escapeHTML(activeShippingMove.shipping?.trackingNumber || "")}">Copy</button></div><div><strong>Ship date</strong><span>${escapeHTML(activeShippingMove.shipping?.shipDate || "—")}</span></div><div><strong>ETA</strong><span>${escapeHTML(activeShippingMove.shipping?.etaDate || "—")}</span></div><div><strong>Delivered</strong><span>${escapeHTML(activeShippingMove.shipping?.deliveredAt || "—")}</span></div><div><strong>Route</strong><span>${escapeHTML(activeShippingMove.fromLocation || "—")} → ${escapeHTML(activeShippingMove.toLocation || "—")}</span></div><div><strong>Notes</strong><span>${escapeHTML(activeShippingMove.notes || "—")}</span></div></div></div></td></tr>` : ""}
       `;
         }
       )
@@ -2358,8 +2393,13 @@ function getFilteredMoves() {
     }
     const equipmentLabel = getEquipmentSummary(entry).toLowerCase();
     const notesLabel = `${entry.notes ?? ""} ${entry.text ?? ""}`.toLowerCase();
+    const shippingLabel = `${entry.shipping?.carrier ?? ""} ${entry.shipping?.trackingNumber ?? ""}`
+      .trim()
+      .toLowerCase();
     return (
-      equipmentLabel.includes(searchTerm) || notesLabel.includes(searchTerm)
+      equipmentLabel.includes(searchTerm) ||
+      notesLabel.includes(searchTerm) ||
+      shippingLabel.includes(searchTerm)
     );
   });
   return filtered;
@@ -2405,25 +2445,42 @@ function getEquipmentLocationDisplay(item) {
   };
 }
 
-function getShippingSummary(entry) {
-  const shipping = entry.shipping;
-  if (!shipping) {
+function getCompactShippingMeta(shipping) {
+  if (!shipping || typeof shipping !== "object") {
     return "";
   }
-  const parts = [];
-  if (shipping.carrier) {
-    parts.push(`Carrier: ${shipping.carrier}`);
+  const parts = [shipping.carrier, shipping.trackingNumber].filter(
+    (value) => typeof value === "string" && value.trim()
+  );
+  const etaDate = parseFlexibleDate(shipping.etaDate);
+  if (etaDate) {
+    parts.push(`ETA ${etaDate}`);
   }
-  if (shipping.trackingNumber) {
-    parts.push(`Tracking: ${shipping.trackingNumber}`);
+  return parts.join(" • ");
+}
+
+function getMovesShippingSummary(entry) {
+  const shipping =
+    entry && typeof entry === "object" ? normalizeShippingDetails(entry.shipping) : null;
+  if (!shipping) {
+    return "—";
+  }
+  const carrierTrackingParts = [shipping.carrier, shipping.trackingNumber].filter(
+    (value) => typeof value === "string" && value.trim()
+  );
+  const topLine = carrierTrackingParts.length
+    ? carrierTrackingParts.join(": ")
+    : "—";
+  const timelineParts = [];
+  if (shipping.shipDate) {
+    timelineParts.push(`Shipped ${shipping.shipDate}`);
   }
   if (shipping.etaDate) {
-    parts.push(`ETA: ${shipping.etaDate}`);
+    timelineParts.push(`ETA ${shipping.etaDate}`);
   }
-  if (shipping.deliveredAt) {
-    parts.push(`Received: ${shipping.deliveredAt}`);
-  }
-  return parts.join(" | ");
+  const bottomLine = timelineParts.join(" • ");
+  return bottomLine ? `${topLine}
+${bottomLine}` : topLine;
 }
 
 function renderMovesView() {
@@ -2499,7 +2556,7 @@ function renderMovesView() {
           ? `${conditionSummary}
 ${fallback}`
           : conditionSummary || fallback;
-      const shippingSummary = getShippingSummary(entry);
+      const shippingSummary = getMovesShippingSummary(entry);
       const typeLabel =
         entry.type === "details_updated"
           ? "Details updated"
@@ -2539,7 +2596,7 @@ ${fallback}`
           <td>${escapeHTML(fromLocation)}</td>
           <td>${escapeHTML(toLocation)}</td>
           <td>${escapeHTML(getStatusChangeLabel(entry))}</td>
-          <td>${escapeHTML(shippingSummary)}</td>
+          <td><div class="moves-shipping-cell">${escapeHTML(shippingSummary)}</div></td>
           <td>${escapeHTML(notes)}</td>
           <td>${escapeHTML(typeLabel)}</td>
           ${actionCell}
@@ -4152,6 +4209,20 @@ function handleDeleteHistoryEntry(entryId) {
   renderMovesView();
 }
 
+function handleCopyTrackingNumber(trackingNumber) {
+  const value = typeof trackingNumber === "string" ? trackingNumber.trim() : "";
+  if (!value) {
+    return;
+  }
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(value).catch(() => {
+      window.prompt("Copy tracking number:", value);
+    });
+    return;
+  }
+  window.prompt("Copy tracking number:", value);
+}
+
 if (elements.searchInput) {
   elements.searchInput.addEventListener("input", refreshUI);
 }
@@ -4215,6 +4286,34 @@ if (elements.movesTableBody) {
       return;
     }
     handleDeleteHistoryEntry(entryId);
+  });
+}
+
+if (elements.equipmentTable) {
+  elements.equipmentTable.addEventListener("click", (event) => {
+    const toggleButton = event.target.closest(
+      'button[data-action="toggle-equipment-shipping-details"]'
+    );
+    if (toggleButton) {
+      const equipmentId = toggleButton.dataset.equipmentId;
+      if (!equipmentId) {
+        return;
+      }
+      const detailRow = elements.equipmentTable.querySelector(
+        `tr[data-shipping-details-for="${CSS.escape(equipmentId)}"]`
+      );
+      if (!detailRow) {
+        return;
+      }
+      const isHidden = detailRow.classList.toggle("is-hidden");
+      toggleButton.textContent = isHidden ? "View" : "Hide";
+      return;
+    }
+
+    const copyButton = event.target.closest('button[data-action="copy-tracking"]');
+    if (copyButton) {
+      handleCopyTrackingNumber(copyButton.dataset.trackingNumber || "");
+    }
   });
 }
 
