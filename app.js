@@ -235,6 +235,7 @@ const elements = {
   moveChecklistAdminLink: document.querySelector(
     "#move-checklist-admin-link"
   ),
+  moveSubmitBlocked: document.querySelector("#move-submit-blocked"),
   moveSubmit: document.querySelector("#move-submit"),
   calibrationForm: document.querySelector("#calibration-form"),
   calibrationEquipment: document.querySelector("#calibration-equipment"),
@@ -796,6 +797,22 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     typeof safeEntry.statusTo === "string" ? safeEntry.statusTo : "";
   const notes =
     typeof safeEntry.notes === "string" ? safeEntry.notes : "";
+  const conditionRating =
+    typeof safeEntry.conditionRating === "string"
+      ? safeEntry.conditionRating.trim()
+      : "";
+  const contentsOk =
+    typeof safeEntry.contentsOk === "string"
+      ? safeEntry.contentsOk.trim()
+      : "";
+  const functionalOk =
+    typeof safeEntry.functionalOk === "string"
+      ? safeEntry.functionalOk.trim()
+      : "";
+  const conditionNotes =
+    typeof safeEntry.conditionNotes === "string"
+      ? safeEntry.conditionNotes.trim()
+      : "";
   const shipping = normalizeShippingDetails(safeEntry.shipping);
 
   return {
@@ -814,6 +831,10 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     statusFrom,
     statusTo,
     notes,
+    conditionRating,
+    contentsOk,
+    functionalOk,
+    conditionNotes,
     shipping,
   };
 }
@@ -2460,11 +2481,24 @@ function renderMovesView() {
         ? entry.fromLocation
         : "";
       const toLocation = entry.toLocation?.trim() ? entry.toLocation : "";
-      const notes =
+      const fallback =
         entry.notes?.trim() ||
         entry.text?.trim() ||
         entry.message?.trim() ||
         "";
+      const conditionSummaryParts = [];
+      if (entry.type === "move") {
+        conditionSummaryParts.push(`Overall: ${entry.conditionRating?.trim() || "—"}`);
+        conditionSummaryParts.push(`Contents: ${entry.contentsOk?.trim() || "—"}`);
+        conditionSummaryParts.push(`Functional: ${entry.functionalOk?.trim() || "—"}`);
+        conditionSummaryParts.push(`Condition notes: ${entry.conditionNotes?.trim() || "—"}`);
+      }
+      const conditionSummary = conditionSummaryParts.join(" | ");
+      const notes =
+        conditionSummary && fallback
+          ? `${conditionSummary}
+${fallback}`
+          : conditionSummary || fallback;
       const shippingSummary = getShippingSummary(entry);
       const typeLabel =
         entry.type === "details_updated"
@@ -2767,6 +2801,70 @@ function renderChecklistList(listElement, emptyElement, entries) {
   emptyElement.classList.toggle("is-hidden", items.length > 0);
 }
 
+function isMoveConditionChecklistComplete() {
+  if (!elements.moveConditionRating || !elements.moveContentsOk || !elements.moveFunctionalOk) {
+    return false;
+  }
+  return Boolean(
+    elements.moveConditionRating.value &&
+      elements.moveContentsOk.value &&
+      elements.moveFunctionalOk.value
+  );
+}
+
+function hasMoveConditionFailures() {
+  if (!elements.moveConditionRating || !elements.moveContentsOk || !elements.moveFunctionalOk) {
+    return false;
+  }
+  return (
+    elements.moveConditionRating.value === "Poor" ||
+    elements.moveConditionRating.value === "Damaged" ||
+    elements.moveContentsOk.value === "No" ||
+    elements.moveFunctionalOk.value === "No"
+  );
+}
+
+function validateMoveConditionChecklist({ showErrors = false } = {}) {
+  if (!elements.moveEquipment || !elements.moveSubmit || !elements.moveChecklistLock) {
+    return false;
+  }
+  const equipmentId = elements.moveEquipment.value;
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  const checklistDefined = item ? hasChecklistDefined(item.conditionReference) : false;
+  const completeChecklist = isMoveConditionChecklistComplete();
+  const failedChecks = hasMoveConditionFailures();
+  const hasNotes = Boolean(elements.moveConditionNotes?.value.trim());
+  const requiresFailureNotes = failedChecks;
+  const notesValid = !requiresFailureNotes || hasNotes;
+  const canSubmit = checklistDefined && completeChecklist && notesValid;
+
+  elements.moveSubmit.disabled = !canSubmit;
+  if (elements.moveSubmitBlocked) {
+    elements.moveSubmitBlocked.classList.toggle("is-hidden", canSubmit || !checklistDefined);
+  }
+  if (elements.moveConditionNotesError) {
+    const shouldShowError = showErrors ? requiresFailureNotes && !hasNotes : false;
+    elements.moveConditionNotesError.classList.toggle("is-hidden", !shouldShowError);
+  }
+  return canSubmit;
+}
+
+function resetMoveConditionInputs() {
+  if (elements.moveConditionNotes) {
+    elements.moveConditionNotes.value = "";
+  }
+  if (elements.moveContentsOk) {
+    elements.moveContentsOk.value = "";
+  }
+  if (elements.moveFunctionalOk) {
+    elements.moveFunctionalOk.value = "";
+  }
+  if (elements.moveConditionRating) {
+    elements.moveConditionRating.value = "";
+  }
+  validateMoveConditionChecklist();
+}
+
 function updateMoveChecklistLock() {
   if (
     !elements.moveEquipment ||
@@ -2781,10 +2879,10 @@ function updateMoveChecklistLock() {
     ? hasChecklistDefined(item.conditionReference)
     : false;
   elements.moveChecklistLock.classList.toggle("is-hidden", checklistDefined);
-  elements.moveSubmit.disabled = !checklistDefined;
   if (elements.moveChecklistAdminLink) {
     elements.moveChecklistAdminLink.dataset.equipmentId = equipmentId;
   }
+  validateMoveConditionChecklist();
 }
 
 function syncMoveConditionReference() {
@@ -2857,22 +2955,7 @@ function syncMoveShippingDefaults() {
 }
 
 function syncMoveConditionNotesError() {
-  if (
-    !elements.moveContentsOk ||
-    !elements.moveFunctionalOk ||
-    !elements.moveConditionNotes ||
-    !elements.moveConditionNotesError
-  ) {
-    return;
-  }
-  const failedChecks = [
-    elements.moveContentsOk.value === "No",
-    elements.moveFunctionalOk.value === "No",
-  ].some(Boolean);
-  const hasNotes = Boolean(elements.moveConditionNotes.value.trim());
-  if (!failedChecks || hasNotes) {
-    elements.moveConditionNotesError.classList.add("is-hidden");
-  }
+  validateMoveConditionChecklist();
 }
 
 function handleMoveSubmit(event) {
@@ -2905,18 +2988,18 @@ function handleMoveSubmit(event) {
   const shippingTracking = elements.moveShippingTracking.value.trim();
   const shippingShipDate = parseFlexibleDate(elements.moveShippingShipDate.value);
   const shippingEtaDate = parseFlexibleDate(elements.moveShippingEtaDate.value);
-  const failedChecks = [contentsOk === "No", functionalOk === "No"].some(
-    Boolean
-  );
-  if (failedChecks && !conditionNotes) {
-    if (elements.moveConditionNotesError) {
-      elements.moveConditionNotesError.classList.remove("is-hidden");
+  const failedChecks = [
+    conditionRating === "Poor",
+    conditionRating === "Damaged",
+    contentsOk === "No",
+    functionalOk === "No",
+  ].some(Boolean);
+  const checklistValid = validateMoveConditionChecklist({ showErrors: true });
+  if (!checklistValid) {
+    if (failedChecks && !conditionNotes && elements.moveConditionNotes) {
+      elements.moveConditionNotes.focus();
     }
-    elements.moveConditionNotes.focus();
     return;
-  }
-  if (elements.moveConditionNotesError) {
-    elements.moveConditionNotesError.classList.add("is-hidden");
   }
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
@@ -2972,10 +3055,7 @@ function handleMoveSubmit(event) {
   });
   elements.moveNotes.value = "";
   elements.moveStatus.value = "Keep current status";
-  elements.moveConditionNotes.value = "";
-  elements.moveContentsOk.value = "Yes";
-  elements.moveFunctionalOk.value = "Yes";
-  elements.moveConditionRating.value = "Good";
+  resetMoveConditionInputs();
   elements.moveShippingCarrier.value = "";
   elements.moveShippingTracking.value = "";
   elements.moveShippingShipDate.value = formatDate(new Date());
@@ -4155,10 +4235,10 @@ if (elements.moveForm) {
 }
 
 if (elements.moveEquipment) {
-  elements.moveEquipment.addEventListener(
-    "change",
-    syncMoveConditionReference
-  );
+  elements.moveEquipment.addEventListener("change", () => {
+    syncMoveConditionReference();
+    resetMoveConditionInputs();
+  });
 }
 
 [elements.moveShippingCarrier, elements.moveShippingTracking, elements.moveShippingShipDate].forEach((input) => {
@@ -4175,6 +4255,13 @@ if (elements.moveChecklistAdminLink) {
       elements.moveChecklistAdminLink?.dataset.equipmentId ?? "";
     goToAdminEditEquipment(equipmentId);
   });
+}
+
+if (elements.moveConditionRating) {
+  elements.moveConditionRating.addEventListener(
+    "change",
+    syncMoveConditionNotesError
+  );
 }
 
 if (elements.moveContentsOk) {
