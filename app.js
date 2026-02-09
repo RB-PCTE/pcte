@@ -49,6 +49,7 @@ const moveTypeOptions = [
   { value: "calibration", label: "Calibration" },
   { value: "subscription_updated", label: "Subscription" },
   { value: "details_updated", label: "Details updated" },
+  { value: "correction", label: "Correction" },
   {
     value: "condition_reference_updated",
     label: "Condition checklist",
@@ -406,6 +407,7 @@ const elements = {
   adminView: document.querySelector("#admin-view"),
   movesEquipmentFilter: document.querySelector("#moves-equipment-filter"),
   movesTypeFilter: document.querySelector("#moves-type-filter"),
+  movesShowDeleted: document.querySelector("#moves-show-deleted"),
   movesSearch: document.querySelector("#moves-search"),
   movesTableHeader: document.querySelector("#moves-table-header"),
   movesTableBody: document.querySelector("#moves-table-body"),
@@ -803,6 +805,9 @@ function normalizeHistoryType(rawType, fallbackText = "") {
     if (normalized.includes("subscription")) {
       return "subscription_updated";
     }
+    if (normalized.includes("correction")) {
+      return "correction";
+    }
     if (normalized.includes("condition_reference")) {
       return "condition_reference_updated";
     }
@@ -820,6 +825,9 @@ function normalizeHistoryType(rawType, fallbackText = "") {
     }
     if (normalized === "subscription_updated") {
       return "subscription_updated";
+    }
+    if (normalized === "correction") {
+      return "correction";
     }
     if (normalized === "condition_reference_updated") {
       return "condition_reference_updated";
@@ -969,7 +977,8 @@ function getLatestConditionEntryFromMoves(equipmentId, moves = []) {
     .filter(
       (entry) =>
         entry.equipmentId === equipmentId &&
-        isConditionCheckEntry(entry)
+        isConditionCheckEntry(entry) &&
+        !isEntryDeleted(entry)
     )
     .reduce((currentLatest, candidate) => {
       const candidateTime = new Date(getConditionCheckTimestamp(candidate)).getTime();
@@ -2689,7 +2698,9 @@ function renderTable() {
 }
 
 function renderHistory() {
-  const allMoves = getAllMovesFromState();
+  const allMoves = getAllMovesFromState().filter(
+    (entry) => !isEntryDeleted(entry)
+  );
   if (allMoves.length === 0) {
     if (elements.historyList) {
       elements.historyList.innerHTML = "<li>No moves logged yet.</li>";
@@ -2803,9 +2814,39 @@ function getAllMovesFromState() {
   return dedupeHistoryEntries(allMoves);
 }
 
+function isEntryDeleted(entry) {
+  return Boolean(entry && typeof entry === "object" && entry.deletedAt);
+}
+
+function buildCorrectionsByEntryId(entries, { includeDeleted = false } = {}) {
+  const corrections = new Map();
+  const list = Array.isArray(entries) ? entries : [];
+  list.forEach((entry) => {
+    if (!entry || entry.type !== "correction") {
+      return;
+    }
+    if (!includeDeleted && isEntryDeleted(entry)) {
+      return;
+    }
+    const targetId =
+      typeof entry.correctionOf === "string" && entry.correctionOf.trim()
+        ? entry.correctionOf.trim()
+        : "";
+    if (!targetId) {
+      return;
+    }
+    if (!corrections.has(targetId)) {
+      corrections.set(targetId, []);
+    }
+    corrections.get(targetId).push(entry);
+  });
+  return corrections;
+}
+
 function getFilteredMoves() {
   const equipmentFilter = elements.movesEquipmentFilter?.value ?? "all";
   const typeFilter = elements.movesTypeFilter?.value ?? "all";
+  const showDeleted = elements.movesShowDeleted?.checked ?? false;
   const subscriptionFilter = elements.subscriptionFilter
     ? elements.subscriptionFilter.value
     : "All";
@@ -2816,6 +2857,9 @@ function getFilteredMoves() {
   const allMoves = getAllMovesFromState();
   const now = new Date();
   const filtered = allMoves.filter((entry) => {
+    if (!showDeleted && isEntryDeleted(entry)) {
+      return false;
+    }
     if (equipmentFilter !== "all" && entry.equipmentId !== equipmentFilter) {
       return false;
     }
@@ -2855,7 +2899,10 @@ function getLatestMoveEntryForEquipment(equipmentId) {
     return null;
   }
   const entries = getAllMovesFromState().filter(
-    (entry) => entry.equipmentId === equipmentId && entry.type === "move"
+    (entry) =>
+      entry.equipmentId === equipmentId &&
+      entry.type === "move" &&
+      !isEntryDeleted(entry)
   );
   if (!entries.length) {
     return null;
@@ -2928,13 +2975,86 @@ function getMovesShippingSummary(entry) {
 ${bottomLine}` : topLine;
 }
 
+function formatDeletedMeta(entry) {
+  if (!isEntryDeleted(entry)) {
+    return "";
+  }
+  const deletedAt =
+    typeof entry.deletedAt === "string" && entry.deletedAt.trim()
+      ? entry.deletedAt
+      : "Unknown time";
+  const deletedBy =
+    typeof entry.deletedBy === "string" && entry.deletedBy.trim()
+      ? entry.deletedBy
+      : "Admin";
+  const reason =
+    typeof entry.deleteReason === "string" && entry.deleteReason.trim()
+      ? entry.deleteReason.trim()
+      : "";
+  const reasonLabel = reason ? `Reason: ${reason}` : "No reason provided.";
+  return `Deleted ${deletedAt} by ${deletedBy}. ${reasonLabel}`;
+}
+
+function buildNotesHtml({ baseNotes, corrections, deletedMeta, referenceLabel }) {
+  const parts = [];
+  if (baseNotes) {
+    parts.push(`<div>${escapeHTML(baseNotes)}</div>`);
+  }
+  if (referenceLabel) {
+    parts.push(
+      `<div class="moves-note-meta">${escapeHTML(referenceLabel)}</div>`
+    );
+  }
+  if (Array.isArray(corrections) && corrections.length) {
+    const items = corrections
+      .map((correction) => {
+        const note =
+          correction.notes?.trim() ||
+          correction.text?.trim() ||
+          "Correction logged.";
+        const timestamp = correction.timestamp ?? "";
+        return `<li><strong>${escapeHTML(
+          timestamp
+        )}</strong> — ${escapeHTML(note)}</li>`;
+      })
+      .join("");
+    parts.push(
+      `<div class="moves-corrections"><p>Corrections</p><ul>${items}</ul></div>`
+    );
+  }
+  if (deletedMeta) {
+    parts.push(
+      `<div class="moves-note-meta moves-note-meta--deleted">${escapeHTML(
+        deletedMeta
+      )}</div>`
+    );
+  }
+  if (!parts.length) {
+    return "—";
+  }
+  return parts.join("");
+}
+
 function renderMovesView() {
   if (!elements.movesTableBody || !elements.movesTableHeader) {
     return;
   }
   syncEquipmentById();
+  const showDeleted = elements.movesShowDeleted?.checked ?? false;
+  const allMoves = getAllMovesFromState();
+  const correctionsByEntryId = buildCorrectionsByEntryId(allMoves, {
+    includeDeleted: showDeleted,
+  });
+  const entryById = new Map(
+    allMoves
+      .filter((entry) => entry && entry.id)
+      .map((entry) => [entry.id, entry])
+  );
   const filteredMoves = getFilteredMoves();
   const showDeleteActions = adminModeEnabled;
+  const hasCorrectionAction = filteredMoves.some(
+    (entry) => entry.type !== "correction" && !isEntryDeleted(entry)
+  );
   const hasReceivableMove = filteredMoves.some(
     (entry) =>
       entry.type === "move" &&
@@ -2945,7 +3065,7 @@ function renderMovesView() {
       !hasReceivedLogAfterMove(entry) &&
       isShippingActive(equipmentById.get(entry.equipmentId))
   );
-  const showActions = showDeleteActions || hasReceivableMove;
+  const showActions = showDeleteActions || hasReceivableMove || hasCorrectionAction;
 
   const headers = [
     "Timestamp",
@@ -2985,7 +3105,7 @@ function renderMovesView() {
         ? entry.fromLocation
         : "";
       const toLocation = entry.toLocation?.trim() ? entry.toLocation : "";
-      const notes =
+      const baseNotes =
         entry.notes?.trim() ||
         entry.text?.trim() ||
         entry.message?.trim() ||
@@ -2999,6 +3119,8 @@ function renderMovesView() {
             ? "Calibration"
             : entry.type === "subscription_updated"
               ? "Subscription"
+              : entry.type === "correction"
+                ? "Correction"
               : entry.type === "condition_reference_updated"
                 ? "Condition checklist"
                 : entry.type === "received"
@@ -3019,14 +3141,37 @@ function renderMovesView() {
           `<button class="icon-button" type="button" data-action="mark-received" data-id="${escapeHTML(entry.id)}">Mark received</button>`
         );
       }
+      if (entry.type !== "correction" && !isEntryDeleted(entry)) {
+        actions.push(
+          `<button class="icon-button" type="button" data-action="add-correction" data-id="${escapeHTML(entry.id)}">Add correction</button>`
+        );
+      }
       if (showDeleteActions) {
         actions.push(
-          `<button class="icon-button" type="button" data-action="delete-move" data-id="${escapeHTML(entry.id)}">Delete</button>`
+          `<button class="icon-button" type="button" data-action="delete-move" data-id="${escapeHTML(entry.id)}">Soft delete</button>`
         );
       }
       const actionCell = showActions ? `<td>${actions.join(" ")}</td>` : "";
+      const corrections = correctionsByEntryId.get(entry.id) ?? [];
+      const deletedMeta = formatDeletedMeta(entry);
+      const targetEntry =
+        entry.type === "correction" && entry.correctionOf
+          ? entryById.get(entry.correctionOf)
+          : null;
+      const referenceLabel =
+        entry.type === "correction" && entry.correctionOf
+          ? `Correction for entry ${
+              targetEntry?.timestamp ? targetEntry.timestamp : entry.correctionOf
+            }.`
+          : "";
+      const notesHtml = buildNotesHtml({
+        baseNotes,
+        corrections,
+        deletedMeta,
+        referenceLabel,
+      });
       return `
-        <tr>
+        <tr class="${isEntryDeleted(entry) ? "moves-row--deleted" : ""}">
           <td>${escapeHTML(entry.timestamp)}</td>
           <td>${escapeHTML(equipmentLabel)}</td>
           <td>${escapeHTML(fromLocation)}</td>
@@ -3034,7 +3179,7 @@ function renderMovesView() {
           <td>${escapeHTML(getStatusChangeLabel(entry))}</td>
           <td><div class="moves-shipping-cell">${escapeHTML(shippingSummary)}</div></td>
           <td>${escapeHTML(conditionSummary)}</td>
-          <td>${escapeHTML(notes)}</td>
+          <td>${notesHtml}</td>
           <td>${escapeHTML(typeLabel)}</td>
           ${actionCell}
         </tr>
@@ -3048,6 +3193,9 @@ function getInboundMoves() {
   const allMoves = getAllMovesFromState();
   return allMoves.filter((entry) => {
     if (entry.type !== "move") {
+      return false;
+    }
+    if (isEntryDeleted(entry)) {
       return false;
     }
     const destination = entry.toLocation?.trim();
@@ -3169,6 +3317,10 @@ function refreshUI() {
   syncMoveConditionReference();
   syncMoveConditionNotesError();
   syncMoveShippingDefaults();
+  if (elements.clearHistory) {
+    elements.clearHistory.classList.toggle("is-hidden", !adminModeEnabled);
+    elements.clearHistory.disabled = !adminModeEnabled;
+  }
   syncCalibrationForm();
   syncAddSubscriptionInputs({ clearWhenDisabled: false });
   syncEditForm();
@@ -4729,7 +4881,40 @@ function syncCalibrationInputs() {
 }
 
 function handleClearHistory() {
-  state.moves = [];
+  if (!adminModeEnabled) {
+    return;
+  }
+  const reason = window.prompt(
+    "Provide a reason for archiving all moves:",
+    "Bulk archive"
+  );
+  if (!reason || !reason.trim()) {
+    return;
+  }
+  const trimmedReason = reason.trim();
+  const timestamp = formatTimestampISO();
+  state.moves = state.moves.map((entry) =>
+    entry && typeof entry === "object"
+      ? {
+          ...entry,
+          deletedAt: entry.deletedAt || timestamp,
+          deletedBy: entry.deletedBy || "Admin",
+          deleteReason: entry.deleteReason || trimmedReason,
+        }
+      : entry
+  );
+  if (Array.isArray(state.log)) {
+    state.log = state.log.map((entry) =>
+      entry && typeof entry === "object"
+        ? {
+          ...entry,
+          deletedAt: entry.deletedAt || timestamp,
+          deletedBy: entry.deletedBy || "Admin",
+          deleteReason: entry.deleteReason || trimmedReason,
+        }
+      : entry
+    );
+  }
   saveState();
   refreshUI();
 }
@@ -4744,6 +4929,9 @@ function handleMarkReceived(moveEntryId) {
       ? state.log.find((entry) => entry.id === moveEntryId)
       : null);
   if (!moveEntry || moveEntry.type !== "move") {
+    return;
+  }
+  if (isEntryDeleted(moveEntry)) {
     return;
   }
   const equipmentId = moveEntry.equipmentId;
@@ -4790,10 +4978,51 @@ function handleDeleteHistoryEntry(entryId) {
   if (!entryId) {
     return;
   }
-  state.moves = state.moves.filter((entry) => entry.id !== entryId);
+  const entry =
+    state.moves.find((item) => item.id === entryId) ||
+    (Array.isArray(state.log)
+      ? state.log.find((item) => item.id === entryId)
+      : null);
+  if (!entry || isEntryDeleted(entry)) {
+    return;
+  }
+  const reason = window.prompt(
+    "Provide a reason for soft deleting this entry:"
+  );
+  if (!reason || !reason.trim()) {
+    return;
+  }
+  const trimmedReason = reason.trim();
+  entry.deletedAt = formatTimestampISO();
+  entry.deletedBy = "Admin";
+  entry.deleteReason = trimmedReason;
   saveState();
   renderHistory();
   renderMovesView();
+}
+
+function handleAddCorrection(entryId) {
+  if (!entryId) {
+    return;
+  }
+  const entry = getAllMovesFromState().find((item) => item.id === entryId);
+  if (!entry || isEntryDeleted(entry)) {
+    return;
+  }
+  const reason = window.prompt("Describe the correction:");
+  if (!reason || !reason.trim()) {
+    return;
+  }
+  const trimmedReason = reason.trim();
+  logHistory({
+    type: "correction",
+    correctionOf: entry.id,
+    notes: trimmedReason,
+    equipmentId: entry.equipmentId,
+    equipmentSnapshot: entry.equipmentSnapshot,
+  });
+  saveState();
+  refreshUI();
 }
 
 function handleCopyTrackingNumber(trackingNumber) {
@@ -4838,6 +5067,10 @@ if (elements.movesTypeFilter) {
   elements.movesTypeFilter.addEventListener("change", renderMovesView);
 }
 
+if (elements.movesShowDeleted) {
+  elements.movesShowDeleted.addEventListener("change", renderMovesView);
+}
+
 if (elements.movesSearch) {
   elements.movesSearch.addEventListener("input", renderMovesView);
 }
@@ -4864,16 +5097,21 @@ if (elements.movesTableBody) {
       'button[data-action="delete-move"]'
     );
     if (!deleteButton || !adminModeEnabled) {
+      const correctionButton = event.target.closest(
+        'button[data-action="add-correction"]'
+      );
+      if (!correctionButton) {
+        return;
+      }
+      const entryId = correctionButton.dataset.id;
+      if (!entryId) {
+        return;
+      }
+      handleAddCorrection(entryId);
       return;
     }
     const entryId = deleteButton.dataset.id;
     if (!entryId) {
-      return;
-    }
-    const confirmed = window.confirm(
-      "Delete this log entry? This cannot be undone."
-    );
-    if (!confirmed) {
       return;
     }
     handleDeleteHistoryEntry(entryId);

@@ -240,6 +240,40 @@ textarea:focus {
   color: var(--muted);
 }
 
+.moves-row--deleted {
+  opacity: 0.6;
+}
+
+.moves-note-meta {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.moves-note-meta--deleted {
+  color: #b42318;
+}
+
+.moves-corrections {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.moves-corrections p {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.moves-corrections ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
 .shipping-details-card {
   background: #f7f9ff;
   border: 1px solid var(--border);
