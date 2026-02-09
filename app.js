@@ -2,6 +2,48 @@ const STORAGE_KEY = "equipmentTrackerState";
 const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
 const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
 const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
+// === PCTE DEBUG TRIPWIRE v2 ===
+(function tripwireV2() {
+  const blockClose = function () {
+    console.warn("Blocked window.close()", new Error("close stack").stack);
+  };
+  try {
+    window.close = blockClose;
+    self.close = blockClose;
+  } catch (_) {}
+
+  window.addEventListener("pagehide", () => {
+    console.warn("Lifecycle: pagehide", location.href);
+  });
+  window.addEventListener("unload", () => {
+    console.warn("Lifecycle: unload", location.href);
+  });
+
+  document.addEventListener(
+    "submit",
+    (e) => {
+      console.warn("Form submit blocked:", e.target);
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    },
+    true
+  );
+
+  document.addEventListener(
+    "click",
+    (e) => {
+      const a = e.target && e.target.closest ? e.target.closest("a") : null;
+      if (a && a.getAttribute("href") && a.getAttribute("href") !== "#") {
+        console.warn("Link navigation blocked:", a.getAttribute("href"), a);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true
+  );
+})();
+// === /PCTE DEBUG TRIPWIRE v2 ===
 
 const physicalLocations = [
   "Perth",
