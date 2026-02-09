@@ -625,6 +625,12 @@ tr:last-child td {
   color: #b4690e;
 }
 
+.field-note {
+  font-size: 12px;
+  color: #475467;
+  margin-top: 4px;
+}
+
 button {
   border: none;
   border-radius: 10px;

@@ -227,6 +227,12 @@
                     </fieldset>
                     <div class="condition-section">
                       <h4>Condition check</h4>
+                      <p
+                        id="move-condition-exempt-note"
+                        class="field-note is-hidden"
+                      >
+                        Condition check not required for this status.
+                      </p>
                       <div class="condition-grid">
                         <label>
                           Condition rating
@@ -316,8 +322,11 @@
                         Go to Admin → Edit equipment
                       </button>
                     </p>
-                    <p id="move-submit-blocked" class="field-warning">
-                      Complete the condition checklist before recording the move.
+                    <p
+                      id="move-submit-blocked"
+                      class="field-warning is-hidden"
+                    >
+                      Condition check required for this move.
                     </p>
                     <button type="submit" id="move-submit">
                       Record move
