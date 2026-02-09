@@ -38,6 +38,11 @@ const subscriptionFilterOptions = [
   "Not required",
 ];
 
+const moveConditionExemptStatuses = new Set([
+  "In service / repair",
+  "Quarantined",
+]);
+
 const moveTypeOptions = [
   { value: "all", label: "All types" },
   { value: "move", label: "Move" },
@@ -253,6 +258,7 @@ const elements = {
   moveConditionNotesError: document.querySelector(
     "#move-condition-notes-error"
   ),
+  moveConditionExemptNote: document.querySelector("#move-condition-exempt-note"),
   moveContentsChecklist: document.querySelector("#move-contents-checklist"),
   moveContentsChecklistEmpty: document.querySelector(
     "#move-contents-checklist-empty"
@@ -3187,26 +3193,33 @@ function validateMoveConditionChecklist({ showErrors = false } = {}) {
   }
   const equipmentId = elements.moveEquipment.value;
   const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    elements.moveSubmit.disabled = true;
+    return false;
+  }
+  const conditionRequired = isMoveConditionRequired(item);
   const completeChecklist = isMoveConditionChecklistComplete();
   const failedChecks = hasMoveConditionFailures();
   const hasNotes = Boolean(elements.moveConditionNotes?.value.trim());
-  const hasAnyConditionInput = Boolean(
-    elements.moveConditionRating?.value ||
-      elements.moveContentsOk?.value ||
-      elements.moveFunctionalOk?.value ||
-      hasNotes
-  );
-  const requiresFailureNotes = failedChecks;
+  const requiresFailureNotes = conditionRequired && failedChecks;
   const notesValid = !requiresFailureNotes || hasNotes;
-  const canSubmit = !hasAnyConditionInput || (completeChecklist && notesValid);
+  const canSubmit = conditionRequired ? completeChecklist && notesValid : true;
 
   elements.moveSubmit.disabled = !canSubmit;
   if (elements.moveSubmitBlocked) {
-    elements.moveSubmitBlocked.classList.add("is-hidden");
+    const showBlocked = conditionRequired && !completeChecklist;
+    elements.moveSubmitBlocked.classList.toggle("is-hidden", !showBlocked);
   }
   if (elements.moveConditionNotesError) {
-    const shouldShowError = showErrors ? requiresFailureNotes && !hasNotes : false;
+    const shouldShowError =
+      showErrors && requiresFailureNotes && !hasNotes;
     elements.moveConditionNotesError.classList.toggle("is-hidden", !shouldShowError);
+  }
+  if (elements.moveConditionExemptNote) {
+    elements.moveConditionExemptNote.classList.toggle(
+      "is-hidden",
+      conditionRequired
+    );
   }
   return canSubmit;
 }
@@ -3291,12 +3304,7 @@ function syncMoveShippingStatusOverride() {
   ) {
     return;
   }
-  const hasCarrierOrTracking = Boolean(
-    elements.moveShippingCarrier.value.trim() ||
-      elements.moveShippingTracking.value.trim()
-  );
-  const hasShipDate = Boolean(parseFlexibleDate(elements.moveShippingShipDate.value));
-  const shippingActive = hasCarrierOrTracking && hasShipDate;
+  const shippingActive = isMoveShippingActive();
   elements.moveStatus.disabled = shippingActive;
   if (shippingActive) {
     elements.moveStatus.value = "Keep current status";
@@ -3304,6 +3312,7 @@ function syncMoveShippingStatusOverride() {
   } else {
     elements.moveShippingOverrideNote.classList.add("is-hidden");
   }
+  validateMoveConditionChecklist();
 }
 
 function syncMoveShippingDefaults() {
@@ -3318,6 +3327,43 @@ function syncMoveShippingDefaults() {
 
 function syncMoveConditionNotesError() {
   validateMoveConditionChecklist();
+}
+
+function isMoveShippingActive() {
+  if (
+    !elements.moveShippingCarrier ||
+    !elements.moveShippingTracking ||
+    !elements.moveShippingShipDate
+  ) {
+    return false;
+  }
+  const hasCarrierOrTracking = Boolean(
+    elements.moveShippingCarrier.value.trim() ||
+      elements.moveShippingTracking.value.trim()
+  );
+  const hasShipDate = Boolean(
+    parseFlexibleDate(elements.moveShippingShipDate.value)
+  );
+  return hasCarrierOrTracking && hasShipDate;
+}
+
+function getMoveConditionStatus(item) {
+  if (isMoveShippingActive()) {
+    return "In transit";
+  }
+  if (!elements.moveStatus) {
+    return item?.status ?? "";
+  }
+  const selectedStatus = elements.moveStatus.value;
+  if (selectedStatus && selectedStatus !== "Keep current status") {
+    return selectedStatus;
+  }
+  return item?.status ?? "";
+}
+
+function isMoveConditionRequired(item) {
+  const status = getMoveConditionStatus(item);
+  return !moveConditionExemptStatuses.has(status);
 }
 
 function handleMoveSubmit(event) {
@@ -3350,6 +3396,12 @@ function handleMoveSubmit(event) {
   const shippingTracking = elements.moveShippingTracking.value.trim();
   const shippingShipDate = parseFlexibleDate(elements.moveShippingShipDate.value);
   const shippingEtaDate = parseFlexibleDate(elements.moveShippingEtaDate.value);
+
+  const item = state.equipment.find((entry) => entry.id === equipmentId);
+  if (!item) {
+    return;
+  }
+  const conditionRequired = isMoveConditionRequired(item);
   const failedChecks = [
     conditionRating === "Needs attention",
     conditionRating === "Unserviceable",
@@ -3358,14 +3410,9 @@ function handleMoveSubmit(event) {
   ].some(Boolean);
   const checklistValid = validateMoveConditionChecklist({ showErrors: true });
   if (!checklistValid) {
-    if (failedChecks && !conditionNotes && elements.moveConditionNotes) {
+    if (conditionRequired && failedChecks && !conditionNotes && elements.moveConditionNotes) {
       elements.moveConditionNotes.focus();
     }
-    return;
-  }
-
-  const item = state.equipment.find((entry) => entry.id === equipmentId);
-  if (!item) {
     return;
   }
   const previousLocation = item.location;
@@ -3384,9 +3431,7 @@ function handleMoveSubmit(event) {
     notes ? ` (${notes}).` : "."
   }`;
 
-  const conditionCheckCompleted =
-    Boolean(conditionRating && contentsOk && functionalOk) && checklistValid;
-  const conditionEntry = conditionCheckCompleted
+  const conditionEntry = conditionRequired
     ? {
         rating: conditionRating,
         contentsOk: contentsOk === "Yes",
@@ -4658,6 +4703,12 @@ if (elements.moveEquipment) {
   elements.moveEquipment.addEventListener("change", () => {
     syncMoveConditionReference();
     resetMoveConditionInputs();
+  });
+}
+
+if (elements.moveStatus) {
+  elements.moveStatus.addEventListener("change", () => {
+    validateMoveConditionChecklist();
   });
 }
 
