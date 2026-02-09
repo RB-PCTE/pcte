@@ -409,6 +409,9 @@ const elements = {
   movesSearch: document.querySelector("#moves-search"),
   movesTableHeader: document.querySelector("#moves-table-header"),
   movesTableBody: document.querySelector("#moves-table-body"),
+  inboundLocationFilter: document.querySelector("#inbound-location-filter"),
+  inboundTableBody: document.querySelector("#inbound-table-body"),
+  inboundCount: document.querySelector("#inbound-count"),
   adminModeToggle: document.querySelector("#admin-mode-toggle"),
   adminTabButton: document.querySelector("#tab-button-admin"),
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
@@ -1115,6 +1118,12 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
         }
   );
   const shipping = normalizeShippingDetails(safeEntry.shipping);
+  const receivedAt =
+    typeof safeEntry.receivedAt === "string"
+      ? safeEntry.receivedAt
+      : typeof safeEntry.shipping?.deliveredAt === "string"
+        ? safeEntry.shipping.deliveredAt
+        : "";
 
   return {
     ...safeEntry,
@@ -1134,6 +1143,7 @@ function normalizeHistoryEntry(entry, equipmentList = []) {
     notes,
     condition,
     shipping,
+    receivedAt,
   };
 }
 
@@ -1588,6 +1598,23 @@ function renderMovesTypeFilter() {
   )
     ? currentValue
     : "all";
+}
+
+function renderInboundLocationOptions() {
+  if (!elements.inboundLocationFilter) {
+    return;
+  }
+  const currentValue = elements.inboundLocationFilter.value || "All offices";
+  const options = ["All offices", ...state.locations]
+    .map((location) => {
+      const safeLocation = escapeHTML(location);
+      return `<option value="${safeLocation}">${safeLocation}</option>`;
+    })
+    .join("");
+  elements.inboundLocationFilter.innerHTML = options;
+  elements.inboundLocationFilter.value = state.locations.includes(currentValue)
+    ? currentValue
+    : "All offices";
 }
 
 function populateEquipmentSelect(selectEl, equipmentList, selectedId) {
@@ -2354,6 +2381,39 @@ function hasShippingCoreDetails(shipping) {
   return hasCarrierOrTracking && Boolean(parseFlexibleDate(shipping.shipDate));
 }
 
+function getMoveReceivedAt(entry) {
+  if (!entry || typeof entry !== "object") {
+    return "";
+  }
+  const receivedAt =
+    typeof entry.receivedAt === "string" ? entry.receivedAt.trim() : "";
+  if (receivedAt) {
+    return receivedAt;
+  }
+  const deliveredAt = parseFlexibleDate(entry.shipping?.deliveredAt);
+  return deliveredAt || "";
+}
+
+function hasReceivedLogAfterMove(moveEntry) {
+  if (!moveEntry || typeof moveEntry !== "object") {
+    return false;
+  }
+  const moveTime = Date.parse(moveEntry.timestamp || "");
+  return getAllMovesFromState().some((entry) => {
+    if (entry.equipmentId !== moveEntry.equipmentId || entry.type !== "received") {
+      return false;
+    }
+    if (!Number.isFinite(moveTime)) {
+      return true;
+    }
+    const entryTime = Date.parse(entry.timestamp || "");
+    if (!Number.isFinite(entryTime)) {
+      return true;
+    }
+    return entryTime >= moveTime;
+  });
+}
+
 function getLatestShippingMoveEntryForEquipment(equipmentId) {
   if (!equipmentId) {
     return null;
@@ -2388,21 +2448,10 @@ function isShippingActive(item) {
   if (!hasShippingCoreDetails(shippingMove.shipping)) {
     return false;
   }
-  if (parseFlexibleDate(shippingMove.shipping.deliveredAt)) {
+  if (getMoveReceivedAt(shippingMove)) {
     return false;
   }
-  const moveTime = Date.parse(shippingMove.timestamp || "");
-  const receivedAfter = getAllMovesFromState().some((entry) => {
-    if (entry.equipmentId !== item.id || entry.type !== "received") {
-      return false;
-    }
-    const entryTime = Date.parse(entry.timestamp || "");
-    if (!Number.isFinite(moveTime) || !Number.isFinite(entryTime)) {
-      return true;
-    }
-    return entryTime >= moveTime;
-  });
-  return !receivedAfter;
+  return !hasReceivedLogAfterMove(shippingMove);
 }
 
 function getActiveShippingMoveEntryForEquipment(equipmentId) {
@@ -2892,7 +2941,8 @@ function renderMovesView() {
       entry.equipmentId &&
       entry.shipping &&
       hasShippingCoreDetails(entry.shipping) &&
-      !entry.shipping.deliveredAt &&
+      !getMoveReceivedAt(entry) &&
+      !hasReceivedLogAfterMove(entry) &&
       isShippingActive(equipmentById.get(entry.equipmentId))
   );
   const showActions = showDeleteActions || hasReceivableMove;
@@ -2960,7 +3010,8 @@ function renderMovesView() {
         Boolean(equipment) &&
         entry.shipping &&
         hasShippingCoreDetails(entry.shipping) &&
-        !entry.shipping.deliveredAt &&
+        !getMoveReceivedAt(entry) &&
+        !hasReceivedLogAfterMove(entry) &&
         isShippingActive(equipment);
       const actions = [];
       if (canMarkReceived) {
@@ -2986,6 +3037,75 @@ function renderMovesView() {
           <td>${escapeHTML(notes)}</td>
           <td>${escapeHTML(typeLabel)}</td>
           ${actionCell}
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function getInboundMoves() {
+  const locationFilter = elements.inboundLocationFilter?.value ?? "All offices";
+  const allMoves = getAllMovesFromState();
+  return allMoves.filter((entry) => {
+    if (entry.type !== "move") {
+      return false;
+    }
+    const destination = entry.toLocation?.trim();
+    if (!destination) {
+      return false;
+    }
+    if (locationFilter !== "All offices" && destination !== locationFilter) {
+      return false;
+    }
+    if (getMoveReceivedAt(entry) || hasReceivedLogAfterMove(entry)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function renderInboundView() {
+  if (!elements.inboundTableBody) {
+    return;
+  }
+  syncEquipmentById();
+  const inboundMoves = getInboundMoves();
+  if (elements.inboundCount) {
+    const locationLabel = elements.inboundLocationFilter?.value ?? "All offices";
+    const countLabel = inboundMoves.length === 1 ? "move" : "moves";
+    elements.inboundCount.textContent = `${inboundMoves.length} inbound ${countLabel} for ${locationLabel}.`;
+  }
+  if (!inboundMoves.length) {
+    elements.inboundTableBody.innerHTML = `
+      <tr>
+        <td colspan="7">No inbound moves awaiting receipt.</td>
+      </tr>
+    `;
+    return;
+  }
+  elements.inboundTableBody.innerHTML = inboundMoves
+    .map((entry) => {
+      const equipmentLabel = getEquipmentSummary(entry);
+      const fromLocation = entry.fromLocation?.trim() ? entry.fromLocation : "—";
+      const toLocation = entry.toLocation?.trim() ? entry.toLocation : "—";
+      const shipping = normalizeShippingDetails(entry.shipping) || {};
+      const shipped = shipping.shipDate || "—";
+      const eta = shipping.etaDate || "—";
+      const courier = shipping.carrier || "—";
+      const tracking = shipping.trackingNumber || "—";
+      const canReceive = Boolean(entry.equipmentId && equipmentById.get(entry.equipmentId));
+      const actionButton = canReceive
+        ? `<button class="icon-button" type="button" data-action="mark-received" data-id="${escapeHTML(entry.id)}">Mark received</button>`
+        : "—";
+      return `
+        <tr>
+          <td>${escapeHTML(equipmentLabel)}</td>
+          <td>${escapeHTML(`${fromLocation} → ${toLocation}`)}</td>
+          <td>${escapeHTML(shipped)}</td>
+          <td>${escapeHTML(eta)}</td>
+          <td>${escapeHTML(courier)}</td>
+          <td>${escapeHTML(tracking)}</td>
+          <td>${actionButton}</td>
         </tr>
       `;
     })
@@ -3040,10 +3160,12 @@ function refreshUI() {
   renderSubscriptionOptions();
   renderEquipmentOptions();
   renderMovesFilters();
+  renderInboundLocationOptions();
   renderTable();
   renderHistory();
   renderLocationSummary();
   renderMovesView();
+  renderInboundView();
   syncMoveConditionReference();
   syncMoveConditionNotesError();
   syncMoveShippingDefaults();
@@ -3552,6 +3674,7 @@ function handleMoveSubmit(event) {
       statusTo: getEffectiveStatus(item),
       notes,
       condition: conditionEntry,
+      receivedAt: "",
       shipping: {
         carrier: shippingCarrier,
         trackingNumber: shippingTracking,
@@ -4615,7 +4738,11 @@ function handleMarkReceived(moveEntryId) {
   if (!moveEntryId) {
     return;
   }
-  const moveEntry = state.moves.find((entry) => entry.id === moveEntryId);
+  const moveEntry =
+    state.moves.find((entry) => entry.id === moveEntryId) ||
+    (Array.isArray(state.log)
+      ? state.log.find((entry) => entry.id === moveEntryId)
+      : null);
   if (!moveEntry || moveEntry.type !== "move") {
     return;
   }
@@ -4627,7 +4754,11 @@ function handleMarkReceived(moveEntryId) {
   if (!moveEntry.shipping || !hasShippingCoreDetails(moveEntry.shipping)) {
     return;
   }
+  if (getMoveReceivedAt(moveEntry) || hasReceivedLogAfterMove(moveEntry)) {
+    return;
+  }
   const receivedDate = formatDate(new Date());
+  moveEntry.receivedAt = formatTimestampISO();
   moveEntry.shipping = {
     ...moveEntry.shipping,
     deliveredAt: receivedDate,
@@ -4711,6 +4842,10 @@ if (elements.movesSearch) {
   elements.movesSearch.addEventListener("input", renderMovesView);
 }
 
+if (elements.inboundLocationFilter) {
+  elements.inboundLocationFilter.addEventListener("change", renderInboundView);
+}
+
 if (elements.movesTableBody) {
   elements.movesTableBody.addEventListener("click", (event) => {
     const receiveButton = event.target.closest(
@@ -4742,6 +4877,22 @@ if (elements.movesTableBody) {
       return;
     }
     handleDeleteHistoryEntry(entryId);
+  });
+}
+
+if (elements.inboundTableBody) {
+  elements.inboundTableBody.addEventListener("click", (event) => {
+    const receiveButton = event.target.closest(
+      'button[data-action="mark-received"]'
+    );
+    if (!receiveButton) {
+      return;
+    }
+    const moveEntryId = receiveButton.dataset.id;
+    if (!moveEntryId) {
+      return;
+    }
+    handleMarkReceived(moveEntryId);
   });
 }
 
