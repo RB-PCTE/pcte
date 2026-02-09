@@ -1,6 +1,7 @@
 const STORAGE_KEY = "equipmentTrackerState";
 const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
 const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
+const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
 
 const physicalLocations = [
   "Perth",
@@ -419,6 +420,32 @@ const elements = {
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
   adminTabButton: document.querySelector("#tab-button-admin"),
   adminModeToggle: document.querySelector("#admin-mode-toggle"),
+  adminPasscodeDialog: document.querySelector("#admin-passcode-dialog"),
+  adminPasscodeForm: document.querySelector("#admin-passcode-form"),
+  adminPasscodeTitle: document.querySelector("#admin-passcode-title"),
+  adminPasscodeHint: document.querySelector("#admin-passcode-hint"),
+  adminPasscodeInput: document.querySelector("#admin-passcode-input"),
+  adminPasscodeVerify: document.querySelector("#admin-passcode-verify"),
+  adminPasscodeSetup: document.querySelector("#admin-passcode-setup"),
+  adminPasscodeNew: document.querySelector("#admin-passcode-new"),
+  adminPasscodeConfirm: document.querySelector("#admin-passcode-confirm"),
+  adminPasscodeError: document.querySelector("#admin-passcode-error"),
+  adminPasscodeCancel: document.querySelector("#admin-passcode-cancel"),
+  adminPasscodeSubmit: document.querySelector("#admin-passcode-submit"),
+  adminPasscodeSettingsForm: document.querySelector(
+    "#admin-passcode-settings"
+  ),
+  adminPasscodeCurrent: document.querySelector("#admin-passcode-current"),
+  adminPasscodeUpdate: document.querySelector("#admin-passcode-update"),
+  adminPasscodeUpdateConfirm: document.querySelector(
+    "#admin-passcode-update-confirm"
+  ),
+  adminPasscodeUpdateError: document.querySelector(
+    "#admin-passcode-update-error"
+  ),
+  adminPasscodeUpdateSuccess: document.querySelector(
+    "#admin-passcode-update-success"
+  ),
   importTemplateButton: document.querySelector("#import-template-button"),
   importFileInput: document.querySelector("#import-file-input"),
   importDuplicateBehavior: document.querySelector(
@@ -443,6 +470,7 @@ const elements = {
 
 let adminModeEnabled = false;
 let isMoveSaving = false;
+let pendingAdminAction = null;
 const moveSubmitDefaultLabel = elements.moveSubmit?.textContent?.trim() || "Record move";
 const equipmentImportTemplateHeaders = [
   "name",
@@ -1318,11 +1346,83 @@ function saveState() {
 }
 
 function loadAdminMode() {
-  return localStorage.getItem(ADMIN_MODE_KEY) === "true";
+  return (
+    localStorage.getItem(ADMIN_MODE_KEY) === "true" &&
+    hasAdminPasscodeRecord()
+  );
 }
 
 function saveAdminMode(isEnabled) {
   localStorage.setItem(ADMIN_MODE_KEY, String(Boolean(isEnabled)));
+}
+
+function readAdminPasscodeRecord() {
+  const raw = localStorage.getItem(ADMIN_PASSCODE_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.value === "string"
+    ) {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn("Failed to parse stored admin passcode record", error);
+  }
+  return {
+    method: "plain",
+    value: raw,
+  };
+}
+
+function hasAdminPasscodeRecord() {
+  const record = readAdminPasscodeRecord();
+  return Boolean(record?.value);
+}
+
+function saveAdminPasscodeRecord(record) {
+  localStorage.setItem(ADMIN_PASSCODE_KEY, JSON.stringify(record));
+}
+
+async function hashPasscode(passcode) {
+  if (!window.crypto?.subtle || !window.TextEncoder) {
+    return passcode;
+  }
+  const encoder = new TextEncoder();
+  const data = encoder.encode(passcode);
+  const digest = await window.crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function buildPasscodeRecord(passcode) {
+  if (window.crypto?.subtle && window.TextEncoder) {
+    return {
+      method: "sha256",
+      value: await hashPasscode(passcode),
+    };
+  }
+  return {
+    method: "plain",
+    value: passcode,
+  };
+}
+
+async function verifyAdminPasscode(passcode) {
+  const record = readAdminPasscodeRecord();
+  if (!record || !record.value) {
+    return false;
+  }
+  if (record.method === "sha256") {
+    const hash = await hashPasscode(passcode);
+    return hash === record.value;
+  }
+  return record.value === passcode;
 }
 
 function applyAdminMode(isEnabled, { focus = false } = {}) {
@@ -1347,6 +1447,184 @@ function applyAdminMode(isEnabled, { focus = false } = {}) {
     setActiveTab(storedTab, { focus });
   }
   refreshUI();
+}
+
+function requestAdminModeEnable(action) {
+  if (adminModeEnabled) {
+    if (typeof action === "function") {
+      action();
+    }
+    return;
+  }
+  pendingAdminAction = typeof action === "function" ? action : null;
+  openAdminPasscodeDialog();
+}
+
+function resetAdminPasscodeDialog() {
+  if (elements.adminPasscodeInput) {
+    elements.adminPasscodeInput.value = "";
+  }
+  if (elements.adminPasscodeNew) {
+    elements.adminPasscodeNew.value = "";
+  }
+  if (elements.adminPasscodeConfirm) {
+    elements.adminPasscodeConfirm.value = "";
+  }
+  if (elements.adminPasscodeError) {
+    elements.adminPasscodeError.textContent = "";
+    elements.adminPasscodeError.classList.add("is-hidden");
+  }
+}
+
+function openAdminPasscodeDialog() {
+  if (!elements.adminPasscodeDialog) {
+    return;
+  }
+  const hasPasscode = hasAdminPasscodeRecord();
+  const mode = hasPasscode ? "verify" : "setup";
+  elements.adminPasscodeDialog.dataset.mode = mode;
+  if (elements.adminPasscodeTitle) {
+    elements.adminPasscodeTitle.textContent = hasPasscode
+      ? "Enable Admin mode"
+      : "Set admin passcode";
+  }
+  if (elements.adminPasscodeHint) {
+    elements.adminPasscodeHint.textContent = hasPasscode
+      ? "Enter the local browser passcode to unlock Admin mode."
+      : "Create a local browser passcode to protect Admin mode.";
+  }
+  if (elements.adminPasscodeVerify) {
+    elements.adminPasscodeVerify.classList.toggle("is-hidden", !hasPasscode);
+  }
+  if (elements.adminPasscodeSetup) {
+    elements.adminPasscodeSetup.classList.toggle("is-hidden", hasPasscode);
+  }
+  if (elements.adminPasscodeSubmit) {
+    elements.adminPasscodeSubmit.textContent = hasPasscode
+      ? "Enable Admin mode"
+      : "Set passcode & enable";
+  }
+  resetAdminPasscodeDialog();
+  elements.adminPasscodeDialog.showModal();
+  const focusTarget = hasPasscode
+    ? elements.adminPasscodeInput
+    : elements.adminPasscodeNew;
+  focusTarget?.focus();
+}
+
+function closeAdminPasscodeDialog() {
+  elements.adminPasscodeDialog?.close();
+}
+
+function setAdminPasscodeDialogError(message) {
+  if (!elements.adminPasscodeError) {
+    return;
+  }
+  elements.adminPasscodeError.textContent = message;
+  elements.adminPasscodeError.classList.toggle("is-hidden", !message);
+}
+
+function resetAdminPasscodeSettingsStatus() {
+  if (elements.adminPasscodeUpdateError) {
+    elements.adminPasscodeUpdateError.textContent = "";
+    elements.adminPasscodeUpdateError.classList.add("is-hidden");
+  }
+  if (elements.adminPasscodeUpdateSuccess) {
+    elements.adminPasscodeUpdateSuccess.classList.add("is-hidden");
+  }
+}
+
+function setAdminPasscodeSettingsError(message) {
+  if (!elements.adminPasscodeUpdateError) {
+    return;
+  }
+  elements.adminPasscodeUpdateError.textContent = message;
+  elements.adminPasscodeUpdateError.classList.toggle("is-hidden", !message);
+}
+
+async function handleAdminPasscodeFormSubmit(event) {
+  event.preventDefault();
+  resetAdminPasscodeSettingsStatus();
+  setAdminPasscodeDialogError("");
+  const mode = elements.adminPasscodeDialog?.dataset.mode ?? "verify";
+  if (mode === "setup") {
+    const newPasscode = elements.adminPasscodeNew?.value.trim() ?? "";
+    const confirmPasscode = elements.adminPasscodeConfirm?.value.trim() ?? "";
+    if (!newPasscode || !confirmPasscode) {
+      setAdminPasscodeDialogError("Enter and confirm a new passcode.");
+      return;
+    }
+    if (newPasscode !== confirmPasscode) {
+      setAdminPasscodeDialogError("Passcodes do not match.");
+      return;
+    }
+    const record = await buildPasscodeRecord(newPasscode);
+    saveAdminPasscodeRecord(record);
+    applyAdminMode(true, { focus: true });
+    const nextAction = pendingAdminAction;
+    pendingAdminAction = null;
+    if (typeof nextAction === "function") {
+      nextAction();
+    }
+    closeAdminPasscodeDialog();
+    showToast("Admin passcode set.", "success");
+    return;
+  }
+
+  const passcode = elements.adminPasscodeInput?.value.trim() ?? "";
+  if (!passcode) {
+    setAdminPasscodeDialogError("Enter the admin passcode to continue.");
+    return;
+  }
+  const isValid = await verifyAdminPasscode(passcode);
+  if (!isValid) {
+    setAdminPasscodeDialogError("Incorrect passcode.");
+    return;
+  }
+  applyAdminMode(true, { focus: true });
+  const nextAction = pendingAdminAction;
+  pendingAdminAction = null;
+  if (typeof nextAction === "function") {
+    nextAction();
+  }
+  closeAdminPasscodeDialog();
+}
+
+async function handleAdminPasscodeSettingsSubmit(event) {
+  event.preventDefault();
+  resetAdminPasscodeSettingsStatus();
+  const currentPasscode = elements.adminPasscodeCurrent?.value.trim() ?? "";
+  const newPasscode = elements.adminPasscodeUpdate?.value.trim() ?? "";
+  const confirmPasscode =
+    elements.adminPasscodeUpdateConfirm?.value.trim() ?? "";
+  if (!currentPasscode || !newPasscode || !confirmPasscode) {
+    setAdminPasscodeSettingsError("Complete all passcode fields.");
+    return;
+  }
+  if (newPasscode !== confirmPasscode) {
+    setAdminPasscodeSettingsError("New passcodes do not match.");
+    return;
+  }
+  const isValid = await verifyAdminPasscode(currentPasscode);
+  if (!isValid) {
+    setAdminPasscodeSettingsError("Current passcode is incorrect.");
+    return;
+  }
+  const record = await buildPasscodeRecord(newPasscode);
+  saveAdminPasscodeRecord(record);
+  if (elements.adminPasscodeUpdateSuccess) {
+    elements.adminPasscodeUpdateSuccess.classList.remove("is-hidden");
+  }
+  if (elements.adminPasscodeCurrent) {
+    elements.adminPasscodeCurrent.value = "";
+  }
+  if (elements.adminPasscodeUpdate) {
+    elements.adminPasscodeUpdate.value = "";
+  }
+  if (elements.adminPasscodeUpdateConfirm) {
+    elements.adminPasscodeUpdateConfirm.value = "";
+  }
+  showToast("Admin passcode updated.", "success");
 }
 
 function formatTimestamp(date = new Date()) {
@@ -3402,12 +3680,13 @@ function goToAdminEditEquipment(equipmentId) {
   if (!equipmentId) {
     return;
   }
-  applyAdminMode(true);
-  setActiveTab("admin", { focus: true });
-  if (elements.editEquipmentSelect) {
-    elements.editEquipmentSelect.value = equipmentId;
-    syncEditForm();
-  }
+  requestAdminModeEnable(() => {
+    setActiveTab("admin", { focus: true });
+    if (elements.editEquipmentSelect) {
+      elements.editEquipmentSelect.value = equipmentId;
+      syncEditForm();
+    }
+  });
 }
 
 function initTabs() {
@@ -5422,6 +5701,36 @@ const storedAdminMode = loadAdminMode();
 applyAdminMode(storedAdminMode);
 initTabs();
 
+if (elements.adminPasscodeForm) {
+  elements.adminPasscodeForm.addEventListener(
+    "submit",
+    handleAdminPasscodeFormSubmit
+  );
+}
+
+if (elements.adminPasscodeCancel) {
+  elements.adminPasscodeCancel.addEventListener("click", () => {
+    closeAdminPasscodeDialog();
+  });
+}
+
+if (elements.adminPasscodeDialog) {
+  elements.adminPasscodeDialog.addEventListener("close", () => {
+    pendingAdminAction = null;
+    if (!adminModeEnabled && elements.adminModeToggle) {
+      elements.adminModeToggle.checked = false;
+    }
+    resetAdminPasscodeDialog();
+  });
+}
+
+if (elements.adminPasscodeSettingsForm) {
+  elements.adminPasscodeSettingsForm.addEventListener(
+    "submit",
+    handleAdminPasscodeSettingsSubmit
+  );
+}
+
 if (elements.conditionHistoryClose) {
   elements.conditionHistoryClose.addEventListener("click", () => {
     elements.conditionHistoryModal?.close();
@@ -5436,6 +5745,11 @@ resetImportState();
 
 if (elements.adminModeToggle) {
   elements.adminModeToggle.addEventListener("change", () => {
-    applyAdminMode(elements.adminModeToggle.checked, { focus: true });
+    if (elements.adminModeToggle.checked) {
+      elements.adminModeToggle.checked = false;
+      requestAdminModeEnable();
+      return;
+    }
+    applyAdminMode(false, { focus: true });
   });
 }
