@@ -803,3 +803,58 @@ button:disabled {
   font-size: 12px;
   color: var(--muted);
 }
+
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  display: grid;
+  gap: 10px;
+  z-index: 999;
+  max-width: min(320px, 90vw);
+}
+
+.toast {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 24px rgba(27, 31, 42, 0.12);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.toast--success {
+  border-color: rgba(35, 176, 125, 0.4);
+  background: rgba(35, 176, 125, 0.08);
+}
+
+.toast--error {
+  border-color: rgba(180, 35, 24, 0.4);
+  background: rgba(180, 35, 24, 0.08);
+}
+
+.toast--info {
+  border-color: rgba(75, 110, 245, 0.4);
+  background: rgba(75, 110, 245, 0.08);
+}
+
+.equipment-row-highlight td {
+  background: rgba(75, 110, 245, 0.12);
+}
+
+.equipment-row-highlight {
+  animation: rowHighlightPulse 1.6s ease-in-out;
+}
+
+@keyframes rowHighlightPulse {
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: rgba(75, 110, 245, 0.1);
+  }
+}

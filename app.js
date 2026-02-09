@@ -275,6 +275,7 @@ const elements = {
   ),
   moveSubmitBlocked: document.querySelector("#move-submit-blocked"),
   moveSubmit: document.querySelector("#move-submit"),
+  toastContainer: document.querySelector("#toast-container"),
   calibrationForm: document.querySelector("#calibration-form"),
   calibrationEquipment: document.querySelector("#calibration-equipment"),
   calibrationDate: document.querySelector("#calibration-date"),
@@ -436,6 +437,8 @@ const elements = {
 };
 
 let adminModeEnabled = false;
+let isMoveSaving = false;
+const moveSubmitDefaultLabel = elements.moveSubmit?.textContent?.trim() || "Record move";
 const equipmentImportTemplateHeaders = [
   "name",
   "model",
@@ -461,6 +464,83 @@ let editChecklistCopyMetadata = null;
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
+}
+
+function showToast(message, type = "info") {
+  if (!elements.toastContainer) {
+    return;
+  }
+  const allowedTypes = new Set(["success", "error", "info"]);
+  const safeType = allowedTypes.has(type) ? type : "info";
+  const toast = document.createElement("div");
+  toast.className = `toast toast--${safeType}`;
+  toast.textContent = message;
+  elements.toastContainer.appendChild(toast);
+  const timeoutId = window.setTimeout(() => {
+    toast.remove();
+  }, 3000);
+  toast.addEventListener("click", () => {
+    window.clearTimeout(timeoutId);
+    toast.remove();
+  });
+}
+
+function setMoveSubmitSaving(isSaving) {
+  if (!elements.moveSubmit) {
+    return;
+  }
+  if (isSaving) {
+    elements.moveSubmit.textContent = "Saving...";
+    elements.moveSubmit.disabled = true;
+    return;
+  }
+  elements.moveSubmit.textContent = moveSubmitDefaultLabel;
+  validateMoveConditionChecklist();
+}
+
+function resetMoveForm() {
+  if (!elements.moveForm) {
+    return;
+  }
+  if (elements.moveNotes) {
+    elements.moveNotes.value = "";
+  }
+  if (elements.moveStatus) {
+    elements.moveStatus.value = "Keep current status";
+  }
+  resetMoveConditionInputs();
+  if (elements.moveShippingCarrier) {
+    elements.moveShippingCarrier.value = "";
+  }
+  if (elements.moveShippingTracking) {
+    elements.moveShippingTracking.value = "";
+  }
+  if (elements.moveShippingShipDate) {
+    elements.moveShippingShipDate.value = formatDate(new Date());
+  }
+  if (elements.moveShippingEtaDate) {
+    elements.moveShippingEtaDate.value = "";
+  }
+  syncMoveShippingStatusOverride();
+}
+
+function highlightEquipmentRow(equipmentId) {
+  if (!equipmentId || !elements.equipmentTable || elements.operationsView?.hidden) {
+    return;
+  }
+  const row = elements.equipmentTable.querySelector(
+    `tr[data-equipment-id="${CSS.escape(equipmentId)}"]`
+  );
+  if (!row) {
+    return;
+  }
+  row.scrollIntoView({ behavior: "smooth", block: "center" });
+  row.classList.remove("equipment-row-highlight");
+  void row.offsetWidth;
+  row.classList.add("equipment-row-highlight");
+  window.setTimeout(() => {
+    row.classList.remove("equipment-row-highlight");
+  }, 1600);
 }
 
 function getEquipmentListFromState() {
@@ -2532,7 +2612,7 @@ function renderTable() {
           const compactShippingMeta = getCompactShippingMeta(activeShippingMove?.shipping);
           const hasDetailsAction = Boolean(activeShippingMove && compactShippingMeta);
           return `
-        <tr>
+        <tr data-equipment-id="${escapeHTML(item.id)}">
           <td>${escapeHTML(item.name)}</td>
           <td>${escapeHTML(modelLabel)}</td>
           <td>${escapeHTML(serialLabel)}</td>
@@ -3384,6 +3464,9 @@ function handleMoveSubmit(event) {
   ) {
     return;
   }
+  if (isMoveSaving) {
+    return;
+  }
   const equipmentId = elements.moveEquipment.value;
   const newLocation = elements.moveLocation.value;
   const newStatus = elements.moveStatus.value;
@@ -3410,73 +3493,88 @@ function handleMoveSubmit(event) {
   ].some(Boolean);
   const checklistValid = validateMoveConditionChecklist({ showErrors: true });
   if (!checklistValid) {
+    if (conditionRequired) {
+      if (elements.moveSubmitBlocked) {
+        elements.moveSubmitBlocked.classList.remove("is-hidden");
+      }
+      showToast("Move not recorded: complete the condition check.", "error");
+    }
     if (conditionRequired && failedChecks && !conditionNotes && elements.moveConditionNotes) {
       elements.moveConditionNotes.focus();
     }
     return;
   }
-  const previousLocation = item.location;
-  const previousStatus = item.status;
-  item.location = newLocation;
-  if (newStatus && newStatus !== "Keep current status") {
-    item.status = newStatus;
+  isMoveSaving = true;
+  setMoveSubmitSaving(true);
+  try {
+    const previousLocation = item.location;
+    const previousStatus = item.status;
+    item.location = newLocation;
+    if (newStatus && newStatus !== "Keep current status") {
+      item.status = newStatus;
+    }
+    item.lastMoved = formatTimestamp();
+
+    const statusNote =
+      newStatus && newStatus !== "Keep current status"
+        ? ` with status ${item.status}`
+        : "";
+    const message = `${item.name} moved to ${newLocation}${statusNote}${
+      notes ? ` (${notes}).` : "."
+    }`;
+
+    const conditionEntry = conditionRequired
+      ? {
+          rating: conditionRating,
+          contentsOk: contentsOk === "Yes",
+          functionalOk: functionalOk === "Yes",
+          notes: conditionNotes,
+          checkedAt: formatTimestampISO(),
+          checkedBy: "",
+        }
+      : null;
+    if (conditionEntry) {
+      applyConditionSnapshot(item, conditionEntry);
+    }
+
+    logHistory({
+      type: "move",
+      text: message,
+      equipmentId: String(item.id),
+      equipmentSnapshot: {
+        name: item.name,
+        model: item.model,
+        serialNumber: item.serialNumber,
+      },
+      fromLocation: previousLocation,
+      toLocation: newLocation,
+      statusFrom: previousStatus,
+      statusTo: getEffectiveStatus(item),
+      notes,
+      condition: conditionEntry,
+      shipping: {
+        carrier: shippingCarrier,
+        trackingNumber: shippingTracking,
+        shipDate: shippingShipDate,
+        etaDate: shippingEtaDate,
+        deliveredAt: "",
+      },
+    });
+    resetMoveForm();
+    saveState();
+    refreshUI();
+    const statusSummary = `Now: ${getEffectiveStatus(item)} in ${getEquipmentLocationDisplay(item).text}.`;
+    showToast(`Move recorded for ${item.name}. ${statusSummary}`, "success");
+    window.requestAnimationFrame(() => {
+      highlightEquipmentRow(item.id);
+    });
+  } catch (error) {
+    console.error("Failed to record move", error);
+    showToast("Something went wrong while recording the move.", "error");
+  } finally {
+    isMoveSaving = false;
+    setMoveSubmitSaving(false);
   }
-  item.lastMoved = formatTimestamp();
-
-  const statusNote =
-    newStatus && newStatus !== "Keep current status"
-      ? ` with status ${item.status}`
-      : "";
-  const message = `${item.name} moved to ${newLocation}${statusNote}${
-    notes ? ` (${notes}).` : "."
-  }`;
-
-  const conditionEntry = conditionRequired
-    ? {
-        rating: conditionRating,
-        contentsOk: contentsOk === "Yes",
-        functionalOk: functionalOk === "Yes",
-        notes: conditionNotes,
-        checkedAt: formatTimestampISO(),
-        checkedBy: "",
-      }
-    : null;
-  if (conditionEntry) {
-    applyConditionSnapshot(item, conditionEntry);
-  }
-
-  logHistory({
-    type: "move",
-    text: message,
-    equipmentId: String(item.id),
-    equipmentSnapshot: {
-      name: item.name,
-      model: item.model,
-      serialNumber: item.serialNumber,
-    },
-    fromLocation: previousLocation,
-    toLocation: newLocation,
-    statusFrom: previousStatus,
-    statusTo: getEffectiveStatus(item),
-    notes,
-    condition: conditionEntry,
-    shipping: {
-      carrier: shippingCarrier,
-      trackingNumber: shippingTracking,
-      shipDate: shippingShipDate,
-      etaDate: shippingEtaDate,
-      deliveredAt: "",
-    },
-  });
-  elements.moveNotes.value = "";
-  elements.moveStatus.value = "Keep current status";
-  resetMoveConditionInputs();
-  elements.moveShippingCarrier.value = "";
-  elements.moveShippingTracking.value = "";
-  elements.moveShippingShipDate.value = formatDate(new Date());
-  elements.moveShippingEtaDate.value = "";
-  saveState();
-  refreshUI();
 }
 
 function syncCalibrationForm() {
