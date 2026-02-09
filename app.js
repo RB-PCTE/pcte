@@ -3,6 +3,17 @@ const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
 const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
 const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
 
+const disableClose = () => {};
+window.close = disableClose;
+self.close = disableClose;
+window.addEventListener("beforeunload", (event) => {
+  const adminDialog = document.querySelector("#admin-passcode-dialog");
+  if (adminDialog?.open) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
 const physicalLocations = [
   "Perth",
   "Melbourne",
