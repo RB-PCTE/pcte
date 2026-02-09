@@ -3,17 +3,6 @@ const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
 const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
 const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
 
-const disableClose = () => {};
-window.close = disableClose;
-self.close = disableClose;
-window.addEventListener("beforeunload", (event) => {
-  const adminDialog = document.querySelector("#admin-passcode-dialog");
-  if (adminDialog?.open) {
-    event.preventDefault();
-    event.returnValue = "";
-  }
-});
-
 const physicalLocations = [
   "Perth",
   "Melbourne",
@@ -1561,6 +1550,7 @@ function setAdminPasscodeSettingsError(message) {
 
 async function handleAdminPasscodeFormSubmit(event) {
   event.preventDefault();
+  event.stopPropagation();
   resetAdminPasscodeSettingsStatus();
   setAdminPasscodeDialogError("");
   const mode = elements.adminPasscodeDialog?.dataset.mode ?? "verify";
@@ -5696,7 +5686,9 @@ if (elements.adminPasscodeForm) {
 }
 
 if (elements.adminPasscodeCancel) {
-  elements.adminPasscodeCancel.addEventListener("click", () => {
+  elements.adminPasscodeCancel.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     closeAdminPasscodeDialog();
   });
 }
