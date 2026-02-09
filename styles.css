@@ -795,12 +795,6 @@ button:disabled {
   color: var(--muted);
 }
 
-.inbound-count {
-  margin: 12px 0 0;
-  font-size: 12px;
-  color: var(--muted);
-}
-
 .tag {
   display: inline-flex;
   align-items: center;
