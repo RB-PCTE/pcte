@@ -373,6 +373,38 @@
                 </div>
               </section>
             </div>
+
+            <section class="card inbound-card">
+              <div class="card-header">
+                <div>
+                  <h2>Inbound</h2>
+                  <p>Incoming moves that are awaiting receipt.</p>
+                </div>
+                <div class="filters">
+                  <div class="filter">
+                    <label for="inbound-location-filter">Destination</label>
+                    <select id="inbound-location-filter"></select>
+                  </div>
+                </div>
+              </div>
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Equipment</th>
+                      <th>From → To</th>
+                      <th>Shipped</th>
+                      <th>ETA</th>
+                      <th>Courier</th>
+                      <th>Tracking</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="inbound-table-body"></tbody>
+                </table>
+              </div>
+              <p id="inbound-count" class="inbound-count"></p>
+            </section>
           </section>
         </div>
 
