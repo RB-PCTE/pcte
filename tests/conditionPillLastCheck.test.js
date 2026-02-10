@@ -37,6 +37,21 @@ function normalizeConditionLogEntry(rawCondition = {}) {
   return { rating, contentsOk, functionalOk, checkedAt };
 }
 
+function normalizeLastConditionCheck(rawValue = null) {
+  if (!rawValue || typeof rawValue !== "object") return null;
+  const result = normalizeConditionLogEntry(rawValue.result);
+  const checkedAt =
+    typeof rawValue.checkedAt === "string" && rawValue.checkedAt.trim()
+      ? rawValue.checkedAt
+      : result?.checkedAt || "";
+  if (!result && !checkedAt) return null;
+  return {
+    result,
+    checkedAt,
+    moveId: typeof rawValue.moveId === "string" ? rawValue.moveId : "",
+  };
+}
+
 function isConditionCheckEntry(entry) {
   if (!entry || typeof entry !== "object") return false;
   if (entry.type === "condition") return true;
@@ -64,20 +79,27 @@ function deriveLastConditionFromLogs(logsForItem = []) {
 
   if (!latest) return null;
 
-  return normalizeConditionLogEntry({
+  const result = normalizeConditionLogEntry({
     ...(latest.condition && typeof latest.condition === "object" ? latest.condition : {}),
     checkedAt: getConditionCheckTimestamp(latest),
   });
+  if (!result) return null;
+
+  return {
+    result,
+    checkedAt: result.checkedAt || getConditionCheckTimestamp(latest),
+    moveId: latest.id,
+  };
 }
 
-function getLastConditionCheck(equipmentId, moveLogs = []) {
-  return deriveLastConditionFromLogs(
-    (Array.isArray(moveLogs) ? moveLogs : []).filter((entry) => entry.equipmentId === equipmentId)
-  );
+function getConditionPillRating(item) {
+  const lastConditionCheck = normalizeLastConditionCheck(item.lastConditionCheck);
+  return lastConditionCheck?.result?.rating || "Not checked";
 }
 
 (function run() {
   const equipmentId = "eq-1";
+
   const logsCheckReceiptTransfer = [
     {
       id: "m1",
@@ -89,8 +111,8 @@ function getLastConditionCheck(equipmentId, moveLogs = []) {
     { id: "r1", equipmentId, type: "received", timestamp: "2025-01-02T00:00:00.000Z" },
     { id: "m2", equipmentId, type: "move", timestamp: "2025-01-03T00:00:00.000Z" },
   ];
-  const first = getLastConditionCheck(equipmentId, logsCheckReceiptTransfer);
-  if (!first || first.rating !== "Good") {
+  const first = deriveLastConditionFromLogs(logsCheckReceiptTransfer);
+  if (!first || first.result.rating !== "Good" || first.moveId !== "m1") {
     throw new Error("Check → receipt → transfer should keep latest check result");
   }
 
@@ -110,18 +132,26 @@ function getLastConditionCheck(equipmentId, moveLogs = []) {
       condition: { rating: "Excellent", contentsOk: true, functionalOk: true },
     },
   ];
-  const second = getLastConditionCheck(equipmentId, logsMultipleChecks);
-  if (!second || second.rating !== "Excellent") {
+  const second = deriveLastConditionFromLogs(logsMultipleChecks);
+  if (!second || second.result.rating !== "Excellent" || second.moveId !== "m2") {
     throw new Error("Multiple checks should use the newest check");
   }
 
-  const logsNoChecks = [
-    { id: "m1", equipmentId, type: "move", timestamp: "2025-01-01T00:00:00.000Z" },
-    { id: "r1", equipmentId, type: "received", timestamp: "2025-01-03T00:00:00.000Z" },
-  ];
-  const third = getLastConditionCheck(equipmentId, logsNoChecks);
-  if (third !== null) {
-    throw new Error("No checks should produce null (Not checked)");
+  const noCheckItem = { id: equipmentId, lastConditionCheck: null };
+  if (getConditionPillRating(noCheckItem) !== "Not checked") {
+    throw new Error("No checks should produce Not checked");
+  }
+
+  const checkedItem = {
+    id: equipmentId,
+    lastConditionCheck: {
+      result: { rating: "Good", contentsOk: true, functionalOk: true },
+      checkedAt: "2025-01-01T00:00:00.000Z",
+      moveId: "m1",
+    },
+  };
+  if (getConditionPillRating(checkedItem) !== "Good") {
+    throw new Error("Pill must read from item.lastConditionCheck");
   }
 
   console.log("conditionPillLastCheck tests passed");
