@@ -137,6 +137,7 @@ function buildDefaultState() {
         conditionLastNotes: "",
         currentCondition: null,
         lastConditionCheckAt: "",
+        lastConditionCheck: null,
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -3 }),
@@ -164,6 +165,7 @@ function buildDefaultState() {
         conditionLastNotes: "",
         currentCondition: null,
         lastConditionCheckAt: "",
+        lastConditionCheck: null,
         calibrationRequired: false,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -6 }),
@@ -191,6 +193,7 @@ function buildDefaultState() {
         conditionLastNotes: "",
         currentCondition: null,
         lastConditionCheckAt: "",
+        lastConditionCheck: null,
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -14 }),
@@ -218,6 +221,7 @@ function buildDefaultState() {
         conditionLastNotes: "",
         currentCondition: null,
         lastConditionCheckAt: "",
+        lastConditionCheck: null,
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
@@ -819,17 +823,20 @@ function normalizeState({ equipment = [], moves = [], log, corrections = [], sch
   };
 
   normalizedState.equipment.forEach((item) => {
-    const derivedCondition = getLatestConditionEntryFromMoves(
-      item.id,
-      normalizedMoves
-    );
-    if (derivedCondition) {
-      applyConditionSnapshot(item, derivedCondition);
+    const existingLastConditionCheck = normalizeLastConditionCheck(item.lastConditionCheck);
+    if (existingLastConditionCheck) {
+      applyConditionSnapshot(
+        item,
+        existingLastConditionCheck.result,
+        existingLastConditionCheck.moveId
+      );
       return;
     }
-    if (!item.currentCondition || !item.lastConditionCheckAt) {
-      applyConditionSnapshot(item, item.currentCondition || null);
+    const derivedCondition = getLatestConditionEntryFromMoves(item.id, normalizedMoves);
+    if (!derivedCondition) {
+      return;
     }
+    applyConditionSnapshot(item, derivedCondition.result, derivedCondition.moveId);
   });
 
   if (Array.isArray(log)) {
@@ -1011,6 +1018,14 @@ function normalizeEquipmentConditionFields(item = {}) {
     lastConditionCheckAtRaw ||
     fallbackCurrentCondition?.checkedAt ||
     conditionLastCheckedAt;
+  const existingLastConditionCheck = normalizeLastConditionCheck(item.lastConditionCheck);
+  const fallbackLastConditionCheck = fallbackCurrentCondition
+    ? {
+        result: fallbackCurrentCondition,
+        checkedAt: lastConditionCheckAt,
+        moveId: "",
+      }
+    : null;
   return {
     conditionRating,
     conditionContentsOk,
@@ -1020,10 +1035,32 @@ function normalizeEquipmentConditionFields(item = {}) {
     conditionLastNotes,
     currentCondition: fallbackCurrentCondition,
     lastConditionCheckAt,
+    lastConditionCheck: existingLastConditionCheck || fallbackLastConditionCheck,
   };
 }
 
-function applyConditionSnapshot(item, conditionEntry) {
+function normalizeLastConditionCheck(rawValue = null) {
+  if (!rawValue || typeof rawValue !== "object") {
+    return null;
+  }
+  const result = normalizeConditionLogEntry(rawValue.result);
+  const checkedAt =
+    typeof rawValue.checkedAt === "string" && rawValue.checkedAt.trim()
+      ? rawValue.checkedAt
+      : result?.checkedAt || "";
+  const moveId =
+    typeof rawValue.moveId === "string" && rawValue.moveId.trim() ? rawValue.moveId : "";
+  if (!result && !checkedAt) {
+    return null;
+  }
+  return {
+    result,
+    checkedAt,
+    moveId,
+  };
+}
+
+function applyConditionSnapshot(item, conditionEntry, moveId = "") {
   const normalizedEntry = normalizeConditionLogEntry(conditionEntry);
   item.currentCondition = normalizedEntry;
   item.lastConditionCheckAt = normalizedEntry?.checkedAt || "";
@@ -1033,6 +1070,13 @@ function applyConditionSnapshot(item, conditionEntry) {
   item.conditionLastCheckedAt = normalizedEntry?.checkedAt || "";
   item.conditionLastCheckedBy = normalizedEntry?.checkedBy || "";
   item.conditionLastNotes = normalizedEntry?.notes || "";
+  item.lastConditionCheck = normalizedEntry
+    ? {
+        result: normalizedEntry,
+        checkedAt: normalizedEntry.checkedAt || "",
+        moveId: typeof moveId === "string" ? moveId : "",
+      }
+    : null;
 }
 
 function isConditionCheckEntry(entry) {
@@ -1080,10 +1124,18 @@ function deriveLastConditionFromLogs(logsForItem = []) {
   if (!latest) {
     return null;
   }
-  return normalizeConditionLogEntry({
+  const result = normalizeConditionLogEntry({
     ...(latest.condition && typeof latest.condition === "object" ? latest.condition : {}),
     checkedAt: getConditionCheckTimestamp(latest),
   });
+  if (!result) {
+    return null;
+  }
+  return {
+    result,
+    checkedAt: result.checkedAt || getConditionCheckTimestamp(latest),
+    moveId: typeof latest.id === "string" ? latest.id : "",
+  };
 }
 
 function getLastConditionCheck(equipmentId, moveLogs = []) {
@@ -3065,14 +3117,11 @@ function formatConditionSummary(condition) {
 }
 
 function buildEquipmentConditionCell(item) {
-  const latestConditionFromMoves = getLastConditionCheck(item.id, getAllMovesFromState());
-  const currentCondition =
-    latestConditionFromMoves || normalizeConditionLogEntry(item.currentCondition);
+  const lastConditionCheck = normalizeLastConditionCheck(item.lastConditionCheck);
+  const currentCondition = lastConditionCheck?.result || null;
   const rating = currentCondition?.rating || "Not checked";
-  const checkedDate = currentCondition?.checkedAt
-    ? formatDateTime(currentCondition.checkedAt)
-    : item.lastConditionCheckAt
-      ? formatDateTime(item.lastConditionCheckAt)
+  const checkedDate = lastConditionCheck?.checkedAt
+    ? formatDateTime(lastConditionCheck.checkedAt)
     : "—";
   const metaText = `Last checked: ${checkedDate}`;
   const styleClass =
@@ -3465,7 +3514,7 @@ function recomputeDerivedEquipmentState() {
     }
     const derivedCondition = getLatestConditionEntryFromMoves(item.id, effectiveMoves);
     if (derivedCondition) {
-      applyConditionSnapshot(item, derivedCondition);
+      applyConditionSnapshot(item, derivedCondition.result, derivedCondition.moveId);
     }
   });
 }
@@ -3923,6 +3972,7 @@ function logHistory(entry) {
     state.equipment
   );
   state.moves.unshift(historyEntry);
+  return historyEntry;
 }
 
 function buildSubscriptionNotes({
@@ -4250,11 +4300,7 @@ function handleMoveSubmit(event) {
           checkedBy: "",
         }
       : null;
-    if (conditionEntry) {
-      applyConditionSnapshot(item, conditionEntry);
-    }
-
-    logHistory({
+    const moveLogEntry = logHistory({
       type: "move",
       text: message,
       equipmentId: String(item.id),
@@ -4278,6 +4324,9 @@ function handleMoveSubmit(event) {
         deliveredAt: "",
       },
     });
+    if (conditionEntry) {
+      applyConditionSnapshot(item, conditionEntry, moveLogEntry?.id || "");
+    }
     resetMoveForm();
     saveState();
     refreshUI();
