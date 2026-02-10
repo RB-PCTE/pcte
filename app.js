@@ -4,6 +4,13 @@ const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
 const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
 // === PCTE DEBUG TRIPWIRE v2 ===
 (function tripwireV2() {
+  const tripwireEnabled =
+    new URLSearchParams(location.search).has("tripwire") ||
+    localStorage.getItem("pcteTripwire") === "true";
+  if (!tripwireEnabled) {
+    return;
+  }
+
   const blockClose = function () {
     console.warn("Blocked window.close()", new Error("close stack").stack);
   };
@@ -18,30 +25,6 @@ const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
   window.addEventListener("unload", () => {
     console.warn("Lifecycle: unload", location.href);
   });
-
-  document.addEventListener(
-    "submit",
-    (e) => {
-      console.warn("Form submit blocked:", e.target);
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    },
-    true
-  );
-
-  document.addEventListener(
-    "click",
-    (e) => {
-      const a = e.target && e.target.closest ? e.target.closest("a") : null;
-      if (a && a.getAttribute("href") && a.getAttribute("href") !== "#") {
-        console.warn("Link navigation blocked:", a.getAttribute("href"), a);
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    },
-    true
-  );
 })();
 // === /PCTE DEBUG TRIPWIRE v2 ===
 
