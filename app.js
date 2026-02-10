@@ -291,6 +291,8 @@ const elements = {
   moveShippingShipDate: document.querySelector("#move-shipping-ship-date"),
   moveShippingEtaDate: document.querySelector("#move-shipping-eta-date"),
   moveShippingOverrideNote: document.querySelector("#move-shipping-override-note"),
+  moveShippingSection: document.querySelector("#move-shipping-section"),
+  moveShippingValidation: document.querySelector("#move-shipping-validation"),
   moveConditionRating: document.querySelector("#move-condition-rating"),
   moveContentsOk: document.querySelector("#move-contents-ok"),
   moveFunctionalOk: document.querySelector("#move-functional-ok"),
@@ -615,6 +617,7 @@ function resetMoveForm() {
     elements.moveShippingEtaDate.value = "";
   }
   syncMoveShippingStatusOverride();
+  clearMoveShippingValidation();
 }
 
 function highlightEquipmentRow(equipmentId) {
@@ -4060,6 +4063,7 @@ function refreshUI() {
   syncMoveConditionReference();
   syncMoveConditionNotesError();
   syncMoveShippingDefaults();
+  syncInterOfficeShippingState();
   if (elements.clearHistory) {
     elements.clearHistory.classList.toggle("is-hidden", !adminModeEnabled);
     elements.clearHistory.disabled = !adminModeEnabled;
@@ -4393,6 +4397,91 @@ function syncMoveConditionReference() {
   updateMoveChecklistLock();
 }
 
+function isPhysicalOfficeLocation(location) {
+  const value = typeof location === "string" ? location.trim() : "";
+  return physicalLocations.includes(value);
+}
+
+function isInterOfficeMove(item, toLocation) {
+  if (!item || !toLocation) {
+    return false;
+  }
+  const fromLocation = typeof item.location === "string" ? item.location.trim() : "";
+  const destination = typeof toLocation === "string" ? toLocation.trim() : "";
+  if (!isPhysicalOfficeLocation(fromLocation) || !isPhysicalOfficeLocation(destination)) {
+    return false;
+  }
+  return fromLocation !== destination;
+}
+
+function getMissingShippingFields() {
+  const missingFields = [];
+  if (!elements.moveShippingCarrier?.value.trim()) {
+    missingFields.push(elements.moveShippingCarrier);
+  }
+  if (!elements.moveShippingTracking?.value.trim()) {
+    missingFields.push(elements.moveShippingTracking);
+  }
+  const shippingInstructionsInput = elements.moveForm?.querySelector(
+    "#move-shipping-instructions, #move-shipping-instruction"
+  );
+  if (shippingInstructionsInput && !shippingInstructionsInput.value.trim()) {
+    missingFields.push(shippingInstructionsInput);
+  }
+  return missingFields;
+}
+
+function clearMoveShippingValidation() {
+  [
+    elements.moveShippingCarrier,
+    elements.moveShippingTracking,
+    elements.moveForm?.querySelector("#move-shipping-instructions, #move-shipping-instruction"),
+  ]
+    .filter(Boolean)
+    .forEach((field) => {
+      field.classList.remove("field-input-error");
+      field.removeAttribute("aria-invalid");
+    });
+  if (elements.moveShippingValidation) {
+    elements.moveShippingValidation.textContent = "";
+    elements.moveShippingValidation.classList.add("is-hidden");
+  }
+}
+
+function showMoveShippingValidation(missingFields) {
+  if (!Array.isArray(missingFields) || !missingFields.length) {
+    clearMoveShippingValidation();
+    return;
+  }
+  missingFields.forEach((field) => {
+    field.classList.add("field-input-error");
+    field.setAttribute("aria-invalid", "true");
+  });
+  if (elements.moveShippingValidation) {
+    elements.moveShippingValidation.textContent =
+      "Shipping details are required for inter-office moves (courier and tracking number).";
+    elements.moveShippingValidation.classList.remove("is-hidden");
+  }
+}
+
+function syncInterOfficeShippingState({ focusMissing = false } = {}) {
+  if (!elements.moveEquipment || !elements.moveLocation) {
+    return;
+  }
+  const item = state.equipment.find((entry) => entry.id === elements.moveEquipment.value);
+  const requiresShipping = isInterOfficeMove(item, elements.moveLocation.value);
+  if (!requiresShipping) {
+    clearMoveShippingValidation();
+    return;
+  }
+  elements.moveShippingSection?.classList.remove("is-hidden");
+  const missingFields = getMissingShippingFields();
+  showMoveShippingValidation(missingFields);
+  if (focusMissing && missingFields[0]) {
+    missingFields[0].focus();
+  }
+}
+
 function syncMoveShippingStatusOverride() {
   if (
     !elements.moveStatus ||
@@ -4422,6 +4511,7 @@ function syncMoveShippingDefaults() {
     elements.moveShippingShipDate.value = formatDate(new Date());
   }
   syncMoveShippingStatusOverride();
+  clearMoveShippingValidation();
 }
 
 function syncMoveConditionNotesError() {
@@ -4503,6 +4593,15 @@ function handleMoveSubmit(event) {
   if (!item) {
     return;
   }
+  const requiresShippingDetails = isInterOfficeMove(item, newLocation);
+  const missingShippingFields = requiresShippingDetails ? getMissingShippingFields() : [];
+  if (requiresShippingDetails && missingShippingFields.length) {
+    showMoveShippingValidation(missingShippingFields);
+    showToast("Move not recorded: add shipping courier and tracking details.", "error");
+    missingShippingFields[0]?.focus();
+    return;
+  }
+  clearMoveShippingValidation();
   const conditionRequired = isMoveConditionRequired(item);
   const failedChecks = [
     conditionRating === "Needs attention",
@@ -6064,6 +6163,13 @@ if (elements.moveEquipment) {
   elements.moveEquipment.addEventListener("change", () => {
     syncMoveConditionReference();
     resetMoveConditionInputs();
+    syncInterOfficeShippingState({ focusMissing: true });
+  });
+}
+
+if (elements.moveLocation) {
+  elements.moveLocation.addEventListener("change", () => {
+    syncInterOfficeShippingState({ focusMissing: true });
   });
 }
 
@@ -6077,8 +6183,14 @@ if (elements.moveStatus) {
   if (!input) {
     return;
   }
-  input.addEventListener("change", syncMoveShippingStatusOverride);
-  input.addEventListener("input", syncMoveShippingStatusOverride);
+  input.addEventListener("change", () => {
+    syncMoveShippingStatusOverride();
+    syncInterOfficeShippingState();
+  });
+  input.addEventListener("input", () => {
+    syncMoveShippingStatusOverride();
+    syncInterOfficeShippingState();
+  });
 });
 
 if (elements.moveChecklistAdminLink) {

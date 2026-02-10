@@ -711,6 +711,11 @@ tr:last-child td {
   color: #b42318;
 }
 
+.field-input-error {
+  border-color: #b42318 !important;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.14);
+}
+
 .field-warning {
   font-size: 12px;
   color: #b4690e;

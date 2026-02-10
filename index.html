@@ -199,7 +199,7 @@
                         placeholder="Customer name, demo date..."
                       />
                     </label>
-                    <fieldset class="shipping-section">
+                    <fieldset id="move-shipping-section" class="shipping-section">
                       <legend>Shipping details (optional)</legend>
                       <label>
                         Carrier / Courier
@@ -228,6 +228,7 @@
                       <p id="move-shipping-override-note" class="field-warning is-hidden">
                       Shipping details are active: status is shown as <strong>In transit</strong> until received.
                     </p>
+                      <p id="move-shipping-validation" class="field-error is-hidden"></p>
                     </fieldset>
                     <div class="condition-section">
                       <h4>Condition check</h4>
