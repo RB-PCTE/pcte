@@ -1,8 +1,10 @@
 const STORAGE_KEY = "equipmentTrackerState";
 const STORAGE_SCHEMA_VERSION = 2;
+const BUILD_STAMP = "all_good_roobs";
 const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
 const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
 const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
+const CONDITION_MIGRATION_V1_FLAG = "pcteConditionMigrationV1";
 // === PCTE DEBUG TRIPWIRE v2 ===
 (function tripwireV2() {
   const tripwireEnabled =
@@ -138,6 +140,7 @@ function buildDefaultState() {
         currentCondition: null,
         lastConditionCheckAt: "",
         lastConditionCheck: null,
+        conditionHistory: [],
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -3 }),
@@ -166,6 +169,7 @@ function buildDefaultState() {
         currentCondition: null,
         lastConditionCheckAt: "",
         lastConditionCheck: null,
+        conditionHistory: [],
         calibrationRequired: false,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -6 }),
@@ -194,6 +198,7 @@ function buildDefaultState() {
         currentCondition: null,
         lastConditionCheckAt: "",
         lastConditionCheck: null,
+        conditionHistory: [],
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -14 }),
@@ -222,6 +227,7 @@ function buildDefaultState() {
         currentCondition: null,
         lastConditionCheckAt: "",
         lastConditionCheck: null,
+        conditionHistory: [],
         calibrationRequired: true,
         calibrationIntervalMonths: 12,
         lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
@@ -251,6 +257,7 @@ function buildDefaultState() {
 const defaultState = buildDefaultState();
 
 const state = loadState();
+document.documentElement.setAttribute("data-build-stamp", BUILD_STAMP);
 const equipmentList = Array.isArray(state.equipment)
   ? state.equipment
   : Array.isArray(state.items)
@@ -654,6 +661,7 @@ function loadState() {
     }
 
     const normalized = normalizeState({ equipment, moves, log, corrections, schemaVersion });
+    runConditionHistoryMigrationV1(normalized);
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     return normalized;
@@ -748,6 +756,71 @@ function migrateStoredState(parsed) {
   };
 }
 
+function parseConditionFromLegacyMoveNotes(notes = "") {
+  if (!notes || typeof notes !== "string") {
+    return null;
+  }
+  const ratingMatch = notes.match(/\b(Excellent|Good|Fair|Needs attention|Missing|Fault|Unserviceable)\b/i);
+  const contentsMatch = notes.match(/contents\s*(?:check)?\s*[:=-]?\s*(yes|no|ok|not ok|pass|fail)/i);
+  const functionalMatch = notes.match(/functional\s*(?:check)?\s*[:=-]?\s*(yes|no|ok|not ok|pass|fail)/i);
+  const normalizeLegacyBool = (value) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (["yes", "ok", "pass"].includes(normalized)) {
+      return true;
+    }
+    if (["no", "not ok", "fail"].includes(normalized)) {
+      return false;
+    }
+    return null;
+  };
+  const condition = normalizeConditionLogEntry({
+    rating: ratingMatch ? ratingMatch[1] : "",
+    contentsOk: contentsMatch ? normalizeLegacyBool(contentsMatch[1]) : null,
+    functionalOk: functionalMatch ? normalizeLegacyBool(functionalMatch[1]) : null,
+  });
+  return condition;
+}
+
+function runConditionHistoryMigrationV1(normalizedState) {
+  if (!normalizedState || typeof normalizedState !== "object") {
+    return;
+  }
+  if (localStorage.getItem(CONDITION_MIGRATION_V1_FLAG) === "true") {
+    return;
+  }
+  const equipmentById = new Map(
+    (Array.isArray(normalizedState.equipment) ? normalizedState.equipment : []).map((item) => [item.id, item])
+  );
+  const moves = Array.isArray(normalizedState.moves) ? normalizedState.moves : [];
+
+  equipmentById.forEach((equipment) => {
+    if (Array.isArray(equipment.conditionHistory) && equipment.conditionHistory.length) {
+      return;
+    }
+    moves
+      .filter((entry) => entry?.type === "move" && entry?.equipmentId === equipment.id)
+      .sort((a, b) => Date.parse(a.timestamp || "") - Date.parse(b.timestamp || ""))
+      .forEach((entry) => {
+        const condition = parseConditionFromLegacyMoveNotes(entry.notes || "");
+        if (!condition) {
+          return;
+        }
+        addConditionHistoryEntry(equipment, condition, {
+          checkedAt: getConditionCheckTimestamp(entry),
+          checkedBy: "",
+          source: "notes_migration_v1",
+          moveId: entry.id,
+        });
+      });
+    const latestCondition = equipment.conditionHistory[equipment.conditionHistory.length - 1] || null;
+    if (latestCondition?.condition) {
+      applyConditionSnapshot(equipment, latestCondition.condition, latestCondition.moveId || "");
+    }
+  });
+
+  localStorage.setItem(CONDITION_MIGRATION_V1_FLAG, "true");
+}
+
 function normalizeState({ equipment = [], moves = [], log, corrections = [], schemaVersion = 1 } = {}) {
   const normalizationFixes = [];
   const normalizedEquipment = equipment.map((item) => {
@@ -825,18 +898,34 @@ function normalizeState({ equipment = [], moves = [], log, corrections = [], sch
   normalizedState.equipment.forEach((item) => {
     const existingLastConditionCheck = normalizeLastConditionCheck(item.lastConditionCheck);
     if (existingLastConditionCheck) {
+      addConditionHistoryEntry(item, existingLastConditionCheck.result, {
+        checkedAt: existingLastConditionCheck.checkedAt,
+        source: "legacy_snapshot",
+        moveId: existingLastConditionCheck.moveId,
+      });
       applyConditionSnapshot(
         item,
         existingLastConditionCheck.result,
         existingLastConditionCheck.moveId
       );
-      return;
     }
-    const derivedCondition = getLatestConditionEntryFromMoves(item.id, normalizedMoves);
-    if (!derivedCondition) {
-      return;
+
+    const conditionEntriesFromMoves = normalizedMoves
+      .filter((entry) => entry.equipmentId === item.id && isConditionCheckEntry(entry) && !isEntryDeleted(entry))
+      .sort((a, b) => Date.parse(a.timestamp || "") - Date.parse(b.timestamp || ""));
+    conditionEntriesFromMoves.forEach((entry) => {
+      addConditionHistoryEntry(item, entry.condition, {
+        checkedAt: getConditionCheckTimestamp(entry),
+        checkedBy: entry.condition?.checkedBy || "",
+        source: "move",
+        moveId: entry.id,
+      });
+    });
+
+    const latestCondition = item.conditionHistory[item.conditionHistory.length - 1] || null;
+    if (latestCondition?.condition) {
+      applyConditionSnapshot(item, latestCondition.condition, latestCondition.moveId || "");
     }
-    applyConditionSnapshot(item, derivedCondition.result, derivedCondition.moveId);
   });
 
   if (Array.isArray(log)) {
@@ -991,6 +1080,57 @@ function normalizeConditionLogEntry(rawCondition = {}) {
   };
 }
 
+function normalizeEquipmentConditionHistoryEntry(rawEntry = {}) {
+  const safeEntry = rawEntry && typeof rawEntry === "object" ? rawEntry : {};
+  const condition = normalizeConditionLogEntry(
+    safeEntry.condition && typeof safeEntry.condition === "object"
+      ? safeEntry.condition
+      : {
+          rating: safeEntry.grade,
+          contentsOk: safeEntry.contentsOk,
+          functionalOk: safeEntry.functionalOk,
+          checkedAt: safeEntry.checkedAt,
+          checkedBy: safeEntry.checkedBy,
+        }
+  );
+  const checkedAt =
+    typeof safeEntry.checkedAt === "string" && safeEntry.checkedAt.trim()
+      ? safeEntry.checkedAt
+      : condition?.checkedAt || "";
+  const checkedBy =
+    typeof safeEntry.checkedBy === "string" ? safeEntry.checkedBy.trim() : condition?.checkedBy || "";
+  const source =
+    typeof safeEntry.source === "string" && safeEntry.source.trim()
+      ? safeEntry.source.trim()
+      : "history";
+  const moveId =
+    typeof safeEntry.moveId === "string" && safeEntry.moveId.trim()
+      ? safeEntry.moveId.trim()
+      : "";
+  if (!condition) {
+    return null;
+  }
+  return {
+    condition,
+    checkedAt,
+    checkedBy,
+    source,
+    moveId,
+  };
+}
+
+function normalizeEquipmentConditionHistory(entries = []) {
+  const list = Array.isArray(entries) ? entries : [];
+  return list
+    .map((entry) => normalizeEquipmentConditionHistoryEntry(entry))
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        new Date(a.checkedAt || a.condition?.checkedAt || 0).getTime() -
+        new Date(b.checkedAt || b.condition?.checkedAt || 0).getTime()
+    );
+}
+
 function normalizeEquipmentConditionFields(item = {}) {
   const currentCondition = normalizeConditionLogEntry(item.currentCondition);
   const conditionRating = normalizeConditionRating(item.conditionRating);
@@ -1019,6 +1159,7 @@ function normalizeEquipmentConditionFields(item = {}) {
     fallbackCurrentCondition?.checkedAt ||
     conditionLastCheckedAt;
   const existingLastConditionCheck = normalizeLastConditionCheck(item.lastConditionCheck);
+  const normalizedHistory = normalizeEquipmentConditionHistory(item.conditionHistory);
   const fallbackLastConditionCheck = fallbackCurrentCondition
     ? {
         result: fallbackCurrentCondition,
@@ -1036,6 +1177,7 @@ function normalizeEquipmentConditionFields(item = {}) {
     currentCondition: fallbackCurrentCondition,
     lastConditionCheckAt,
     lastConditionCheck: existingLastConditionCheck || fallbackLastConditionCheck,
+    conditionHistory: normalizedHistory,
   };
 }
 
@@ -1077,6 +1219,91 @@ function applyConditionSnapshot(item, conditionEntry, moveId = "") {
         moveId: typeof moveId === "string" ? moveId : "",
       }
     : null;
+}
+
+function addConditionHistoryEntry(item, conditionEntry, options = {}) {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+  const normalizedEntry = normalizeConditionLogEntry(conditionEntry);
+  if (!normalizedEntry) {
+    return null;
+  }
+  if (!Array.isArray(item.conditionHistory)) {
+    item.conditionHistory = [];
+  }
+  const checkedAt =
+    typeof options.checkedAt === "string" && options.checkedAt.trim()
+      ? options.checkedAt
+      : normalizedEntry.checkedAt || "";
+  const checkedBy =
+    typeof options.checkedBy === "string"
+      ? options.checkedBy.trim()
+      : normalizedEntry.checkedBy || "";
+  const source =
+    typeof options.source === "string" && options.source.trim()
+      ? options.source.trim()
+      : "move";
+  const moveId =
+    typeof options.moveId === "string" && options.moveId.trim()
+      ? options.moveId.trim()
+      : "";
+  const dedupeKey = `${moveId}::${checkedAt}::${normalizedEntry.rating}::${normalizedEntry.contentsOk}::${normalizedEntry.functionalOk}`;
+  const exists = item.conditionHistory.some((entry) => {
+    const entryCondition = normalizeConditionLogEntry(entry.condition);
+    const entryKey = `${entry.moveId || ""}::${entry.checkedAt || ""}::${entryCondition?.rating || ""}::${entryCondition?.contentsOk}::${entryCondition?.functionalOk}`;
+    return entryKey === dedupeKey;
+  });
+  if (exists) {
+    return null;
+  }
+  const historyEntry = {
+    condition: {
+      ...normalizedEntry,
+      checkedAt,
+      checkedBy,
+    },
+    checkedAt,
+    checkedBy,
+    source,
+    moveId,
+  };
+  item.conditionHistory.push(historyEntry);
+  item.conditionHistory = normalizeEquipmentConditionHistory(item.conditionHistory);
+  return historyEntry;
+}
+
+function getLatestConditionForEquipment(equipmentId) {
+  if (!equipmentId) {
+    return null;
+  }
+  const equipment = state.equipment.find((item) => item.id === equipmentId);
+  if (!equipment || !Array.isArray(equipment.conditionHistory) || !equipment.conditionHistory.length) {
+    return null;
+  }
+  const latest = equipment.conditionHistory.reduce((currentLatest, candidate) => {
+    const candidateTime = Date.parse(candidate?.checkedAt || candidate?.condition?.checkedAt || "");
+    if (!currentLatest) {
+      return candidate;
+    }
+    const latestTime = Date.parse(currentLatest?.checkedAt || currentLatest?.condition?.checkedAt || "");
+    if (Number.isFinite(candidateTime) && !Number.isFinite(latestTime)) {
+      return candidate;
+    }
+    return candidateTime > latestTime ? candidate : currentLatest;
+  }, null);
+  const normalized = normalizeEquipmentConditionHistoryEntry(latest);
+  if (!normalized || !normalized.condition) {
+    return null;
+  }
+  return {
+    grade: normalized.condition.rating || "",
+    contentsOk: normalized.condition.contentsOk,
+    functionalOk: normalized.condition.functionalOk,
+    checkedAt: normalized.checkedAt || normalized.condition.checkedAt || "",
+    checkedBy: normalized.checkedBy || normalized.condition.checkedBy || "",
+    source: normalized.source || "history",
+  };
 }
 
 function isConditionCheckEntry(entry) {
@@ -3116,12 +3343,35 @@ function formatConditionSummary(condition) {
   return parts.length ? parts.join(" • ") : "—";
 }
 
+function buildMoveConditionPill(entry) {
+  const moveCondition = normalizeConditionLogEntry(entry?.condition);
+  const activeCondition = moveCondition || getLatestConditionForEquipment(entry?.equipmentId || "");
+  if (!activeCondition) {
+    return '<div class="status-with-meta"><span class="tag tag--status condition-badge condition-badge--neutral">Not checked</span><small class="status-meta">From history</small></div>';
+  }
+  const rating = moveCondition ? moveCondition.rating || "Not checked" : activeCondition.grade || "Not checked";
+  const checkedAt = moveCondition ? moveCondition.checkedAt || entry.timestamp || "" : activeCondition.checkedAt || "";
+  const sourceLabel = moveCondition ? "Checked on this move" : "From history";
+  const styleClass =
+    rating === "Excellent" || rating === "Good"
+      ? "condition-badge--good"
+      : rating === "Needs attention" ||
+          rating === "Missing" ||
+          rating === "Fault" ||
+          rating === "Unserviceable"
+        ? "condition-badge--bad"
+        : rating === "Not checked"
+          ? "condition-badge--neutral"
+          : "condition-badge--warn";
+  const titleText = checkedAt ? `Checked ${formatDateTime(checkedAt)}` : sourceLabel;
+  return `<div class="status-with-meta"><span class="tag tag--status condition-badge ${styleClass}" title="${escapeHTML(titleText)}">${escapeHTML(rating)}</span><small class="status-meta">${escapeHTML(sourceLabel)}</small></div>`;
+}
+
 function buildEquipmentConditionCell(item) {
-  const lastConditionCheck = normalizeLastConditionCheck(item.lastConditionCheck);
-  const currentCondition = lastConditionCheck?.result || null;
-  const rating = currentCondition?.rating || "Not checked";
-  const checkedDate = lastConditionCheck?.checkedAt
-    ? formatDateTime(lastConditionCheck.checkedAt)
+  const latestCondition = getLatestConditionForEquipment(item.id);
+  const rating = latestCondition?.grade || "Not checked";
+  const checkedDate = latestCondition?.checkedAt
+    ? formatDateTime(latestCondition.checkedAt)
     : "—";
   const metaText = `Last checked: ${checkedDate}`;
   const styleClass =
@@ -3135,22 +3385,14 @@ function buildEquipmentConditionCell(item) {
         : rating === "Not checked"
           ? "condition-badge--neutral"
           : "condition-badge--warn";
-  return `<div class="status-with-meta"><button class="tag tag--status condition-badge ${styleClass}" type="button" data-action="view-condition-history" data-equipment-id="${escapeHTML(item.id)}">${escapeHTML(rating)}</button><small class="status-meta">${escapeHTML(metaText)}</small></div>`;
+  const titleText = latestCondition?.checkedAt ? `Checked ${checkedDate}` : "Not checked";
+  return `<div class="status-with-meta"><button class="tag tag--status condition-badge ${styleClass}" title="${escapeHTML(titleText)}" type="button" data-action="view-condition-history" data-equipment-id="${escapeHTML(item.id)}">${escapeHTML(rating)}</button><small class="status-meta">${escapeHTML(metaText)}</small></div>`;
 }
 
 function getConditionHistoryEntries(equipmentId) {
-  const moves = getAllMovesFromState();
-  return moves
-    .filter(
-      (entry) =>
-        entry.equipmentId === equipmentId &&
-        isConditionCheckEntry(entry)
-    )
-    .sort(
-      (a, b) =>
-        new Date(getConditionCheckTimestamp(b)).getTime() -
-        new Date(getConditionCheckTimestamp(a)).getTime()
-    );
+  const equipment = state.equipment.find((item) => item.id === equipmentId);
+  const history = normalizeEquipmentConditionHistory(equipment?.conditionHistory || []);
+  return [...history].reverse();
 }
 
 function openConditionHistory(equipmentId) {
@@ -3166,7 +3408,7 @@ function openConditionHistory(equipmentId) {
   } else {
     elements.conditionHistoryList.innerHTML = entries.map((entry) => {
       const c = entry.condition;
-      return `<li><strong>${escapeHTML(formatDateTime(entry.timestamp))}</strong> — ${escapeHTML(c.rating || "—")} • Contents ${escapeHTML(formatConditionCheckLabel(c.contentsOk))} • Functional ${escapeHTML(formatConditionCheckLabel(c.functionalOk))}${c.checkedBy ? ` • Checked by ${escapeHTML(c.checkedBy)}` : ""}${c.notes ? `<br>${escapeHTML(c.notes)}` : ""}</li>`;
+      return `<li><strong>${escapeHTML(formatDateTime(entry.checkedAt || c.checkedAt || ""))}</strong> — ${escapeHTML(c.rating || "—")} • Contents ${escapeHTML(formatConditionCheckLabel(c.contentsOk))} • Functional ${escapeHTML(formatConditionCheckLabel(c.functionalOk))}${entry.checkedBy ? ` • Checked by ${escapeHTML(entry.checkedBy)}` : ""}${entry.source ? ` • Source: ${escapeHTML(entry.source)}` : ""}${c.notes ? `<br>${escapeHTML(c.notes)}` : ""}</li>`;
     }).join("");
   }
   elements.conditionHistoryModal.showModal();
@@ -3512,9 +3754,19 @@ function recomputeDerivedEquipmentState() {
       }
       item.lastMoved = formatDateTime(latestMove.timestamp || "") || item.lastMoved;
     }
-    const derivedCondition = getLatestConditionEntryFromMoves(item.id, effectiveMoves);
-    if (derivedCondition) {
-      applyConditionSnapshot(item, derivedCondition.result, derivedCondition.moveId);
+    const latestCondition = getLatestConditionForEquipment(item.id);
+    if (latestCondition) {
+      applyConditionSnapshot(
+        item,
+        {
+          rating: latestCondition.grade,
+          contentsOk: latestCondition.contentsOk,
+          functionalOk: latestCondition.functionalOk,
+          checkedAt: latestCondition.checkedAt,
+          checkedBy: latestCondition.checkedBy,
+        },
+        ""
+      );
     }
   });
 }
@@ -3690,7 +3942,7 @@ function renderMovesView() {
         entry.text?.trim() ||
         entry.message?.trim() ||
         "";
-      const conditionSummary = formatConditionSummary(entry.condition);
+      const conditionSummary = buildMoveConditionPill(entry);
       const shippingSummary = getMovesShippingSummary(entry);
       const receiptIndicator = getReceiptIndicator(entry);
       const typeLabel =
@@ -3742,7 +3994,7 @@ function renderMovesView() {
           <td>${escapeHTML(getStatusChangeLabel(entry))}</td>
           <td><div class="moves-shipping-cell">${escapeHTML(shippingSummary)}</div></td>
           <td>${escapeHTML(receiptIndicator)}</td>
-          <td>${escapeHTML(conditionSummary)}</td>
+          <td>${conditionSummary}</td>
           <td>${notesHtml}</td>
           <td>${escapeHTML(typeLabel)}${corrections.length ? `<span class="moves-corrected-badge">Corrected</span>` : ""}</td>
           ${actionCell}
@@ -4325,6 +4577,12 @@ function handleMoveSubmit(event) {
       },
     });
     if (conditionEntry) {
+      addConditionHistoryEntry(item, conditionEntry, {
+        checkedAt: conditionEntry.checkedAt,
+        checkedBy: conditionEntry.checkedBy,
+        source: "move",
+        moveId: moveLogEntry?.id || "",
+      });
       applyConditionSnapshot(item, conditionEntry, moveLogEntry?.id || "");
     }
     resetMoveForm();
