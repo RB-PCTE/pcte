@@ -481,6 +481,17 @@ tr:last-child td {
   margin: 16px 0 24px;
 }
 
+.console--operations {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.console--operations #move-form {
+  gap: 14px;
+  max-height: min(78vh, 1100px);
+  overflow-y: auto;
+  align-content: start;
+}
+
 .panel {
   border: 1px solid var(--border);
   padding: 16px;

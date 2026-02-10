@@ -173,11 +173,9 @@
 
               <section class="card">
                 <h2>Console</h2>
-                <p>
-                  Use the console to log moves or record calibration updates.
-                </p>
+                <p>Use the console to log equipment moves.</p>
 
-                <div class="console">
+                <div class="console console--operations">
                   <form id="move-form" class="panel">
                     <h3>Log a move</h3>
                     <label>
@@ -337,34 +335,6 @@
                       Record move
                     </button>
                   </form>
-
-                  <form id="calibration-form" class="panel">
-                    <h3>Record calibration</h3>
-                    <label>
-                      Equipment
-                      <select id="calibration-equipment"></select>
-                    </label>
-                    <label>
-                      Calibration date
-                      <input id="calibration-date" type="date" />
-                    </label>
-                    <label>
-                      Interval months (optional override)
-                      <input
-                        id="calibration-interval"
-                        type="number"
-                        min="1"
-                        step="1"
-                        placeholder="e.g. 18"
-                      />
-                    </label>
-                    <label class="checkbox-field">
-                      Calibration required
-                      <input id="calibration-required" type="checkbox" />
-                    </label>
-                    <button type="submit">Save calibration</button>
-                  </form>
-
                 </div>
 
                 <div class="history">
@@ -485,6 +455,34 @@
                   </p>
                   <button type="submit">Update passcode</button>
                 </form>
+
+                <form id="calibration-form" class="panel">
+                  <h3>Record calibration</h3>
+                  <label>
+                    Equipment
+                    <select id="calibration-equipment"></select>
+                  </label>
+                  <label>
+                    Calibration date
+                    <input id="calibration-date" type="date" />
+                  </label>
+                  <label>
+                    Interval months (optional override)
+                    <input
+                      id="calibration-interval"
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 18"
+                    />
+                  </label>
+                  <label class="checkbox-field">
+                    Calibration required
+                    <input id="calibration-required" type="checkbox" />
+                  </label>
+                  <button type="submit">Save calibration</button>
+                </form>
+
                 <form id="add-equipment-form" class="panel">
                   <h3>Add new equipment</h3>
                   <label>
