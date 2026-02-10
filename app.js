@@ -1,4 +1,5 @@
 const STORAGE_KEY = "equipmentTrackerState";
+const STORAGE_SCHEMA_VERSION = 2;
 const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
 const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
 const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
@@ -75,7 +76,6 @@ const moveTypeOptions = [
   { value: "calibration", label: "Calibration" },
   { value: "subscription_updated", label: "Subscription" },
   { value: "details_updated", label: "Details updated" },
-  { value: "correction", label: "Correction" },
   {
     value: "condition_reference_updated",
     label: "Condition checklist",
@@ -239,6 +239,8 @@ function buildDefaultState() {
         timestamp: "2024-05-10T11:00:00.000Z",
       },
     ],
+    corrections: [],
+    schemaVersion: STORAGE_SCHEMA_VERSION,
   };
 }
 
@@ -490,6 +492,27 @@ const elements = {
   conditionHistoryTitle: document.querySelector("#condition-history-title"),
   conditionHistoryList: document.querySelector("#condition-history-list"),
   conditionHistoryClose: document.querySelector("#condition-history-close"),
+  correctionModal: document.querySelector("#correction-modal"),
+  correctionForm: document.querySelector("#correction-form"),
+  correctionTargetLabel: document.querySelector("#correction-target-label"),
+  correctionFieldShipping: document.querySelector("#correction-field-shipping"),
+  correctionShippingTracking: document.querySelector("#correction-shipping-tracking"),
+  correctionFieldReceipt: document.querySelector("#correction-field-receipt"),
+  correctionReceiptDate: document.querySelector("#correction-receipt-date"),
+  correctionFieldFrom: document.querySelector("#correction-field-from"),
+  correctionFromLocation: document.querySelector("#correction-from-location"),
+  correctionFieldTo: document.querySelector("#correction-field-to"),
+  correctionToLocation: document.querySelector("#correction-to-location"),
+  correctionFieldCondition: document.querySelector("#correction-field-condition"),
+  correctionConditionRating: document.querySelector("#correction-condition-rating"),
+  correctionFieldNotes: document.querySelector("#correction-field-notes"),
+  correctionNotes: document.querySelector("#correction-notes"),
+  correctionReason: document.querySelector("#correction-reason"),
+  correctionError: document.querySelector("#correction-error"),
+  correctionCancel: document.querySelector("#correction-cancel"),
+  correctionDetailsModal: document.querySelector("#correction-details-modal"),
+  correctionDetailsClose: document.querySelector("#correction-details-close"),
+  correctionDetailsList: document.querySelector("#correction-details-list"),
 };
 
 let adminModeEnabled = false;
@@ -518,6 +541,8 @@ const equipmentImportState = {
 };
 let editChecklistCopySourceId = "";
 let editChecklistCopyMetadata = null;
+let correctionTargetEntryId = "";
+let correctionDetailsTargetId = "";
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
@@ -617,14 +642,14 @@ function loadState() {
   }
   try {
     const parsed = JSON.parse(stored);
-    const { equipment, moves, log, migratedKeys } = migrateStoredState(parsed);
+    const { equipment, moves, log, corrections, schemaVersion, migratedKeys } = migrateStoredState(parsed);
     if (migratedKeys.length) {
       console.warn(
         `Migrated stored state: ${migratedKeys.join(", ")}`
       );
     }
 
-    const normalized = normalizeState({ equipment, moves, log });
+    const normalized = normalizeState({ equipment, moves, log, corrections, schemaVersion });
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     return normalized;
@@ -702,16 +727,25 @@ function migrateStoredState(parsed) {
     }
   }
 
+  const corrections = Array.isArray(safeParsed.corrections)
+    ? safeParsed.corrections
+    : [];
+
   return {
     equipment: Array.isArray(equipment) ? equipment : [],
     moves: Array.isArray(moves) ? moves : [],
     log: Array.isArray(log) ? log : null,
+    corrections,
+    schemaVersion:
+      Number.isInteger(safeParsed.schemaVersion) && safeParsed.schemaVersion > 0
+        ? safeParsed.schemaVersion
+        : 1,
     migratedKeys,
   };
 }
 
-function normalizeState({ equipment = [], moves = [], log } = {}) {
-  const corrections = [];
+function normalizeState({ equipment = [], moves = [], log, corrections = [], schemaVersion = 1 } = {}) {
+  const normalizationFixes = [];
   const normalizedEquipment = equipment.map((item) => {
     const normalizedItem = normalizeEquipment(item);
     const rawLocation = normalizedItem.location || physicalLocations[0];
@@ -722,7 +756,7 @@ function normalizeState({ equipment = [], moves = [], log } = {}) {
       const nameLabel = normalizedItem.name?.trim()
         ? normalizedItem.name
         : "equipment";
-      corrections.push({
+      normalizationFixes.push({
         id: crypto.randomUUID(),
         text: `Location corrected for ${nameLabel} (was "${rawLocation}").`,
         timestamp: formatTimestamp(),
@@ -733,7 +767,7 @@ function normalizeState({ equipment = [], moves = [], log } = {}) {
       safeLocation
     );
     if (normalizedItem.status === "In transit" && derivedStatus !== "In transit") {
-      corrections.push({
+      normalizationFixes.push({
         id: crypto.randomUUID(),
         text: `Legacy status migrated for ${normalizedItem.name} (In transit → ${derivedStatus}).`,
         timestamp: formatTimestamp(),
@@ -772,7 +806,7 @@ function normalizeState({ equipment = [], moves = [], log } = {}) {
   const dedupedMoves = dedupeHistoryEntries(backfilledMoves);
 
   const normalizedMoves = normalizeHistoryEntries(
-    corrections.length ? [...corrections, ...dedupedMoves] : dedupedMoves,
+    normalizationFixes.length ? [...normalizationFixes, ...dedupedMoves] : dedupedMoves,
     normalizedEquipment
   );
 
@@ -780,6 +814,8 @@ function normalizeState({ equipment = [], moves = [], log } = {}) {
     locations: [...physicalLocations],
     equipment: normalizedEquipment,
     moves: normalizedMoves,
+    corrections: normalizeCorrections(corrections),
+    schemaVersion: Math.max(schemaVersion, STORAGE_SCHEMA_VERSION),
   };
 
   normalizedState.equipment.forEach((item) => {
@@ -1220,6 +1256,129 @@ function normalizeHistoryEntries(entries = [], equipmentList = []) {
   return list.map((entry) => normalizeHistoryEntry(entry, equipmentList));
 }
 
+function normalizeCorrectionEntry(entry = {}) {
+  const safeEntry = entry && typeof entry === "object" ? entry : {};
+  const targetType = safeEntry.targetType === "move" ? "move" : "";
+  const targetId =
+    typeof safeEntry.targetId === "string" ? safeEntry.targetId.trim() : "";
+  const reason = typeof safeEntry.reason === "string" ? safeEntry.reason.trim() : "";
+  const changes =
+    safeEntry.changes && typeof safeEntry.changes === "object"
+      ? Object.entries(safeEntry.changes).reduce((acc, [field, value]) => {
+          if (!value || typeof value !== "object") {
+            return acc;
+          }
+          acc[field] = { from: value.from ?? null, to: value.to ?? null };
+          return acc;
+        }, {})
+      : {};
+  return {
+    id: typeof safeEntry.id === "string" && safeEntry.id.trim() ? safeEntry.id : crypto.randomUUID(),
+    ts:
+      typeof safeEntry.ts === "string" && safeEntry.ts.trim()
+        ? safeEntry.ts
+        : formatTimestampISO(),
+    targetType,
+    targetId,
+    reason,
+    changes,
+    createdBy:
+      typeof safeEntry.createdBy === "string" && safeEntry.createdBy.trim()
+        ? safeEntry.createdBy.trim()
+        : "",
+  };
+}
+
+function normalizeCorrections(corrections = []) {
+  const list = Array.isArray(corrections) ? corrections : [];
+  return list
+    .map((entry) => normalizeCorrectionEntry(entry))
+    .filter(
+      (entry) =>
+        entry.targetType === "move" &&
+        entry.targetId &&
+        entry.reason &&
+        Object.keys(entry.changes || {}).length
+    )
+    .sort((a, b) => Date.parse(a.ts || "") - Date.parse(b.ts || ""));
+}
+
+function setMoveFieldValue(move, fieldName, value) {
+  if (fieldName === "shippingTracking") {
+    const shipping = normalizeShippingDetails(move.shipping) || {};
+    move.shipping = { ...shipping, trackingNumber: value || "" };
+    return;
+  }
+  if (fieldName === "receiptDate") {
+    move.receivedAt = value || "";
+    const shipping = normalizeShippingDetails(move.shipping) || {};
+    move.shipping = { ...shipping, receivedAt: value || "" };
+    return;
+  }
+  if (fieldName === "fromLocationId") {
+    move.fromLocation = value || "";
+    return;
+  }
+  if (fieldName === "toLocationId") {
+    move.toLocation = value || "";
+    return;
+  }
+  if (fieldName === "condition") {
+    const condition = normalizeConditionLogEntry(move.condition) || {};
+    move.condition = { ...condition, rating: value || "" };
+    return;
+  }
+  if (fieldName === "notes") {
+    move.notes = value || "";
+  }
+}
+
+function applyCorrectionsToMoves(moves = [], corrections = []) {
+  const baseMoves = Array.isArray(moves) ? moves : [];
+  const effectiveMoves = baseMoves.map((entry) => ({ ...entry, _corrections: [] }));
+  const byId = new Map(effectiveMoves.map((entry) => [entry.id, entry]));
+  const sortedCorrections = normalizeCorrections(corrections);
+
+  sortedCorrections.forEach((correction) => {
+    const target = byId.get(correction.targetId);
+    if (!target) {
+      return;
+    }
+    const changeEntries = Object.entries(correction.changes || {});
+    if (!changeEntries.length) {
+      return;
+    }
+    changeEntries.forEach(([fieldName, change]) => {
+      setMoveFieldValue(target, fieldName, change.to ?? "");
+    });
+    target._corrections.push(correction);
+  });
+
+  return effectiveMoves;
+}
+
+function getMoveFieldValue(move, fieldName) {
+  if (fieldName === "shippingTracking") {
+    return move.shipping?.trackingNumber || "";
+  }
+  if (fieldName === "receiptDate") {
+    return move.receivedAt || move.shipping?.receivedAt || "";
+  }
+  if (fieldName === "fromLocationId") {
+    return move.fromLocation || "";
+  }
+  if (fieldName === "toLocationId") {
+    return move.toLocation || "";
+  }
+  if (fieldName === "condition") {
+    return move.condition?.rating || "";
+  }
+  if (fieldName === "notes") {
+    return move.notes || "";
+  }
+  return "";
+}
+
 function dedupeHistoryEntries(entries = []) {
   const list = Array.isArray(entries) ? entries : [];
   const seenIds = new Set();
@@ -1373,6 +1532,10 @@ function syncEquipmentById() {
 }
 
 function saveState() {
+  state.schemaVersion = STORAGE_SCHEMA_VERSION;
+  if (!Array.isArray(state.corrections)) {
+    state.corrections = [];
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -3137,41 +3300,26 @@ function getStatusChangeLabel(entry) {
   return "";
 }
 
-function getAllMovesFromState() {
+function getRawMovesFromState() {
   const movesLegacy = Array.isArray(state.log) ? state.log : [];
   const movesNew = Array.isArray(state.moves) ? state.moves : [];
   const allMoves = [...movesLegacy, ...movesNew];
-  return dedupeHistoryEntries(allMoves);
+  return dedupeHistoryEntries(allMoves).filter((entry) => entry.type !== "correction");
+}
+
+function getAllMovesFromState() {
+  return applyCorrectionsToMoves(getRawMovesFromState(), state.corrections || []);
 }
 
 function isEntryDeleted(entry) {
   return Boolean(entry && typeof entry === "object" && entry.deletedAt);
 }
 
-function buildCorrectionsByEntryId(entries, { includeDeleted = false } = {}) {
-  const corrections = new Map();
-  const list = Array.isArray(entries) ? entries : [];
-  list.forEach((entry) => {
-    if (!entry || entry.type !== "correction") {
-      return;
-    }
-    if (!includeDeleted && isEntryDeleted(entry)) {
-      return;
-    }
-    const targetId =
-      typeof entry.correctionOf === "string" && entry.correctionOf.trim()
-        ? entry.correctionOf.trim()
-        : "";
-    if (!targetId) {
-      return;
-    }
-    if (!corrections.has(targetId)) {
-      corrections.set(targetId, []);
-    }
-    corrections.get(targetId).push(entry);
-  });
-  return corrections;
+function getCorrectionsForMove(moveId) {
+  const corrections = normalizeCorrections(state.corrections || []);
+  return corrections.filter((entry) => entry.targetId === moveId);
 }
+
 
 function getFilteredMoves() {
   const equipmentFilter = elements.movesEquipmentFilter?.value ?? "all";
@@ -3287,6 +3435,29 @@ function getLatestMoveEntryForEquipment(equipmentId) {
   }, entries[0]);
 }
 
+function recomputeDerivedEquipmentState() {
+  const effectiveMoves = getAllMovesFromState();
+  state.equipment.forEach((item) => {
+    const relatedMoves = effectiveMoves
+      .filter((entry) => entry.equipmentId === item.id && entry.type === "move" && !isEntryDeleted(entry))
+      .sort((a, b) => Date.parse(a.timestamp || "") - Date.parse(b.timestamp || ""));
+    const latestMove = relatedMoves[relatedMoves.length - 1];
+    if (latestMove) {
+      if (latestMove.toLocation?.trim()) {
+        item.location = latestMove.toLocation;
+      }
+      if (latestMove.statusTo?.trim() && latestMove.statusTo !== "In transit") {
+        item.status = latestMove.statusTo;
+      }
+      item.lastMoved = formatDateTime(latestMove.timestamp || "") || item.lastMoved;
+    }
+    const derivedCondition = getLatestConditionEntryFromMoves(item.id, effectiveMoves);
+    if (derivedCondition) {
+      applyConditionSnapshot(item, derivedCondition);
+    }
+  });
+}
+
 function getEquipmentLocationDisplay(item) {
   const latestMove = getLatestMoveEntryForEquipment(item.id);
   if (
@@ -3378,19 +3549,13 @@ function buildNotesHtml({ baseNotes, corrections, deletedMeta, referenceLabel })
   if (Array.isArray(corrections) && corrections.length) {
     const items = corrections
       .map((correction) => {
-        const note =
-          correction.notes?.trim() ||
-          correction.text?.trim() ||
-          "Correction logged.";
-        const timestamp = correction.timestamp ?? "";
-        return `<li><strong>${escapeHTML(
-          timestamp
-        )}</strong> — ${escapeHTML(note)}</li>`;
+        const changes = Object.entries(correction.changes || {})
+          .map(([fieldName, change]) => `${fieldName}: ${String(change.from ?? "—")} → ${String(change.to ?? "—")}`)
+          .join("; ");
+        return `<li><strong>${escapeHTML(correction.ts || "")}</strong> — ${escapeHTML(correction.reason || "No reason")}${changes ? ` (${escapeHTML(changes)})` : ""}</li>`;
       })
       .join("");
-    parts.push(
-      `<div class="moves-corrections"><p>Corrections</p><ul>${items}</ul></div>`
-    );
+    parts.push(`<div class="moves-corrections"><p>Corrections</p><ul>${items}</ul></div>`);
   }
   if (deletedMeta) {
     parts.push(
@@ -3410,20 +3575,10 @@ function renderMovesView() {
     return;
   }
   syncEquipmentById();
-  const showDeleted = elements.movesShowDeleted?.checked ?? false;
-  const allMoves = getAllMovesFromState();
-  const correctionsByEntryId = buildCorrectionsByEntryId(allMoves, {
-    includeDeleted: showDeleted,
-  });
-  const entryById = new Map(
-    allMoves
-      .filter((entry) => entry && entry.id)
-      .map((entry) => [entry.id, entry])
-  );
   const filteredMoves = getFilteredMoves();
   const showDeleteActions = adminModeEnabled;
-  const hasCorrectionAction = filteredMoves.some(
-    (entry) => entry.type !== "correction" && !isEntryDeleted(entry)
+  const hasCorrectionAction = adminModeEnabled && filteredMoves.some(
+    (entry) => !isEntryDeleted(entry)
   );
   const hasReceivableMove = filteredMoves.some(
     (entry) => isMoveAwaitingReceipt(entry)
@@ -3484,8 +3639,6 @@ function renderMovesView() {
             ? "Calibration"
             : entry.type === "subscription_updated"
               ? "Subscription"
-              : entry.type === "correction"
-                ? "Correction"
               : entry.type === "condition_reference_updated"
                 ? "Condition checklist"
                 : entry.type === "received"
@@ -3498,10 +3651,11 @@ function renderMovesView() {
           `<button class="icon-button" type="button" data-action="mark-received" data-id="${escapeHTML(entry.id)}">Mark received</button>`
         );
       }
-      if (entry.type !== "correction" && !isEntryDeleted(entry)) {
-        actions.push(
-          `<button class="icon-button" type="button" data-action="add-correction" data-id="${escapeHTML(entry.id)}">Add correction</button>`
-        );
+      if (adminModeEnabled && !isEntryDeleted(entry)) {
+        actions.push(`<button class="icon-button" type="button" data-action="add-correction" data-id="${escapeHTML(entry.id)}">Add correction</button>`);
+      }
+      if ((entry._corrections || []).length) {
+        actions.push(`<button class="icon-button" type="button" data-action="view-corrections" data-id="${escapeHTML(entry.id)}">View corrections</button>`);
       }
       if (showDeleteActions) {
         actions.push(
@@ -3509,18 +3663,9 @@ function renderMovesView() {
         );
       }
       const actionCell = showActions ? `<td>${actions.join(" ")}</td>` : "";
-      const corrections = correctionsByEntryId.get(entry.id) ?? [];
+      const corrections = entry._corrections || [];
       const deletedMeta = formatDeletedMeta(entry);
-      const targetEntry =
-        entry.type === "correction" && entry.correctionOf
-          ? entryById.get(entry.correctionOf)
-          : null;
-      const referenceLabel =
-        entry.type === "correction" && entry.correctionOf
-          ? `Correction for entry ${
-              targetEntry?.timestamp ? targetEntry.timestamp : entry.correctionOf
-            }.`
-          : "";
+      const referenceLabel = "";
       const notesHtml = buildNotesHtml({
         baseNotes,
         corrections,
@@ -3538,7 +3683,7 @@ function renderMovesView() {
           <td>${escapeHTML(receiptIndicator)}</td>
           <td>${escapeHTML(conditionSummary)}</td>
           <td>${notesHtml}</td>
-          <td>${escapeHTML(typeLabel)}</td>
+          <td>${escapeHTML(typeLabel)}${corrections.length ? `<span class="moves-corrected-badge">Corrected</span>` : ""}</td>
           ${actionCell}
         </tr>
       `;
@@ -3587,6 +3732,7 @@ function renderLocationSummary() {
 }
 
 function refreshUI() {
+  recomputeDerivedEquipmentState();
   syncEquipmentById();
   renderLocationOptions();
   renderStatusOptions();
@@ -5294,28 +5440,156 @@ function handleDeleteHistoryEntry(entryId) {
   renderMovesView();
 }
 
-function handleAddCorrection(entryId) {
-  if (!entryId) {
+function clearCorrectionForm() {
+  correctionTargetEntryId = "";
+  if (elements.correctionForm) {
+    elements.correctionForm.reset();
+  }
+  if (elements.correctionError) {
+    elements.correctionError.textContent = "";
+    elements.correctionError.classList.add("is-hidden");
+  }
+}
+
+function openCorrectionModal(entryId) {
+  if (!adminModeEnabled) {
+    showToast("Admin mode required.", "error");
     return;
   }
   const entry = getAllMovesFromState().find((item) => item.id === entryId);
-  if (!entry || isEntryDeleted(entry)) {
+  if (!entry || isEntryDeleted(entry) || !elements.correctionModal) {
     return;
   }
-  const reason = window.prompt("Describe the correction:");
-  if (!reason || !reason.trim()) {
+  correctionTargetEntryId = entry.id;
+  if (elements.correctionTargetLabel) {
+    elements.correctionTargetLabel.textContent = `${getEquipmentSummary(entry)} • ${entry.timestamp}`;
+  }
+  if (elements.correctionFromLocation) {
+    elements.correctionFromLocation.innerHTML = '<option value="">Select...</option>' + physicalLocations.map((location) => `<option value="${escapeHTML(location)}">${escapeHTML(location)}</option>`).join("");
+  }
+  if (elements.correctionToLocation) {
+    elements.correctionToLocation.innerHTML = '<option value="">Select...</option>' + physicalLocations.map((location) => `<option value="${escapeHTML(location)}">${escapeHTML(location)}</option>`).join("");
+  }
+  if (elements.correctionShippingTracking) {
+    elements.correctionShippingTracking.value = getMoveFieldValue(entry, "shippingTracking");
+  }
+  if (elements.correctionReceiptDate) {
+    elements.correctionReceiptDate.value = getMoveFieldValue(entry, "receiptDate").slice(0, 10);
+  }
+  if (elements.correctionFromLocation) {
+    elements.correctionFromLocation.value = getMoveFieldValue(entry, "fromLocationId");
+  }
+  if (elements.correctionToLocation) {
+    elements.correctionToLocation.value = getMoveFieldValue(entry, "toLocationId");
+  }
+  if (elements.correctionConditionRating) {
+    elements.correctionConditionRating.value = getMoveFieldValue(entry, "condition");
+  }
+  if (elements.correctionNotes) {
+    elements.correctionNotes.value = getMoveFieldValue(entry, "notes");
+  }
+  elements.correctionModal.showModal();
+}
+
+function handleCorrectionSubmit(event) {
+  event.preventDefault();
+  if (!adminModeEnabled) {
+    showToast("Admin mode required.", "error");
     return;
   }
-  const trimmedReason = reason.trim();
-  logHistory({
-    type: "correction",
-    correctionOf: entry.id,
-    notes: trimmedReason,
-    equipmentId: entry.equipmentId,
-    equipmentSnapshot: entry.equipmentSnapshot,
+  const targetId = correctionTargetEntryId;
+  const entry = getAllMovesFromState().find((item) => item.id === targetId);
+  if (!entry) {
+    return;
+  }
+  const reason = elements.correctionReason?.value?.trim() || "";
+  if (!reason) {
+    if (elements.correctionError) {
+      elements.correctionError.textContent = "Reason is required.";
+      elements.correctionError.classList.remove("is-hidden");
+    }
+    return;
+  }
+  const fieldDefs = [
+    ["shippingTracking", elements.correctionFieldShipping?.checked, elements.correctionShippingTracking?.value || ""],
+    ["receiptDate", elements.correctionFieldReceipt?.checked, elements.correctionReceiptDate?.value || ""],
+    ["fromLocationId", elements.correctionFieldFrom?.checked, elements.correctionFromLocation?.value || ""],
+    ["toLocationId", elements.correctionFieldTo?.checked, elements.correctionToLocation?.value || ""],
+    ["condition", elements.correctionFieldCondition?.checked, elements.correctionConditionRating?.value || ""],
+    ["notes", elements.correctionFieldNotes?.checked, elements.correctionNotes?.value || ""],
+  ];
+  const changes = {};
+  fieldDefs.forEach(([fieldName, selected, value]) => {
+    if (!selected) {
+      return;
+    }
+    const from = getMoveFieldValue(entry, fieldName);
+    const to = value;
+    if (String(from) !== String(to)) {
+      changes[fieldName] = { from, to };
+    }
   });
+  if (!Object.keys(changes).length) {
+    if (elements.correctionError) {
+      elements.correctionError.textContent = "Choose at least one changed field.";
+      elements.correctionError.classList.remove("is-hidden");
+    }
+    return;
+  }
+
+  const correction = {
+    id: crypto.randomUUID(),
+    ts: formatTimestampISO(),
+    targetType: "move",
+    targetId,
+    reason,
+    changes,
+    createdBy: "Admin(local)",
+  };
+  state.corrections = [...(Array.isArray(state.corrections) ? state.corrections : []), correction];
   saveState();
   refreshUI();
+  elements.correctionModal?.close();
+  clearCorrectionForm();
+  showToast("Correction saved", "success");
+}
+
+function renderCorrectionDetails(moveId) {
+  if (!elements.correctionDetailsList) {
+    return;
+  }
+  const corrections = getCorrectionsForMove(moveId);
+  if (!corrections.length) {
+    elements.correctionDetailsList.innerHTML = "<li>No corrections.</li>";
+    return;
+  }
+  elements.correctionDetailsList.innerHTML = corrections
+    .map((correction) => {
+      const fields = Object.entries(correction.changes || {})
+        .map(([field, change]) => `<li>${escapeHTML(field)}: ${escapeHTML(String(change.from ?? "—"))} → ${escapeHTML(String(change.to ?? "—"))}</li>`)
+        .join("");
+      const revertButton = adminModeEnabled
+        ? `<button class="icon-button" type="button" data-action="revert-correction" data-correction-id="${escapeHTML(correction.id)}" data-target-id="${escapeHTML(moveId)}">Revert</button>`
+        : "";
+      return `<li><strong>${escapeHTML(correction.ts)}</strong> — ${escapeHTML(correction.reason)}${correction.createdBy ? ` (${escapeHTML(correction.createdBy)})` : ""}<ul>${fields}</ul>${revertButton}</li>`;
+    })
+    .join("");
+}
+
+function openCorrectionDetails(moveId) {
+  correctionDetailsTargetId = moveId;
+  renderCorrectionDetails(moveId);
+  elements.correctionDetailsModal?.showModal();
+}
+
+function handleRevertCorrection(correctionId, moveId) {
+  if (!adminModeEnabled || !correctionId) {
+    return;
+  }
+  state.corrections = (state.corrections || []).filter((entry) => entry.id !== correctionId);
+  saveState();
+  refreshUI();
+  renderCorrectionDetails(moveId || correctionDetailsTargetId);
 }
 
 function handleCopyTrackingNumber(trackingNumber) {
@@ -5378,40 +5652,40 @@ if (elements.movesReceiptOnly) {
 
 if (elements.movesTableBody) {
   elements.movesTableBody.addEventListener("click", (event) => {
-    const receiveButton = event.target.closest(
-      'button[data-action="mark-received"]'
-    );
+    const receiveButton = event.target.closest('button[data-action="mark-received"]');
     if (receiveButton) {
       const moveEntryId = receiveButton.dataset.id;
-      if (!moveEntryId) {
-        return;
+      if (moveEntryId) {
+        handleMarkReceived(moveEntryId);
       }
-      handleMarkReceived(moveEntryId);
       return;
     }
 
-    const deleteButton = event.target.closest(
-      'button[data-action="delete-move"]'
-    );
-    if (!deleteButton || !adminModeEnabled) {
-      const correctionButton = event.target.closest(
-        'button[data-action="add-correction"]'
-      );
-      if (!correctionButton) {
-        return;
-      }
+    const correctionButton = event.target.closest('button[data-action="add-correction"]');
+    if (correctionButton) {
       const entryId = correctionButton.dataset.id;
-      if (!entryId) {
-        return;
+      if (entryId) {
+        openCorrectionModal(entryId);
       }
-      handleAddCorrection(entryId);
       return;
     }
-    const entryId = deleteButton.dataset.id;
-    if (!entryId) {
+
+    const detailsButton = event.target.closest('button[data-action="view-corrections"]');
+    if (detailsButton) {
+      const entryId = detailsButton.dataset.id;
+      if (entryId) {
+        openCorrectionDetails(entryId);
+      }
       return;
     }
-    handleDeleteHistoryEntry(entryId);
+
+    const deleteButton = event.target.closest('button[data-action="delete-move"]');
+    if (deleteButton && adminModeEnabled) {
+      const entryId = deleteButton.dataset.id;
+      if (entryId) {
+        handleDeleteHistoryEntry(entryId);
+      }
+    }
   });
 }
 
@@ -5733,6 +6007,37 @@ if (elements.adminPasscodeSettingsForm) {
     "submit",
     handleAdminPasscodeSettingsSubmit
   );
+}
+
+if (elements.correctionForm) {
+  elements.correctionForm.addEventListener("submit", handleCorrectionSubmit);
+}
+
+if (elements.correctionCancel) {
+  elements.correctionCancel.addEventListener("click", () => {
+    elements.correctionModal?.close();
+    clearCorrectionForm();
+  });
+}
+
+if (elements.correctionModal) {
+  elements.correctionModal.addEventListener("close", clearCorrectionForm);
+}
+
+if (elements.correctionDetailsClose) {
+  elements.correctionDetailsClose.addEventListener("click", () => {
+    elements.correctionDetailsModal?.close();
+  });
+}
+
+if (elements.correctionDetailsList) {
+  elements.correctionDetailsList.addEventListener("click", (event) => {
+    const button = event.target.closest('button[data-action="revert-correction"]');
+    if (!button) {
+      return;
+    }
+    handleRevertCorrection(button.dataset.correctionId || "", button.dataset.targetId || "");
+  });
 }
 
 if (elements.conditionHistoryClose) {
