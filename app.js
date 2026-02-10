@@ -1057,17 +1057,12 @@ function getConditionCheckTimestamp(entry) {
   return typeof entry.timestamp === "string" ? entry.timestamp : "";
 }
 
-function getLatestConditionEntryFromMoves(equipmentId, moves = []) {
-  if (!equipmentId || !Array.isArray(moves)) {
+function deriveLastConditionFromLogs(logsForItem = []) {
+  if (!Array.isArray(logsForItem)) {
     return null;
   }
-  const latest = moves
-    .filter(
-      (entry) =>
-        entry.equipmentId === equipmentId &&
-        isConditionCheckEntry(entry) &&
-        !isEntryDeleted(entry)
-    )
+  const latest = logsForItem
+    .filter((entry) => isConditionCheckEntry(entry) && !isEntryDeleted(entry))
     .reduce((currentLatest, candidate) => {
       const candidateTime = new Date(getConditionCheckTimestamp(candidate)).getTime();
       if (!Number.isFinite(candidateTime)) {
@@ -1089,6 +1084,19 @@ function getLatestConditionEntryFromMoves(equipmentId, moves = []) {
     ...(latest.condition && typeof latest.condition === "object" ? latest.condition : {}),
     checkedAt: getConditionCheckTimestamp(latest),
   });
+}
+
+function getLastConditionCheck(equipmentId, moveLogs = []) {
+  if (!equipmentId || !Array.isArray(moveLogs)) {
+    return null;
+  }
+  return deriveLastConditionFromLogs(
+    moveLogs.filter((entry) => entry.equipmentId === equipmentId)
+  );
+}
+
+function getLatestConditionEntryFromMoves(equipmentId, moves = []) {
+  return getLastConditionCheck(equipmentId, moves);
 }
 
 function normalizeShippingDetails(shipping) {
@@ -3057,10 +3065,14 @@ function formatConditionSummary(condition) {
 }
 
 function buildEquipmentConditionCell(item) {
-  const currentCondition = normalizeConditionLogEntry(item.currentCondition);
+  const latestConditionFromMoves = getLastConditionCheck(item.id, getAllMovesFromState());
+  const currentCondition =
+    latestConditionFromMoves || normalizeConditionLogEntry(item.currentCondition);
   const rating = currentCondition?.rating || "Not checked";
-  const checkedDate = item.lastConditionCheckAt
-    ? formatDateTime(item.lastConditionCheckAt)
+  const checkedDate = currentCondition?.checkedAt
+    ? formatDateTime(currentCondition.checkedAt)
+    : item.lastConditionCheckAt
+      ? formatDateTime(item.lastConditionCheckAt)
     : "—";
   const metaText = `Last checked: ${checkedDate}`;
   const styleClass =
