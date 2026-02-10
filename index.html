@@ -794,6 +794,91 @@
       <ul id="condition-history-list" class="condition-history-list"></ul>
     </dialog>
 
+    <dialog id="correction-modal" class="admin-passcode-dialog correction-dialog">
+      <form id="correction-form" class="panel" novalidate>
+        <h3>Add correction</h3>
+        <p class="panel-hint" id="correction-target-label"></p>
+
+        <fieldset class="correction-grid">
+          <legend>Fields to correct</legend>
+          <label class="checkbox-field">
+            <input type="checkbox" id="correction-field-shipping" />
+            Shipping tracking
+          </label>
+          <label>
+            <input id="correction-shipping-tracking" type="text" />
+          </label>
+
+          <label class="checkbox-field">
+            <input type="checkbox" id="correction-field-receipt" />
+            Receipt date
+          </label>
+          <label>
+            <input id="correction-receipt-date" type="date" />
+          </label>
+
+          <label class="checkbox-field">
+            <input type="checkbox" id="correction-field-from" />
+            From location
+          </label>
+          <label>
+            <select id="correction-from-location"></select>
+          </label>
+
+          <label class="checkbox-field">
+            <input type="checkbox" id="correction-field-to" />
+            To location
+          </label>
+          <label>
+            <select id="correction-to-location"></select>
+          </label>
+
+          <label class="checkbox-field">
+            <input type="checkbox" id="correction-field-condition" />
+            Condition rating
+          </label>
+          <label>
+            <select id="correction-condition-rating">
+              <option value="">Select...</option>
+              <option value="Excellent">Excellent</option>
+              <option value="Good">Good</option>
+              <option value="Fair">Fair</option>
+              <option value="Needs attention">Needs attention</option>
+              <option value="Unserviceable">Unserviceable</option>
+            </select>
+          </label>
+
+          <label class="checkbox-field">
+            <input type="checkbox" id="correction-field-notes" />
+            Notes
+          </label>
+          <label>
+            <textarea id="correction-notes" rows="2"></textarea>
+          </label>
+        </fieldset>
+
+        <label>
+          Reason
+          <textarea id="correction-reason" rows="2" required></textarea>
+        </label>
+        <p id="correction-error" class="field-error is-hidden"></p>
+        <div class="dialog-actions">
+          <button type="button" class="button-secondary" id="correction-cancel">Cancel</button>
+          <button type="submit">Save correction</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="correction-details-modal" class="admin-passcode-dialog correction-dialog">
+      <div class="panel">
+        <div class="condition-history-header">
+          <h3>Correction audit trail</h3>
+          <button type="button" class="icon-button" id="correction-details-close">Close</button>
+        </div>
+        <ul id="correction-details-list" class="condition-history-list"></ul>
+      </div>
+    </dialog>
+
     <div
       id="toast-container"
       class="toast-container"
