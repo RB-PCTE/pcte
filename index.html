@@ -458,6 +458,22 @@
                   <button type="submit">Update passcode</button>
                 </form>
 
+                <section class="panel diagnostics">
+                  <h3>Diagnostics</h3>
+                  <label class="checkbox-field" for="admin-diagnostics-toggle">
+                    Show diagnostics
+                    <input id="admin-diagnostics-toggle" type="checkbox" />
+                  </label>
+                  <div id="admin-diagnostics-panel" class="is-hidden">
+                    <textarea
+                      id="admin-diagnostics-log"
+                      rows="8"
+                      readonly
+                      aria-label="Application diagnostics"
+                    ></textarea>
+                  </div>
+                </section>
+
                 <form id="calibration-form" class="panel">
                   <h3>Record calibration</h3>
                   <label>
