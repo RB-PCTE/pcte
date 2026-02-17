@@ -1,3 +1,5 @@
+export const STATE_VERSION = 2;
+
 export const physicalLocations = [
   "Perth",
   "Melbourne",
@@ -178,5 +180,35 @@ export function buildDefaultState(schemaVersion) {
     ],
     corrections: [],
     schemaVersion,
+  };
+}
+
+
+export function migrateStateIfNeeded(inputState) {
+  const parsed = inputState && typeof inputState === "object" ? inputState : {};
+  const equipment = Array.isArray(parsed.equipment)
+    ? parsed.equipment
+    : Array.isArray(parsed.items)
+      ? parsed.items
+      : [];
+  const moves = Array.isArray(parsed.moves)
+    ? parsed.moves
+    : Array.isArray(parsed.log)
+      ? parsed.log
+      : [];
+
+  return {
+    ...buildDefaultState(STATE_VERSION),
+    ...parsed,
+    stateVersion: Number.isInteger(parsed.stateVersion)
+      ? parsed.stateVersion
+      : Number.isInteger(parsed.schemaVersion)
+        ? parsed.schemaVersion
+        : STATE_VERSION,
+    schemaVersion: Number.isInteger(parsed.schemaVersion) ? parsed.schemaVersion : STATE_VERSION,
+    locations: Array.isArray(parsed.locations) && parsed.locations.length ? parsed.locations : [...physicalLocations],
+    equipment,
+    moves,
+    corrections: Array.isArray(parsed.corrections) ? parsed.corrections : [],
   };
 }

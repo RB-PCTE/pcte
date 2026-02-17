@@ -1,10 +1,10 @@
 import { createAdminController } from "./admin.js";
+import { on } from "./events.js";
+import { createRepository } from "./repository/index.js";
+import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
 
-const STORAGE_KEY = "equipmentTrackerState";
 const SCHEMA_VERSION = 2;
 const BUILD_STAMP = "all_good_roobs";
-const TAB_STORAGE_KEY = "equipmentTrackerActiveTab";
-const CONDITION_MIGRATION_V1_FLAG = "pcteConditionMigrationV1";
 const physicalLocations = [
   "Perth",
   "Melbourne",
@@ -230,7 +230,9 @@ function buildDefaultState() {
 
 const defaultState = buildDefaultState();
 
+const repository = createRepository({ adapter: createLocalStorageStorageAdapter() });
 const state = loadState();
+repository.mutate((draft) => Object.assign(draft, state));
 document.documentElement.setAttribute("data-build-stamp", BUILD_STAMP);
 const equipmentList = Array.isArray(state.equipment)
   ? state.equipment
@@ -648,23 +650,15 @@ function getEquipmentListFromState() {
 }
 
 function loadState() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
-    return buildSeededState();
-  }
   try {
-    const parsed = JSON.parse(stored);
+    const parsed = readStoredAppState();
     const { equipment, moves, log, corrections, schemaVersion, migratedKeys } = migrateStateIfNeeded(parsed);
     if (migratedKeys.length) {
-      console.warn(
-        `Migrated stored state: ${migratedKeys.join(", ")}`
-      );
+      console.warn(`Migrated stored state: ${migratedKeys.join(", ")}`);
     }
 
     const normalized = normalizeState({ equipment, moves, log, corrections, schemaVersion });
     runConditionHistoryMigrationV1(normalized);
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     return normalized;
   } catch (error) {
     console.warn("Failed to load stored state", error);
@@ -791,7 +785,7 @@ function runConditionHistoryMigrationV1(normalizedState) {
   if (!normalizedState || typeof normalizedState !== "object") {
     return;
   }
-  if (localStorage.getItem(CONDITION_MIGRATION_V1_FLAG) === "true") {
+  if (hasConditionMigrationFlag()) {
     return;
   }
   const equipmentById = new Map(
@@ -824,7 +818,7 @@ function runConditionHistoryMigrationV1(normalizedState) {
     }
   });
 
-  localStorage.setItem(CONDITION_MIGRATION_V1_FLAG, "true");
+  setConditionMigrationFlag();
 }
 
 function normalizeState({ equipment = [], moves = [], log, corrections = [], schemaVersion = 1 } = {}) {
@@ -1826,10 +1820,11 @@ function syncEquipmentById() {
 
 function saveState() {
   state.schemaVersion = SCHEMA_VERSION;
+  state.stateVersion = SCHEMA_VERSION;
   if (!Array.isArray(state.corrections)) {
     state.corrections = [];
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  repository.persist();
 }
 
 function applyAdminMode(isEnabled, { focus = false } = {}) {
@@ -1849,7 +1844,7 @@ function applyAdminMode(isEnabled, { focus = false } = {}) {
   if (!adminModeEnabled) {
     setActiveTab("operations", { focus });
   } else {
-    const storedTab = localStorage.getItem(TAB_STORAGE_KEY) ?? "operations";
+    const storedTab = loadActiveTab();
     setActiveTab(storedTab, { focus });
   }
   refreshUI();
@@ -4040,7 +4035,7 @@ function setActiveTab(tabName, { focus = false } = {}) {
     });
   }
 
-  localStorage.setItem(TAB_STORAGE_KEY, normalizeTabName(nextName));
+  saveActiveTab(normalizeTabName(nextName));
   if (focus && nextTabButton) {
     nextTabButton.focus();
   }
@@ -4060,7 +4055,7 @@ function goToAdminEditEquipment(equipmentId) {
 }
 
 function initTabs() {
-  const stored = normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
+  const stored = normalizeTabName(loadActiveTab());
   const availableTabs = elements.tabButtons
     .filter((button) => !button.hidden)
     .map((button) => button.dataset.tab);
@@ -4128,7 +4123,7 @@ function logHistory(entry) {
     },
     state.equipment
   );
-  state.moves.unshift(historyEntry);
+  repository.recordMove(historyEntry);
   return historyEntry;
 }
 
@@ -4718,7 +4713,7 @@ function handleAddEquipment(event) {
   });
 
   const newItemId = crypto.randomUUID();
-  state.equipment.push({
+  repository.addEquipment({
     id: newItemId,
     name,
     model,
@@ -4926,7 +4921,7 @@ function handleImportSubmit() {
     };
   });
 
-  state.equipment.push(...importedItems);
+  repository.importEquipment(importedItems);
   logHistory({
     type: "Details updated",
     text: `Imported equipment (${importedItems.length} items).`,
@@ -5906,6 +5901,7 @@ function handleRevertCorrection(correctionId, moveId) {
     return;
   }
   state.corrections = (state.corrections || []).filter((entry) => entry.id !== correctionId);
+  repository.mutate((draft) => { draft.corrections = state.corrections; });
   saveState();
   refreshUI();
   renderCorrectionDetails(moveId || correctionDetailsTargetId);
@@ -6353,6 +6349,7 @@ if (elements.conditionHistoryClose) {
     elements.conditionHistoryModal?.close();
   });
 }
+on("state:changed", () => refreshUI());
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();
