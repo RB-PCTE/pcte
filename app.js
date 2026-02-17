@@ -542,6 +542,10 @@ const equipmentImportTemplateHeaders = [
   "calibrationRequired",
   "calibrationIntervalMonths",
   "lastCalibrationDate",
+  "subscriptionRequired",
+  "subscriptionRenewalDate",
+  "conditionContentsChecklist",
+  "conditionFunctionalChecklist",
 ];
 const equipmentImportState = {
   rawRows: [],
@@ -2488,26 +2492,116 @@ function parseSubscriptionDate(value) {
 }
 
 function parseFlexibleDate(value) {
-  if (!value) {
+  const parsed = parseFlexibleDateToISO(value);
+  return parsed == null ? "" : parsed;
+}
+
+function excelSerialToISO(value) {
+  const serial = Number(value);
+  if (!Number.isFinite(serial)) {
+    return null;
+  }
+  const excelEpochMs = Date.UTC(1899, 11, 30);
+  const dateMs = excelEpochMs + Math.round(serial) * 24 * 60 * 60 * 1000;
+  const parsed = new Date(dateMs);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseFlexibleDateToISO(value) {
+  if (value == null || value === "") {
     return "";
   }
   const trimmed = String(value).trim();
   if (!trimmed) {
     return "";
   }
+  if (trimmed === "#######") {
+    return null;
+  }
+
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const numericValue = Number(trimmed);
+    if (numericValue > 20000) {
+      return excelSerialToISO(numericValue);
+    }
+  }
+
   const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (isoMatch) {
-    const parsed = parseDate(trimmed);
-    return parsed ? trimmed : "";
+    const [, year, month, day] = isoMatch;
+    const normalized = `${year}-${month}-${day}`;
+    const parsed = parseDate(normalized);
+    if (!parsed) {
+      return null;
+    }
+    const isSameDate =
+      parsed.getFullYear() === Number(year) &&
+      parsed.getMonth() + 1 === Number(month) &&
+      parsed.getDate() === Number(day);
+    return isSameDate ? normalized : null;
   }
-  const altMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+  const slashMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const dashMatch = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  const altMatch = slashMatch || dashMatch;
   if (altMatch) {
     const [, day, month, year] = altMatch;
     const normalized = `${year}-${month}-${day}`;
     const parsed = parseDate(normalized);
-    return parsed ? normalized : "";
+    if (!parsed) {
+      return null;
+    }
+    const isSameDate =
+      parsed.getFullYear() === Number(year) &&
+      parsed.getMonth() + 1 === Number(month) &&
+      parsed.getDate() === Number(day);
+    return isSameDate ? normalized : null;
   }
-  return "";
+
+  return null;
+}
+
+function parseImportBoolean(value, fallback = false) {
+  if (value == null || value === "") {
+    return fallback;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "1", "yes"].includes(normalized)) {
+    return true;
+  }
+  if (["false", "0", "no"].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
+function isImportDatePlaceholder(value) {
+  return String(value || "").trim() === "#######";
+}
+
+function parseImportDateField(rawValue, fieldLabel, issues) {
+  const trimmed = String(rawValue || "").trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (isImportDatePlaceholder(trimmed)) {
+    issues.push(
+      `${fieldLabel} shows #######. Widen the column in Excel and ensure a real date is saved in the CSV.`
+    );
+    return "";
+  }
+  const parsed = parseFlexibleDateToISO(trimmed);
+  if (parsed == null) {
+    issues.push(`Invalid ${fieldLabel}.`);
+    return "";
+  }
+  return parsed;
 }
 
 function parseCsvText(text) {
@@ -2618,6 +2712,10 @@ function buildEquipmentImportTemplate() {
       "TRUE",
       "12",
       "2024-03-01",
+      "FALSE",
+      "",
+      "",
+      "",
     ],
     [
       "Audio demo pack",
@@ -2627,6 +2725,25 @@ function buildEquipmentImportTemplate() {
       "Melbourne",
       "On demo",
       "FALSE",
+      "",
+      "",
+      "TRUE",
+      "2025-07-01",
+      "All accessories present",
+      "Powers on and outputs signal",
+    ],
+    [
+      "Lighting bar kit",
+      "Chauvet COLORband",
+      "LBK-2024-0203",
+      "45567",
+      "Sydney",
+      "Available",
+      "TRUE",
+      "24",
+      "15-02-2024",
+      "FALSE",
+      "",
       "",
       "",
     ],
@@ -2826,6 +2943,10 @@ function parseEquipmentImportRows(rows) {
     const rawCalibrationRequired = getValue("calibrationRequired");
     const rawCalibrationInterval = getValue("calibrationIntervalMonths");
     const rawLastCalibration = getValue("lastCalibrationDate");
+    const rawSubscriptionRequired = getValue("subscriptionRequired");
+    const rawSubscriptionRenewalDate = getValue("subscriptionRenewalDate");
+    const rawConditionContentsChecklist = getValue("conditionContentsChecklist");
+    const rawConditionFunctionalChecklist = getValue("conditionFunctionalChecklist");
 
     const issues = [];
     const name = String(rawName || "").trim();
@@ -2834,11 +2955,16 @@ function parseEquipmentImportRows(rows) {
     }
 
     const model = String(rawModel || "").trim();
-    const serialNumber = String(rawSerial || "").trim();
-    const purchaseDate = parseFlexibleDate(rawPurchaseDate);
-    if (rawPurchaseDate && !purchaseDate) {
-      issues.push("Invalid purchase date.");
+    if (!model) {
+      issues.push("Missing model.");
     }
+
+    const serialNumber = String(rawSerial || "").trim();
+    if (!serialNumber) {
+      issues.push("Missing serial number.");
+    }
+
+    const purchaseDate = parseImportDateField(rawPurchaseDate, "purchase date", issues);
 
     let location = String(rawLocation || "").trim();
     if (!location) {
@@ -2861,16 +2987,38 @@ function parseEquipmentImportRows(rows) {
     const calibrationRequired = parseCalibrationRequired(
       rawCalibrationRequired
     );
-    const calibrationIntervalMonths = calibrationRequired
-      ? parseCalibrationInterval(rawCalibrationInterval)
-      : parseCalibrationInterval(rawCalibrationInterval);
+    const calibrationIntervalMonths = parseCalibrationInterval(rawCalibrationInterval);
 
-    const lastCalibrationDate = calibrationRequired
-      ? parseFlexibleDate(rawLastCalibration)
-      : "";
-    if (rawLastCalibration && !lastCalibrationDate) {
-      issues.push("Invalid last calibration date.");
+    let lastCalibrationDate = "";
+    if (calibrationRequired) {
+      lastCalibrationDate = parseImportDateField(
+        rawLastCalibration,
+        "last calibration date",
+        issues
+      );
     }
+
+    const subscriptionRequired = parseImportBoolean(rawSubscriptionRequired);
+    let subscriptionRenewalDate = "";
+    if (subscriptionRequired) {
+      subscriptionRenewalDate = parseImportDateField(
+        rawSubscriptionRenewalDate,
+        "subscription renewal date",
+        issues
+      );
+      if (!subscriptionRenewalDate) {
+        issues.push(
+          "Subscription renewal date is required when subscriptionRequired is true."
+        );
+      }
+    }
+
+    const conditionContentsChecklist = String(
+      rawConditionContentsChecklist || ""
+    ).trim();
+    const conditionFunctionalChecklist = String(
+      rawConditionFunctionalChecklist || ""
+    ).trim();
 
     return {
       rowNumber: rowIndex + 2,
@@ -2884,9 +3032,13 @@ function parseEquipmentImportRows(rows) {
         calibrationRequired,
         calibrationIntervalMonths,
         lastCalibrationDate,
+        subscriptionRequired,
+        subscriptionRenewalDate,
+        conditionContentsChecklist,
+        conditionFunctionalChecklist,
       },
       issues,
-      isValid: Boolean(name),
+      isValid: issues.length === 0,
       duplicateNote: "",
     };
   });
@@ -5013,8 +5165,8 @@ function handleImportSubmit() {
       location: data.location,
       status: data.status,
       conditionReference: {
-        contentsChecklist: "",
-        functionalChecklist: "",
+        contentsChecklist: data.conditionContentsChecklist,
+        functionalChecklist: data.conditionFunctionalChecklist,
       },
       calibrationRequired: calibrationDetails.calibrationRequired,
       calibrationIntervalMonths: calibrationDetails.calibrationIntervalMonths,
