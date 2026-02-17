@@ -1,5 +1,4 @@
-const ADMIN_MODE_KEY = "equipmentTrackerAdminMode";
-export const ADMIN_PASSCODE_KEY = "equipmentTrackerAdminPasscode";
+import { disableAdminMode, enableAdminMode, hasPasscode, isAdminModeEnabled, setPasscode, verifyPasscode } from "./services/adminAuth.js";
 
 function formatDiagnosticsTimestamp(date = new Date()) {
   return date.toLocaleTimeString("en-AU", {
@@ -41,84 +40,24 @@ export function createAdminController({ elements, onApplyAdminMode, showToast })
     }
   }
 
-  function readAdminPasscodeRecord() {
-    const raw = localStorage.getItem(ADMIN_PASSCODE_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        typeof parsed.value === "string"
-      ) {
-        return parsed;
-      }
-    } catch {
-      return {
-        method: "plain",
-        value: raw,
-      };
-    }
-    return null;
-  }
-
   function hasAdminPasscodeRecord() {
-    const record = readAdminPasscodeRecord();
-    return Boolean(record?.value);
-  }
-
-  function saveAdminPasscodeRecord(record) {
-    localStorage.setItem(ADMIN_PASSCODE_KEY, JSON.stringify(record));
-  }
-
-  async function hashPasscode(passcode) {
-    if (!window.crypto?.subtle || !window.TextEncoder) {
-      return passcode;
-    }
-    const encoder = new TextEncoder();
-    const data = encoder.encode(passcode);
-    const digest = await window.crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(digest))
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
-  }
-
-  async function buildPasscodeRecord(passcode) {
-    if (window.crypto?.subtle && window.TextEncoder) {
-      return {
-        method: "sha256",
-        value: await hashPasscode(passcode),
-      };
-    }
-    return {
-      method: "plain",
-      value: passcode,
-    };
+    return hasPasscode();
   }
 
   async function verifyAdminPasscode(passcode) {
-    const record = readAdminPasscodeRecord();
-    if (!record || !record.value) {
-      return false;
-    }
-    if (record.method === "sha256") {
-      const hash = await hashPasscode(passcode);
-      return hash === record.value;
-    }
-    return record.value === passcode;
+    return verifyPasscode(passcode);
   }
 
   function loadAdminMode() {
-    return (
-      localStorage.getItem(ADMIN_MODE_KEY) === "true" &&
-      hasAdminPasscodeRecord()
-    );
+    return isAdminModeEnabled();
   }
 
   function saveAdminMode(isEnabled) {
-    localStorage.setItem(ADMIN_MODE_KEY, String(Boolean(isEnabled)));
+    if (isEnabled) {
+      enableAdminMode();
+      return;
+    }
+    disableAdminMode();
   }
 
   function resetAdminPasscodeDialog() {
@@ -228,8 +167,7 @@ export function createAdminController({ elements, onApplyAdminMode, showToast })
         setAdminPasscodeDialogError("Passcodes do not match.");
         return;
       }
-      const record = await buildPasscodeRecord(newPasscode);
-      saveAdminPasscodeRecord(record);
+      await setPasscode(newPasscode);
       logEvent("Admin passcode set");
       applyAndPersistAdminMode(true, { focus: true });
       const nextAction = pendingAdminAction;
@@ -282,8 +220,7 @@ export function createAdminController({ elements, onApplyAdminMode, showToast })
       setAdminPasscodeSettingsError("Current passcode is incorrect.");
       return;
     }
-    const record = await buildPasscodeRecord(newPasscode);
-    saveAdminPasscodeRecord(record);
+    await setPasscode(newPasscode);
     logEvent("Admin passcode set");
     if (elements.adminPasscodeUpdateSuccess) {
       elements.adminPasscodeUpdateSuccess.classList.remove("is-hidden");
