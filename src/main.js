@@ -3,8 +3,11 @@ import { on } from "./events.js";
 import { createRepository } from "./repository/index.js";
 import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
 
+// === BUILD VERSION ===
+// Increment this on each production deployment.
+export const BUILD_VERSION = "2026.02.17.01";
+
 const SCHEMA_VERSION = 2;
-const BUILD_STAMP = "all_good_roobs";
 const physicalLocations = [
   "Perth",
   "Melbourne",
@@ -233,7 +236,7 @@ const defaultState = buildDefaultState();
 const repository = createRepository({ adapter: createLocalStorageStorageAdapter() });
 const state = loadState();
 repository.mutate((draft) => Object.assign(draft, state));
-document.documentElement.setAttribute("data-build-stamp", BUILD_STAMP);
+document.documentElement.setAttribute("data-build-stamp", BUILD_VERSION);
 const equipmentList = Array.isArray(state.equipment)
   ? state.equipment
   : Array.isArray(state.items)
@@ -504,6 +507,13 @@ const elements = {
   correctionDetailsClose: document.querySelector("#correction-details-close"),
   correctionDetailsList: document.querySelector("#correction-details-list"),
 };
+
+function renderBuildVersion() {
+  const el = document.getElementById("build-version");
+  if (el) {
+    el.textContent = BUILD_VERSION;
+  }
+}
 
 let adminModeEnabled = false;
 let isMoveSaving = false;
@@ -6350,6 +6360,7 @@ if (elements.conditionHistoryClose) {
   });
 }
 on("state:changed", () => refreshUI());
+renderBuildVersion();
 refreshUI();
 syncCalibrationInputs();
 syncEditCalibrationInputs();
