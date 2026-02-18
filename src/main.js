@@ -4,8 +4,8 @@ import { createRepository } from "./repository/index.js";
 import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
 
 // === BUILD VERSION ===
-// Increment this on each production deployment.
-export const BUILD_VERSION = "2026.02.17.01";
+// Update this string on each deployment.
+const BUILD_VERSION = "2026-02-17.v01";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
