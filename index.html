@@ -427,80 +427,6 @@
               <p>Use these tools to add or update equipment records.</p>
 
               <div class="console">
-                <form id="admin-passcode-settings" class="panel">
-                  <h3>Admin passcode</h3>
-                  <p class="panel-hint">
-                    This passcode is stored only in this browser (not enterprise
-                    authentication). Clearing local storage resets it.
-                  </p>
-                  <label>
-                    Current passcode
-                    <input id="admin-passcode-current" type="password" />
-                  </label>
-                  <label>
-                    New passcode
-                    <input id="admin-passcode-update" type="password" />
-                  </label>
-                  <label>
-                    Confirm new passcode
-                    <input id="admin-passcode-update-confirm" type="password" />
-                  </label>
-                  <p
-                    id="admin-passcode-update-error"
-                    class="field-error is-hidden"
-                  ></p>
-                  <p
-                    id="admin-passcode-update-success"
-                    class="field-success is-hidden"
-                  >
-                    Passcode updated.
-                  </p>
-                  <button type="submit">Update passcode</button>
-                </form>
-
-                <section class="panel diagnostics">
-                  <h3>Diagnostics</h3>
-                  <label class="checkbox-field" for="admin-diagnostics-toggle">
-                    Show diagnostics
-                    <input id="admin-diagnostics-toggle" type="checkbox" />
-                  </label>
-                  <div id="admin-diagnostics-panel" class="is-hidden">
-                    <textarea
-                      id="admin-diagnostics-log"
-                      rows="8"
-                      readonly
-                      aria-label="Application diagnostics"
-                    ></textarea>
-                  </div>
-                </section>
-
-                <form id="calibration-form" class="panel">
-                  <h3>Record calibration</h3>
-                  <label>
-                    Equipment
-                    <select id="calibration-equipment"></select>
-                  </label>
-                  <label>
-                    Calibration date
-                    <input id="calibration-date" type="date" />
-                  </label>
-                  <label>
-                    Interval months (optional override)
-                    <input
-                      id="calibration-interval"
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="e.g. 18"
-                    />
-                  </label>
-                  <label class="checkbox-field">
-                    Calibration required
-                    <input id="calibration-required" type="checkbox" />
-                  </label>
-                  <button type="submit">Save calibration</button>
-                </form>
-
                 <form id="add-equipment-form" class="panel">
                   <h3>Add new equipment</h3>
                   <label>
@@ -723,6 +649,80 @@
                     </button>
                   </div>
                 </form>
+
+                <form id="calibration-form" class="panel">
+                  <h3>Record calibration</h3>
+                  <label>
+                    Equipment
+                    <select id="calibration-equipment"></select>
+                  </label>
+                  <label>
+                    Calibration date
+                    <input id="calibration-date" type="date" />
+                  </label>
+                  <label>
+                    Interval months (optional override)
+                    <input
+                      id="calibration-interval"
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="e.g. 18"
+                    />
+                  </label>
+                  <label class="checkbox-field">
+                    Calibration required
+                    <input id="calibration-required" type="checkbox" />
+                  </label>
+                  <button type="submit">Save calibration</button>
+                </form>
+
+                <form id="admin-passcode-settings" class="panel">
+                  <h3>Admin passcode</h3>
+                  <p class="panel-hint">
+                    This passcode is stored only in this browser (not enterprise
+                    authentication). Clearing local storage resets it.
+                  </p>
+                  <label>
+                    Current passcode
+                    <input id="admin-passcode-current" type="password" />
+                  </label>
+                  <label>
+                    New passcode
+                    <input id="admin-passcode-update" type="password" />
+                  </label>
+                  <label>
+                    Confirm new passcode
+                    <input id="admin-passcode-update-confirm" type="password" />
+                  </label>
+                  <p
+                    id="admin-passcode-update-error"
+                    class="field-error is-hidden"
+                  ></p>
+                  <p
+                    id="admin-passcode-update-success"
+                    class="field-success is-hidden"
+                  >
+                    Passcode updated.
+                  </p>
+                  <button type="submit">Update passcode</button>
+                </form>
+
+                <section class="panel diagnostics">
+                  <h3>Diagnostics</h3>
+                  <label class="checkbox-field" for="admin-diagnostics-toggle">
+                    Show diagnostics
+                    <input id="admin-diagnostics-toggle" type="checkbox" />
+                  </label>
+                  <div id="admin-diagnostics-panel" class="is-hidden">
+                    <textarea
+                      id="admin-diagnostics-log"
+                      rows="8"
+                      readonly
+                      aria-label="Application diagnostics"
+                    ></textarea>
+                  </div>
+                </section>
 
                 <div class="panel import-panel">
                   <h3>Import equipment</h3>
