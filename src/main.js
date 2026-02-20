@@ -1,6 +1,7 @@
 import { createAdminController } from "./admin.js";
 import { on } from "./events.js";
 import { createRepository } from "./repository/index.js";
+import { supabase } from "./supabaseClient.js";
 import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
 
 // === BUILD VERSION ===
@@ -435,6 +436,11 @@ const elements = {
   movesReceiptOnly: document.querySelector("#moves-receipt-only"),
   adminModeToggle: document.querySelector("#admin-mode-toggle"),
   adminTabButton: document.querySelector("#tab-button-admin"),
+  authEmail: document.querySelector("#auth-email"),
+  authPassword: document.querySelector("#auth-password"),
+  authLoginButton: document.querySelector("#auth-login-button"),
+  authLogoutButton: document.querySelector("#auth-logout-button"),
+  authStatus: document.querySelector("#auth-status"),
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
   adminPasscodeDialog: document.querySelector("#admin-passcode-dialog"),
   adminPasscodeForm: document.querySelector("#admin-passcode-form"),
@@ -518,6 +524,67 @@ function renderBuildVersion() {
 let adminModeEnabled = false;
 let isMoveSaving = false;
 let adminController = null;
+
+function setAuthStatus(message) {
+  if (elements.authStatus) {
+    elements.authStatus.textContent = message;
+  }
+}
+
+function updateAuthUI(session) {
+  const email = session?.user?.email || "";
+  const isAuthenticated = Boolean(email);
+  setAuthStatus(isAuthenticated ? `Logged in as ${email}` : "Not logged in");
+
+  if (elements.authLoginButton) {
+    elements.authLoginButton.disabled = isAuthenticated;
+  }
+  if (elements.authLogoutButton) {
+    elements.authLogoutButton.disabled = !isAuthenticated;
+  }
+}
+
+async function signInWithPassword(email, password) {
+  const normalizedEmail = String(email || "").trim();
+  const normalizedPassword = String(password || "");
+  if (!normalizedEmail || !normalizedPassword) {
+    setAuthStatus("Enter email and password.");
+    return;
+  }
+
+  setAuthStatus("Logging in...");
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: normalizedEmail,
+    password: normalizedPassword,
+  });
+
+  if (error) {
+    setAuthStatus(`Login failed: ${error.message}`);
+    return;
+  }
+
+  updateAuthUI(data.session ?? null);
+}
+
+async function signOut() {
+  setAuthStatus("Logging out...");
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    setAuthStatus(`Logout failed: ${error.message}`);
+    return;
+  }
+  updateAuthUI(null);
+}
+
+async function initializeAuthUI() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    setAuthStatus(`Auth check failed: ${error.message}`);
+    updateAuthUI(null);
+    return;
+  }
+  updateAuthUI(data.session ?? null);
+}
 const moveSubmitDefaultLabel = elements.moveSubmit?.textContent?.trim() || "Record move";
 const equipmentImportTemplateHeaders = [
   "name",
@@ -6378,3 +6445,37 @@ if (elements.adminModeToggle) {
     adminController?.applyAndPersistAdminMode(false, { focus: true });
   });
 }
+
+if (elements.authLoginButton) {
+  elements.authLoginButton.addEventListener("click", async () => {
+    await signInWithPassword(
+      elements.authEmail?.value ?? "",
+      elements.authPassword?.value ?? ""
+    );
+  });
+}
+
+if (elements.authLogoutButton) {
+  elements.authLogoutButton.addEventListener("click", async () => {
+    await signOut();
+  });
+}
+
+if (elements.authPassword) {
+  elements.authPassword.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    await signInWithPassword(
+      elements.authEmail?.value ?? "",
+      elements.authPassword.value
+    );
+  });
+}
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  updateAuthUI(session ?? null);
+});
+
+initializeAuthUI();
