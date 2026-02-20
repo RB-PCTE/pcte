@@ -441,6 +441,12 @@ const elements = {
   authLoginButton: document.querySelector("#auth-login-button"),
   authLogoutButton: document.querySelector("#auth-logout-button"),
   authStatus: document.querySelector("#auth-status"),
+  authTestMoveCreateButton: document.querySelector(
+    "#auth-test-move-create-button"
+  ),
+  authTestMoveCreateOutput: document.querySelector(
+    "#auth-test-move-create-output"
+  ),
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
   adminPasscodeDialog: document.querySelector("#admin-passcode-dialog"),
   adminPasscodeForm: document.querySelector("#admin-passcode-form"),
@@ -584,6 +590,62 @@ async function initializeAuthUI() {
     return;
   }
   updateAuthUI(data.session ?? null);
+}
+
+function setMoveCreateTestOutput(message) {
+  if (elements.authTestMoveCreateOutput) {
+    elements.authTestMoveCreateOutput.textContent = message;
+  }
+}
+
+async function testMoveCreateSupabase() {
+  setMoveCreateTestOutput("Calling move_create...");
+
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    setMoveCreateTestOutput(`Session error: ${error.message}`);
+    return;
+  }
+
+  const session = data?.session ?? null;
+  if (!session?.access_token) {
+    setMoveCreateTestOutput("Not logged in");
+    return;
+  }
+
+  const payload = {
+    equipment_id: "f5a847d9-9f6a-4c05-9f2c-22287ee9600b",
+    from_location_id: "4456355c-1660-4d05-b018-24efb314375f",
+    to_location_id: "a58a4e1f-1f63-4173-bded-36720c44460d",
+    move_type: "office_transfer",
+    moved_at: new Date().toISOString(),
+    notes: "Test move via app",
+    carrier: "TNT",
+    tracking_number: "TEST123",
+    booked_at: new Date().toISOString(),
+  };
+
+  const response = await fetch(
+    "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_create",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const responseText = await response.text();
+  let formattedBody = responseText;
+  try {
+    formattedBody = JSON.stringify(JSON.parse(responseText), null, 2);
+  } catch {
+    // Keep raw text when response is not JSON.
+  }
+
+  setMoveCreateTestOutput(`HTTP ${response.status}\n${formattedBody}`);
 }
 const moveSubmitDefaultLabel = elements.moveSubmit?.textContent?.trim() || "Record move";
 const equipmentImportTemplateHeaders = [
@@ -6458,6 +6520,12 @@ if (elements.authLoginButton) {
 if (elements.authLogoutButton) {
   elements.authLogoutButton.addEventListener("click", async () => {
     await signOut();
+  });
+}
+
+if (elements.authTestMoveCreateButton) {
+  elements.authTestMoveCreateButton.addEventListener("click", async () => {
+    await testMoveCreateSupabase();
   });
 }
 
