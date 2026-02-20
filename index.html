@@ -423,6 +423,35 @@
             aria-labelledby="tab-button-admin"
           >
             <section class="card">
+              <section class="panel" aria-label="Supabase authentication">
+                <h3>Login</h3>
+                <label for="auth-email">
+                  Email
+                  <input id="auth-email" type="email" autocomplete="email" />
+                </label>
+                <label for="auth-password">
+                  Password
+                  <input
+                    id="auth-password"
+                    type="password"
+                    autocomplete="current-password"
+                  />
+                </label>
+                <div class="panel-actions">
+                  <button type="button" id="auth-login-button">Login</button>
+                  <button
+                    type="button"
+                    id="auth-logout-button"
+                    class="button-secondary"
+                  >
+                    Logout
+                  </button>
+                </div>
+                <p id="auth-status" class="panel-hint" aria-live="polite">
+                  Not logged in
+                </p>
+              </section>
+
               <h2>Administration</h2>
               <p>Use these tools to add or update equipment records.</p>
 
