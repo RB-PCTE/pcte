@@ -740,6 +740,22 @@ let editChecklistCopySourceId = "";
 let editChecklistCopyMetadata = null;
 let correctionTargetEntryId = "";
 let correctionDetailsTargetId = "";
+const moveReceiptUiState = new Map();
+
+function getMoveReceiptStatus(moveId) {
+  return moveReceiptUiState.get(moveId) || null;
+}
+
+function setMoveReceiptStatus(moveId, status) {
+  if (!moveId) {
+    return;
+  }
+  if (!status) {
+    moveReceiptUiState.delete(moveId);
+    return;
+  }
+  moveReceiptUiState.set(moveId, status);
+}
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => htmlEscapes[char]);
@@ -3806,6 +3822,19 @@ function isMoveAwaitingReceipt(entry) {
   return !getMoveReceivedAt(entry);
 }
 
+function canShowMarkReceivedAction(entry) {
+  if (!entry || typeof entry !== "object") {
+    return false;
+  }
+  if (entry.type !== "move" || isEntryDeleted(entry)) {
+    return false;
+  }
+  if (!getMoveReceivedAt(entry)) {
+    return true;
+  }
+  return Boolean(entry.shipping && hasShippingReceiptDetails(entry.shipping));
+}
+
 function getReceiptIndicator(entry) {
   const receivedAt = getMoveReceivedAt(entry);
   if (receivedAt) {
@@ -3996,7 +4025,7 @@ function renderMovesView() {
     (entry) => !isEntryDeleted(entry)
   );
   const hasReceivableMove = filteredMoves.some(
-    (entry) => isMoveAwaitingReceipt(entry)
+    (entry) => canShowMarkReceivedAction(entry)
   );
   const showActions = showDeleteActions || hasReceivableMove || hasCorrectionAction;
 
@@ -4059,12 +4088,17 @@ function renderMovesView() {
                 : entry.type === "received"
                   ? "Received"
                   : "Move";
-      const canMarkReceived = isMoveAwaitingReceipt(entry);
+      const canMarkReceived = canShowMarkReceivedAction(entry);
+      const receiptStatus = getMoveReceiptStatus(entry.id);
       const actions = [];
       if (canMarkReceived) {
+        const isReceipting = receiptStatus?.state === "sending";
         actions.push(
-          `<button class="icon-button" type="button" data-action="mark-received" data-id="${escapeHTML(entry.id)}">Mark received</button>`
+          `<button class="icon-button" type="button" data-action="mark-received" data-id="${escapeHTML(entry.id)}" ${isReceipting ? "disabled" : ""}>Mark received</button>`
         );
+        if (receiptStatus?.message) {
+          actions.push(`<span>${escapeHTML(receiptStatus.message)}</span>`);
+        }
       }
       if (adminModeEnabled && !isEntryDeleted(entry)) {
         actions.push(`<button class="icon-button" type="button" data-action="add-correction" data-id="${escapeHTML(entry.id)}">Add correction</button>`);
@@ -5867,33 +5901,12 @@ function handleClearHistory() {
   refreshUI();
 }
 
-function handleMarkReceived(moveEntryId) {
-  if (!moveEntryId) {
-    return;
-  }
-  const moveEntry =
-    state.moves.find((entry) => entry.id === moveEntryId) ||
-    (Array.isArray(state.log)
-      ? state.log.find((entry) => entry.id === moveEntryId)
-      : null);
-  if (!moveEntry || moveEntry.type !== "move") {
-    return;
-  }
-  if (isEntryDeleted(moveEntry)) {
-    return;
-  }
-  if (!moveEntry.shipping || !hasShippingReceiptDetails(moveEntry.shipping)) {
-    return;
-  }
-  if (getMoveReceivedAt(moveEntry)) {
-    return;
-  }
-  const receivedTimestamp = formatTimestampISO();
+function applyReceivedMoveLocally(moveEntry, receivedTimestamp) {
   moveEntry.receivedAt = receivedTimestamp;
   moveEntry.shipping = {
     ...moveEntry.shipping,
     receivedAt: receivedTimestamp,
-    receivedBy: "local",
+    receivedBy: "supabase",
   };
 
   const equipmentId = moveEntry.equipmentId;
@@ -5925,9 +5938,81 @@ function handleMarkReceived(moveEntryId) {
       notes: "Shipping completed",
     });
   }
-  saveState();
-  refreshUI();
-  showToast("Marked received", "success");
+}
+
+async function handleMarkReceived(moveEntryId) {
+  if (!moveEntryId) {
+    return;
+  }
+  const moveEntry =
+    state.moves.find((entry) => entry.id === moveEntryId) ||
+    (Array.isArray(state.log)
+      ? state.log.find((entry) => entry.id === moveEntryId)
+      : null);
+  if (!moveEntry || moveEntry.type !== "move" || isEntryDeleted(moveEntry)) {
+    return;
+  }
+  if (!canShowMarkReceivedAction(moveEntry)) {
+    return;
+  }
+  const existingStatus = getMoveReceiptStatus(moveEntryId);
+  if (existingStatus?.state === "sending") {
+    return;
+  }
+
+  setMoveReceiptStatus(moveEntryId, { state: "sending", message: "Receipting..." });
+  renderMovesView();
+
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    setMoveReceiptStatus(moveEntryId, { state: "error", message: `Error: ${error.message}` });
+    renderMovesView();
+    return;
+  }
+  if (!data.session) {
+    setMoveReceiptStatus(moveEntryId, { state: "error", message: "Please log in to receipt a move" });
+    renderMovesView();
+    return;
+  }
+
+  const receivedTimestamp = new Date().toISOString();
+  const payload = {
+    move_id: moveEntryId,
+    received_at: receivedTimestamp,
+    condition_result: null,
+    condition_notes: null,
+  };
+
+  try {
+    const response = await fetch(
+      "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_receipt",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `HTTP ${response.status}`);
+    }
+
+    applyReceivedMoveLocally(moveEntry, receivedTimestamp);
+    saveState();
+    setMoveReceiptStatus(moveEntryId, { state: "success", message: "Received" });
+    refreshUI();
+    showToast("Marked received", "success");
+  } catch (fetchError) {
+    setMoveReceiptStatus(moveEntryId, {
+      state: "error",
+      message: `Error: ${fetchError?.message || "Unable to mark received"}`,
+    });
+    renderMovesView();
+  }
 }
 
 function handleDeleteHistoryEntry(entryId) {
