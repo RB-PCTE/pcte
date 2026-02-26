@@ -566,9 +566,12 @@ async function signInWithPassword(email, password) {
 
   if (error) {
     setAuthStatus(`Login failed: ${error.message}`);
+    console.error(error);
     return;
   }
 
+  const loggedInEmail = data?.user?.email ?? data?.session?.user?.email ?? "";
+  setAuthStatus(loggedInEmail ? `Logged in as ${loggedInEmail}` : "Logged in");
   updateAuthUI(data.session ?? null);
 }
 
