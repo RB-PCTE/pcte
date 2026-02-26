@@ -447,6 +447,12 @@ const elements = {
   authTestMoveCreateOutput: document.querySelector(
     "#auth-test-move-create-output"
   ),
+  authTestMoveReceiptButton: document.querySelector(
+    "#auth-test-move-receipt-button"
+  ),
+  authTestMoveReceiptOutput: document.querySelector(
+    "#auth-test-move-receipt-output"
+  ),
   tabButtons: Array.from(document.querySelectorAll("[data-tab]")),
   adminPasscodeDialog: document.querySelector("#admin-passcode-dialog"),
   adminPasscodeForm: document.querySelector("#admin-passcode-form"),
@@ -601,6 +607,12 @@ function setMoveCreateTestOutput(message) {
   }
 }
 
+function setMoveReceiptTestOutput(message) {
+  if (elements.authTestMoveReceiptOutput) {
+    elements.authTestMoveReceiptOutput.textContent = message;
+  }
+}
+
 async function testMoveCreateSupabase() {
   setMoveCreateTestOutput("Calling move_create...");
 
@@ -646,6 +658,59 @@ async function testMoveCreateSupabase() {
     `Using token: ${token.slice(0, 20)}...\nHTTP ${response.status}\n${responseText}`
   );
 }
+
+async function testMoveReceiptSupabase() {
+  const { data } = await supabase.auth.getSession();
+
+  if (!data.session) {
+    setMoveReceiptTestOutput("Not logged in");
+    return;
+  }
+
+  const token = data.session.access_token;
+  setMoveReceiptTestOutput(`Using token: ${token.slice(0, 20)}...`);
+
+  const payload = {
+    move_id: "e24508a2-7cfa-4595-a282-b94580ac0ec8",
+    received_at: new Date().toISOString(),
+    condition_result: "pass",
+    condition_notes: "Receipt via app test",
+  };
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort();
+  }, 10000);
+
+  try {
+    const response = await fetch(
+      "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_receipt",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      }
+    );
+
+    const responseText = await response.text();
+    setMoveReceiptTestOutput(
+      `Using token: ${token.slice(0, 20)}...\nHTTP ${response.status}\n\n${responseText}`
+    );
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      setMoveReceiptTestOutput("TIMEOUT");
+      return;
+    }
+    setMoveReceiptTestOutput(`FETCH ERROR: ${error.message}`);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 const moveSubmitDefaultLabel = elements.moveSubmit?.textContent?.trim() || "Record move";
 const equipmentImportTemplateHeaders = [
   "name",
@@ -6525,6 +6590,12 @@ if (elements.authLogoutButton) {
 if (elements.authTestMoveCreateButton) {
   elements.authTestMoveCreateButton.addEventListener("click", async () => {
     await testMoveCreateSupabase();
+  });
+}
+
+if (elements.authTestMoveReceiptButton) {
+  elements.authTestMoveReceiptButton.addEventListener("click", async () => {
+    await testMoveReceiptSupabase();
   });
 }
 
