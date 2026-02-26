@@ -610,11 +610,12 @@ async function testMoveCreateSupabase() {
     return;
   }
 
-  const session = data?.session ?? null;
-  if (!session?.access_token) {
+  if (!data.session) {
     setMoveCreateTestOutput("Not logged in");
     return;
   }
+
+  const token = data.session.access_token;
 
   const payload = {
     equipment_id: "f5a847d9-9f6a-4c05-9f2c-22287ee9600b",
@@ -634,21 +635,16 @@ async function testMoveCreateSupabase() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(payload),
     }
   );
 
   const responseText = await response.text();
-  let formattedBody = responseText;
-  try {
-    formattedBody = JSON.stringify(JSON.parse(responseText), null, 2);
-  } catch {
-    // Keep raw text when response is not JSON.
-  }
-
-  setMoveCreateTestOutput(`HTTP ${response.status}\n${formattedBody}`);
+  setMoveCreateTestOutput(
+    `Using token: ${token.slice(0, 20)}...\nHTTP ${response.status}\n${responseText}`
+  );
 }
 const moveSubmitDefaultLabel = elements.moveSubmit?.textContent?.trim() || "Record move";
 const equipmentImportTemplateHeaders = [
