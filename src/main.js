@@ -66,6 +66,13 @@ const moveTypeOptions = [
   },
 ];
 
+const moveCreateEndpoint =
+  "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_create";
+const locationIdByName = {
+  Perth: "4456355c-1660-4d05-b018-24efb314375f",
+  Melbourne: "a58a4e1f-1f63-4173-bded-36720c44460d",
+};
+
 function normalizeStatus(rawStatus, rawLocation) {
   const status = typeof rawStatus === "string" ? rawStatus.trim() : "";
   if (status && /calibration/i.test(status)) {
@@ -296,6 +303,7 @@ const elements = {
     "#move-checklist-admin-link"
   ),
   moveSubmitBlocked: document.querySelector("#move-submit-blocked"),
+  moveSubmitStatus: document.querySelector("#move-submit-status"),
   moveSubmit: document.querySelector("#move-submit"),
   toastContainer: document.querySelector("#toast-container"),
   calibrationForm: document.querySelector("#calibration-form"),
@@ -796,6 +804,23 @@ function setMoveSubmitSaving(isSaving) {
   validateMoveConditionChecklist();
 }
 
+function setMoveSubmitStatus(message, type = "info") {
+  if (!elements.moveSubmitStatus) {
+    return;
+  }
+  const text = typeof message === "string" ? message.trim() : "";
+  if (!text) {
+    elements.moveSubmitStatus.textContent = "";
+    elements.moveSubmitStatus.classList.add("is-hidden");
+    elements.moveSubmitStatus.classList.remove("field-note", "field-error");
+    return;
+  }
+  elements.moveSubmitStatus.textContent = text;
+  elements.moveSubmitStatus.classList.remove("is-hidden");
+  elements.moveSubmitStatus.classList.remove("field-note", "field-error");
+  elements.moveSubmitStatus.classList.add(type === "error" ? "field-error" : "field-note");
+}
+
 function resetMoveForm() {
   if (!elements.moveForm) {
     return;
@@ -819,8 +844,43 @@ function resetMoveForm() {
   if (elements.moveShippingEtaDate) {
     elements.moveShippingEtaDate.value = "";
   }
+  setMoveSubmitStatus("");
   syncMoveShippingStatusOverride();
   clearMoveShippingValidation();
+}
+
+function deriveMoveType(fromLocation, toLocation) {
+  const source = typeof fromLocation === "string" ? fromLocation.trim() : "";
+  const destination = typeof toLocation === "string" ? toLocation.trim() : "";
+  if (destination === "On hire") {
+    return "hire_out";
+  }
+  if (source === "On hire") {
+    return "hire_return";
+  }
+  return "office_transfer";
+}
+
+function toNullableValue(value) {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed || null;
+}
+
+function getLocationId(location) {
+  const key = typeof location === "string" ? location.trim() : "";
+  return locationIdByName[key] ?? null;
+}
+
+function dateOnlyToISOString(value) {
+  const isoDate = parseFlexibleDate(value);
+  if (!isoDate) {
+    return null;
+  }
+  const parsed = new Date(`${isoDate}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString();
 }
 
 function highlightEquipmentRow(equipmentId) {
@@ -4654,7 +4714,7 @@ function isMoveConditionRequired(item) {
   return !moveConditionExemptStatuses.has(status);
 }
 
-function handleMoveSubmit(event) {
+async function handleMoveSubmit(event) {
   event.preventDefault();
   if (
     !elements.moveEquipment ||
@@ -4677,7 +4737,6 @@ function handleMoveSubmit(event) {
   }
   const equipmentId = elements.moveEquipment.value;
   const newLocation = elements.moveLocation.value;
-  const newStatus = elements.moveStatus.value;
   const notes = elements.moveNotes.value.trim();
   const conditionRating = elements.moveConditionRating.value;
   const contentsOk = elements.moveContentsOk.value;
@@ -4685,8 +4744,6 @@ function handleMoveSubmit(event) {
   const conditionNotes = elements.moveConditionNotes.value.trim();
   const shippingCarrier = elements.moveShippingCarrier.value.trim();
   const shippingTracking = elements.moveShippingTracking.value.trim();
-  const shippingShipDate = parseFlexibleDate(elements.moveShippingShipDate.value);
-  const shippingEtaDate = parseFlexibleDate(elements.moveShippingEtaDate.value);
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
   if (!item) {
@@ -4721,79 +4778,76 @@ function handleMoveSubmit(event) {
     }
     return;
   }
+  const moveType = deriveMoveType(item.location, newLocation);
+  const requiresCarrierAndTracking = new Set([
+    "office_transfer",
+    "hire_out",
+    "hire_return",
+  ]).has(moveType);
+  if (requiresCarrierAndTracking && (!shippingCarrier || !shippingTracking)) {
+    const shippingError =
+      "Carrier and tracking number are required for office transfer, hire out, and hire return moves.";
+    setMoveSubmitStatus(`Error: ${shippingError}`, "error");
+    showMoveShippingValidation(getMissingShippingFields());
+    return;
+  }
+
+  const movedAt = dateOnlyToISOString(elements.moveShippingShipDate.value) || new Date().toISOString();
+  const bookedAt = dateOnlyToISOString(elements.moveShippingEtaDate.value);
+
   isMoveSaving = true;
   setMoveSubmitSaving(true);
+  setMoveSubmitStatus("Submitting move...");
   try {
-    const previousLocation = item.location;
-    const previousStatus = item.status;
-    item.location = newLocation;
-    if (newStatus && newStatus !== "Keep current status") {
-      item.status = newStatus;
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session) {
+      setMoveSubmitStatus("Error: Please log in to create a move", "error");
+      return;
     }
-    item.lastMoved = formatTimestamp();
 
-    const statusNote =
-      newStatus && newStatus !== "Keep current status"
-        ? ` with status ${item.status}`
-        : "";
-    const message = `${item.name} moved to ${newLocation}${statusNote}${
-      notes ? ` (${notes}).` : "."
-    }`;
+    const payload = {
+      // TODO: Replace with real equipment_id from DB dropdown in Step 2
+      equipment_id: "f5a847d9-9f6a-4c05-9f2c-22287ee9600b",
+      move_type: moveType,
+      from_location_id: getLocationId(item.location),
+      to_location_id: getLocationId(newLocation),
+      moved_at: movedAt,
+      notes: toNullableValue(notes),
+      carrier: toNullableValue(shippingCarrier),
+      tracking_number: toNullableValue(shippingTracking),
+      booked_at: bookedAt,
+    };
 
-    const conditionEntry = conditionRequired
-      ? {
-          rating: conditionRating,
-          contentsOk: contentsOk === "Yes",
-          functionalOk: functionalOk === "Yes",
-          notes: conditionNotes,
-          checkedAt: formatTimestampISO(),
-          checkedBy: "",
-        }
-      : null;
-    const moveLogEntry = logHistory({
-      type: "move",
-      text: message,
-      equipmentId: String(item.id),
-      equipmentSnapshot: {
-        name: item.name,
-        model: item.model,
-        serialNumber: item.serialNumber,
+    const response = await fetch(moveCreateEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${data.session.access_token}`,
       },
-      fromLocation: previousLocation,
-      toLocation: newLocation,
-      statusFrom: previousStatus,
-      statusTo: getEffectiveStatus(item),
-      notes,
-      condition: conditionEntry,
-      receivedAt: "",
-      shipping: {
-        carrier: shippingCarrier,
-        trackingNumber: shippingTracking,
-        shipDate: shippingShipDate,
-        etaDate: shippingEtaDate,
-        deliveredAt: "",
-      },
+      body: JSON.stringify(payload),
     });
-    if (conditionEntry) {
-      addConditionHistoryEntry(item, conditionEntry, {
-        checkedAt: conditionEntry.checkedAt,
-        checkedBy: conditionEntry.checkedBy,
-        source: "move",
-        moveId: moveLogEntry?.id || "",
-      });
-      applyConditionSnapshot(item, conditionEntry, moveLogEntry?.id || "");
+    const responseText = await response.text();
+    let parsedBody = null;
+    try {
+      parsedBody = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      parsedBody = null;
     }
+    if (!response.ok) {
+      const responseMessage =
+        parsedBody?.error || parsedBody?.message || responseText || `HTTP ${response.status}`;
+      setMoveSubmitStatus(`Error: ${responseMessage}`, "error");
+      return;
+    }
+
+    const moveId = parsedBody?.move?.id || parsedBody?.id || "(no id returned)";
     resetMoveForm();
-    saveState();
-    refreshUI();
-    const statusSummary = `Now: ${getEffectiveStatus(item)} in ${getEquipmentLocationDisplay(item).text}.`;
-    showToast(`Move recorded for ${item.name}. ${statusSummary}`, "success");
-    window.requestAnimationFrame(() => {
-      highlightEquipmentRow(item.id);
-    });
+    setMoveSubmitStatus(`Move created: ${moveId}`);
+    showToast(`Move created: ${moveId}`, "success");
   } catch (error) {
     console.error("Failed to record move", error);
-    showToast("Something went wrong while recording the move.", "error");
+    setMoveSubmitStatus(`Error: ${error.message}`, "error");
+    showToast("Something went wrong while creating the move.", "error");
   } finally {
     isMoveSaving = false;
     setMoveSubmitSaving(false);
