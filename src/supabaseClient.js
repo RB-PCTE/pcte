@@ -5,5 +5,5 @@ export const supabase = createClient(
   "sb_publishable_n2xhgXcQ1K2cEnk8g_JXsA_UKKBLhUH"
 );
 
-window.supabase = supabase; // 👈 add this line
+window.supabase = supabase; 
 console.log("Supabase initialised:", supabase);
