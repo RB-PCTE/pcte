@@ -4841,7 +4841,7 @@ async function handleMoveSubmit(event) {
 
     const payload = {
       // TODO: Replace with real equipment_id from DB dropdown in Step 2
-      equipment_id: equipmentID,
+      equipment_id: item.id,
       move_type: moveType,
       from_location_id: getLocationId(item.location),
       to_location_id: getLocationId(newLocation),
