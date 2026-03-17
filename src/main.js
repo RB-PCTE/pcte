@@ -2,15 +2,11 @@ import { createAdminController } from "./admin.js";
 import { on } from "./events.js";
 import { createRepository } from "./repository/index.js";
 import { supabase } from "./supabaseClient.js";
-import { createClient } from '@supabase/supabase-js'
 import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-17.v03";
-
-const supabase = createClient('https://eugdravtvewpnwkkpkzl.supabase.co', 'sb_publishable_n2xhgXcQ1K2cEnk8g_JXsA_UKKBLhUH');
-
+const BUILD_VERSION = "2026-02-17.v01";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -4958,7 +4954,7 @@ function handleCalibrationSubmit(event) {
   refreshUI();
 }
 
-async function handleAddEquipment(event) {
+function handleAddEquipment(event) {
   event.preventDefault();
   if (
     !elements.addEquipmentName ||
@@ -5024,19 +5020,6 @@ async function handleAddEquipment(event) {
     status,
     lastMoved: formatTimestamp(),
   });
-
-  const { error } = await supabase
-    .from('equipment')
-    .insert({
-      id: newItemId,
-      asset_tag: "",
-      name: name,
-      category: "",
-      notes: "NA",
-      created_at: formatTimestamp(),
-      updated_at: formatTimestamp(), 
-    })
-
 
   logHistory({
     type: "details_updated",
