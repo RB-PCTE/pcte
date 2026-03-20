@@ -33,6 +33,6 @@ export async function getSupabaseLocationID(locationName) {
       console.log('Location ID. id: ', data[0].id)
       //console.log('Location ID: ', data)
 
-      return data[0].id
+      return toString(data[0].id)
     }
 }
