@@ -24,15 +24,18 @@ export async function getSupabaseLocationID(locationName) {
     .from('locations')
     .select('id')
     .eq('name', locationName)
+    .single();
 
     if(error){
       console.error('Error fetching data: ', error);
+      return null; 
+
     } else {
-      console.log('Location ID type: ', typeof data[0].id)
+      console.log('Location ID type: ', typeof data[0].id);
       //console.log('Location ID. first element: ', data[0])
-      console.log('Location ID. id: ', data[0].id)
+      console.log('Location ID. id: ', data[0].id);
       //console.log('Location ID: ', data)
 
-      return toString(data[0].id)
+      return data.id;
     }
 }
