@@ -7,3 +7,28 @@ export const supabase = createClient(
 
 window.supabaseClient = supabase; 
 console.log("Supabase initialised:", supabase);
+
+export async function handleAddEquipmentSupabase(payload, dataBaseName){
+  const { error } = await supabase
+    .from(dataBaseName)
+    .insert(payload)
+    .select()
+
+  if(error) {
+    console.error('Error appending database: ', error);
+  }
+}
+
+export async function getSupabaseLocationID(locationName) {
+  const { data, error } = await supabase
+    .from('locations')
+    .select('id')
+    .eq('name', locationName)
+
+    if(error){
+      console.error('Error fetching data: ', error);
+    } else {
+      console.log('Location ID: ', data)
+      return data
+    }
+}

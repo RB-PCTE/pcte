@@ -1,12 +1,12 @@
 import { createAdminController } from "./admin.js";
 import { on } from "./events.js";
 import { createRepository } from "./repository/index.js";
-import { supabase } from "./supabaseClient.js";
+import { getSupabaseLocationID, handleAddEquipmentSupabase, supabase } from "./supabaseClient.js";
 import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-02-17.v01";
+const BUILD_VERSION = "2026-03-20.v01";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -5021,6 +5021,16 @@ function handleAddEquipment(event) {
     lastMoved: formatTimestamp(),
   });
 
+  const supabasePayload = {
+    id: newItemId,
+    asset_tag: model.concat(" - ", serialNumber),
+    name: name,
+    serial: serialNumber,
+    home_location_id: getSupabaseLocationID(location)
+  }
+
+  handleAddEquipmentSupabase(supabasePayload, 'equipment');
+
   logHistory({
     type: "details_updated",
     text: `${name} added to ${location} with status ${status}.`,
@@ -5033,6 +5043,7 @@ function handleAddEquipment(event) {
     toLocation: location,
     statusTo: status,
   });
+
   if (
     subscriptionDetails.subscriptionRequired ||
     subscriptionDetails.subscriptionRenewalDate
