@@ -29,6 +29,6 @@ export async function getSupabaseLocationID(locationName) {
       console.error('Error fetching data: ', error);
     } else {
       console.log('Location ID: ', data)
-      return data[1]
+      return data.id
     }
 }
