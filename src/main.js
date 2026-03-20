@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-20.v08";
+const BUILD_VERSION = "2026-03-20.v09";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
