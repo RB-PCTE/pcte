@@ -31,9 +31,9 @@ export async function getSupabaseLocationID(locationName) {
       return null; 
 
     } else {
-      console.log('Location ID type: ', typeof data[0].id);
+      console.log('Location ID type: ', typeof data.id);
       //console.log('Location ID. first element: ', data[0])
-      console.log('Location ID. id: ', data[0].id);
+      console.log('Location ID. id: ', data.id);
       //console.log('Location ID: ', data)
 
       return data.id;
