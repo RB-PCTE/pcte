@@ -30,6 +30,6 @@ export async function getSupabaseLocationID(locationName) {
     } else {
       console.log('Location ID type: ', typeof data)
       console.log('Location ID: ', data)
-      return data
+      return data[0]
     }
 }
