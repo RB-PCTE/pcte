@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-20.v13";
+const BUILD_VERSION = "2026-03-20.v14";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -4954,7 +4954,7 @@ function handleCalibrationSubmit(event) {
   refreshUI();
 }
 
-function handleAddEquipment(event) {
+async function handleAddEquipment(event) {
   event.preventDefault();
   if (
     !elements.addEquipmentName ||
@@ -5021,12 +5021,14 @@ function handleAddEquipment(event) {
     lastMoved: formatTimestamp(),
   });
 
+  const locationUUID = await getSupabaseLocationID(location);
+
   const supabasePayload = {
     id: newItemId,
     asset_tag: model.concat(" - ", serialNumber),
     name: name,
     serial: serialNumber,
-    home_location_id: getSupabaseLocationID(location)
+    home_location_id: locationUUID
   }
 
   handleAddEquipmentSupabase(supabasePayload, 'equipment');
