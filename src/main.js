@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-20.v15";
+const BUILD_VERSION = "2026-03-24.v01";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -68,6 +68,7 @@ const moveTypeOptions = [
 
 const moveCreateEndpoint =
   "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_create";
+
 const locationIdByName = {
   Perth: "4456355c-1660-4d05-b018-24efb314375f",
   Melbourne: "a58a4e1f-1f63-4173-bded-36720c44460d",
@@ -4778,6 +4779,7 @@ async function handleMoveSubmit(event) {
   const conditionNotes = elements.moveConditionNotes.value.trim();
   const shippingCarrier = elements.moveShippingCarrier.value.trim();
   const shippingTracking = elements.moveShippingTracking.value.trim();
+  console.log("equipmentID", equipmentId);
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
   if (!item) {
@@ -4842,9 +4844,9 @@ async function handleMoveSubmit(event) {
     const payload = {
       // TODO: Replace with real equipment_id from DB dropdown in Step 2
       equipment_id: equipmentID,
-      move_type: moveType,
       from_location_id: getLocationId(item.location),
       to_location_id: getLocationId(newLocation),
+      move_type: moveType,
       moved_at: movedAt,
       notes: toNullableValue(notes),
       carrier: toNullableValue(shippingCarrier),
@@ -5030,6 +5032,11 @@ async function handleAddEquipment(event) {
     serial: serialNumber,
     home_location_id: locationUUID
   }
+
+  /*const supabaseEquipmentStatePayload = {
+    equipment_id: newItemId,
+    current_location_id: locationUUID
+  }*/
 
   handleAddEquipmentSupabase(supabasePayload, 'equipment');
 
