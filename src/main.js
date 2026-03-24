@@ -1,12 +1,12 @@
 import { createAdminController } from "./admin.js";
 import { on } from "./events.js";
 import { createRepository } from "./repository/index.js";
-import { getSupabaseLocationID, handleAddEquipmentSupabase, supabase } from "./supabaseClient.js";
+import { getEquipmentSnapshot, getSupabaseLocationID, handleAddEquipmentSupabase, supabase } from "./supabaseClient.js";
 import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-24.v03";
+const BUILD_VERSION = "2026-03-24.v04";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -4879,7 +4879,22 @@ async function handleMoveSubmit(event) {
 
     const moveId = parsedBody?.move?.id || parsedBody?.id || "(no id returned)";
 
+    const supabaseEquipmentSnapshot = await getEquipmentSnapshot(equipmentId);
+    const movePayload = {
+        id: moveId,
+        equipmentId: equipmentId,
+        equipmentSnapshot: {
+          name: supabaseEquipmentSnapshot.name,
+          model: supabase.asset_tag,
+          serialNumber: supabaseEquipmentSnapshot.serial,
+        },
+        type: "move",
+        text: `${supabaseEquipmentSnapshot.name} moved to ${newLocation} from ${item.location} with status ${moveType}.`,
+        timestamp: formatTimestamp(),
+    }
+
     console.log("Move Id: ", moveId);
+    repository.recordMove(movePayload);
     resetMoveForm();
     setMoveSubmitStatus(`Move created: ${moveId}`);
     showToast(`Move created: ${moveId}`, "success");

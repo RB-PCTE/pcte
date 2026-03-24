@@ -39,3 +39,25 @@ export async function getSupabaseLocationID(locationName) {
       return data.id;
     }
 }
+
+export async function getEquipmentSnapshot(equipmentID) {
+  const { data, error } = await supabase
+      .from('equipment')
+      .select('name', 'asset_tag', 'serial')
+      .eq('id', equipmentID)
+      .single();
+
+    if(error){
+     console.error('Error fetching data: ', error);
+    return null; 
+    } else {
+      console.log('Equipment Snapshot type: ', typeof data);
+      //console.log('Location ID. first element: ', data[0])
+      console.log('Equipment Snapshot: ', data);
+      //console.log('Location ID: ', data)
+
+      return data;
+    }
+
+  
+}
