@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-24.v01";
+const BUILD_VERSION = "2026-03-24.v02";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -4843,7 +4843,7 @@ async function handleMoveSubmit(event) {
 
     const payload = {
       // TODO: Replace with real equipment_id from DB dropdown in Step 2
-      equipment_id: equipmentID,
+      equipment_id: equipmentId,
       from_location_id: getLocationId(item.location),
       to_location_id: getLocationId(newLocation),
       move_type: moveType,
