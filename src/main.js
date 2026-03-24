@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-24.v02";
+const BUILD_VERSION = "2026-03-24.v03";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -4815,6 +4815,7 @@ async function handleMoveSubmit(event) {
     return;
   }
   const moveType = deriveMoveType(item.location, newLocation);
+  
   const requiresCarrierAndTracking = new Set([
     "office_transfer",
     "hire_out",
@@ -4877,6 +4878,8 @@ async function handleMoveSubmit(event) {
     }
 
     const moveId = parsedBody?.move?.id || parsedBody?.id || "(no id returned)";
+
+    console.log("Move Id: ", moveId);
     resetMoveForm();
     setMoveSubmitStatus(`Move created: ${moveId}`);
     showToast(`Move created: ${moveId}`, "success");
