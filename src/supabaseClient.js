@@ -45,7 +45,6 @@ export async function getEquipmentSnapshot(equipmentID) {
       .from('equipment')
       .select('name', 'asset_tag', 'serial')
       .eq('id', equipmentID)
-      .single();
 
     if(error){
      console.error('Error fetching data: ', error);
