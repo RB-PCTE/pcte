@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-27.v05  --- Updating Moves View to Render Correctly on Move ";
+const BUILD_VERSION = "2026-03-27.v06  --- Updating Moves View to Render Correctly on Move ";
 
 console.log(BUILD_VERSION);
 
@@ -4896,14 +4896,21 @@ async function handleMoveSubmit(event) {
         fromLocation: item.location,
         toLocation: newLocation,
         statusTo: newStatus, 
-        conditionSummary: conditionRating, 
-        shippingSummary: toNullableValue(shippingCarrier).concat(" - ", toNullableValue(shippingTracking)), 
+        condition: {
+          rating: conditionRating,
+          contentsOk: contentsOk,
+          functionalOk: functionalOk,
+          notes: conditionNotes,
+          checkedAt: formatTimestamp(),
+          checkedBy: "Admin",
+        }, 
+        shipping: toNullableValue(shippingCarrier).concat(" - ", toNullableValue(shippingTracking)), 
         text: `${supabaseEquipmentSnapshot.name} moved to ${newLocation} from ${item.location} with status ${moveType}.`,
         timestamp: formatTimestamp(),
     }
 
     console.log("Move Id: ", moveId);
-    repository.recordMove(movePayload);
+    repository.recordMove(normalizeHistoryEntry(movePayload));
     resetMoveForm();
     setMoveSubmitStatus(`Move created: ${moveId}`);
     showToast(`Move created: ${moveId}`, "success");

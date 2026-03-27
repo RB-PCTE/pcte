@@ -197,7 +197,6 @@ export function migrateStateIfNeeded(inputState) {
       ? parsed.log
       : [];
 
-  console.log(Object.keys(moves));
 
   return {
     ...buildDefaultState(STATE_VERSION),
