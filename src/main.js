@@ -245,8 +245,6 @@ function buildDefaultState() {
 
 const defaultState = buildDefaultState();
 
-console.log(Object.keys(moves));
-
 const repository = createRepository({ adapter: createLocalStorageStorageAdapter() });
 const state = loadState();
 repository.mutate((draft) => Object.assign(draft, state));
@@ -594,6 +592,8 @@ async function signInWithPassword(email, password) {
   setAuthStatus(loggedInEmail ? `Logged in as ${loggedInEmail}` : "Logged in");
   updateAuthUI(data.session ?? null);
 }
+
+console.log(Object.keys(moves));
 
 async function signOut() {
   setAuthStatus("Logging out...");
