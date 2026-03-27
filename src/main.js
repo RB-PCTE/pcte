@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-27.v06  --- Updating Moves View to Render Correctly on Move ";
+const BUILD_VERSION = "2026-03-27.v07  --- Updating Moves View to Render Correctly on Move ";
 
 console.log(BUILD_VERSION);
 
@@ -4783,6 +4783,8 @@ async function handleMoveSubmit(event) {
   const conditionNotes = elements.moveConditionNotes.value.trim();
   const shippingCarrier = elements.moveShippingCarrier.value.trim();
   const shippingTracking = elements.moveShippingTracking.value.trim();
+  const shippingETA = elements.moveShippingEtaDate.value.trim();
+  const shippingDate = elements.moveShippingShipDate.value.trim();
   console.log("equipmentID", equipmentId);
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
@@ -4904,7 +4906,12 @@ async function handleMoveSubmit(event) {
           checkedAt: formatTimestamp(),
           checkedBy: "Admin",
         }, 
-        shipping: toNullableValue(shippingCarrier).concat(" - ", toNullableValue(shippingTracking)), 
+        shipping: {
+          carrier: shippingCarrier,
+          trackingNumber: shippingTracking,
+          shipDate: shippingDate,
+          etaDate: shippingETA,
+        }, 
         text: `${supabaseEquipmentSnapshot.name} moved to ${newLocation} from ${item.location} with status ${moveType}.`,
         timestamp: formatTimestamp(),
     }
