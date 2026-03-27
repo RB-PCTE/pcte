@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-27.v04  --- Updating Moves View to Render Correctly on Move ";
+const BUILD_VERSION = "2026-03-27.v05  --- Updating Moves View to Render Correctly on Move ";
 
 console.log(BUILD_VERSION);
 
@@ -592,8 +592,6 @@ async function signInWithPassword(email, password) {
   setAuthStatus(loggedInEmail ? `Logged in as ${loggedInEmail}` : "Logged in");
   updateAuthUI(data.session ?? null);
 }
-
-console.log(Object.keys(moves));
 
 async function signOut() {
   setAuthStatus("Logging out...");
