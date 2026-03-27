@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-24.v04";
+const BUILD_VERSION = "2026-03-27.v01  --- Updating Moves View to Render Correctly on Move ";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -4775,6 +4775,7 @@ async function handleMoveSubmit(event) {
   const notes = elements.moveNotes.value.trim();
   const conditionRating = elements.moveConditionRating.value;
   const contentsOk = elements.moveContentsOk.value;
+  const newStatus = elements.moveStatus.value;
   const functionalOk = elements.moveFunctionalOk.value;
   const conditionNotes = elements.moveConditionNotes.value.trim();
   const shippingCarrier = elements.moveShippingCarrier.value.trim();
@@ -4885,10 +4886,15 @@ async function handleMoveSubmit(event) {
         equipmentId: equipmentId,
         equipmentSnapshot: {
           name: supabaseEquipmentSnapshot.name,
-          model: supabase.asset_tag,
+          model: supabaseEquipmentSnapshot.asset_tag,
           serialNumber: supabaseEquipmentSnapshot.serial,
         },
         type: "move",
+        fromLocation: item.location,
+        toLocation: newLocation,
+        statusTo: newStatus, 
+        conditionSummary: conditionRating, 
+        shippingSummary: toNullableValue(shippingCarrier).concat(" - ", toNullableValue(shippingTracking)), 
         text: `${supabaseEquipmentSnapshot.name} moved to ${newLocation} from ${item.location} with status ${moveType}.`,
         timestamp: formatTimestamp(),
     }
