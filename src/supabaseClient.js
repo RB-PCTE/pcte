@@ -43,8 +43,9 @@ export async function getSupabaseLocationID(locationName) {
 export async function getEquipmentSnapshot(equipmentID) {
   const { data, error } = await supabase
       .from('equipment')
-      .select('name', 'asset_tag', 'serial')
+      .select('name , asset_tag, serial')
       .eq('id', equipmentID)
+      .single();
 
     if(error){
      console.error('Error fetching data: ', error);

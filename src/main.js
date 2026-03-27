@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-27.v01  --- Updating Moves View to Render Correctly on Move ";
+const BUILD_VERSION = "2026-03-27.v02  --- Updating Moves View to Render Correctly on Move ";
 
 const SCHEMA_VERSION = 2;
 const physicalLocations = [
@@ -239,6 +239,8 @@ function buildDefaultState() {
     schemaVersion: SCHEMA_VERSION,
   };
 }
+
+console.log(Object.keys(moves));
 
 const defaultState = buildDefaultState();
 
