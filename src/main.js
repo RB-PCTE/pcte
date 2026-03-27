@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-27.v09  --- Updating Moves View to Render Correctly on Move ";
+const BUILD_VERSION = "2026-03-27.v10  --- Updating Moves View to Render Correctly on Move ";
 
 console.log(BUILD_VERSION);
 
@@ -17,6 +17,7 @@ const physicalLocations = [
   "Brisbane",
   "Sydney",
   "New Zealand",
+  "On Hire", 
 ];
 
 const editableStatusOptions = [
@@ -4786,6 +4787,7 @@ async function handleMoveSubmit(event) {
   const shippingETA = elements.moveShippingEtaDate.value.trim();
   const shippingDate = elements.moveShippingShipDate.value.trim();
   console.log("equipmentID", equipmentId);
+  console.log("Move Location: ", newLocation)
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
   if (!item) {
@@ -4851,8 +4853,8 @@ async function handleMoveSubmit(event) {
     const payload = {
       // TODO: Replace with real equipment_id from DB dropdown in Step 2
       equipment_id: equipmentId,
-      from_location_id: getLocationId(item.location),
-      to_location_id: getLocationId(newLocation),
+      from_location_id: getSupabaseLocationID(item.location),
+      to_location_id: getSupabaseLocationID(newLocation),
       move_type: moveType,
       moved_at: movedAt,
       notes: toNullableValue(notes),
