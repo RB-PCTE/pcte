@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-27.v08  --- Updating Moves View to Render Correctly on Move ";
+const BUILD_VERSION = "2026-03-27.v09  --- Updating Moves View to Render Correctly on Move ";
 
 console.log(BUILD_VERSION);
 
@@ -6094,8 +6094,8 @@ async function handleMarkReceived(moveEntryId) {
   const payload = {
     move_id: moveEntryId,
     received_at: receivedTimestamp,
-    condition_result: " ",
-    condition_notes: " ",
+    condition_result: "pass",
+    condition_notes: "test move ",
   };
 
   try {
