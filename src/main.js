@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-27.v11  --- Updating Moves View to Render Correctly on Move ";
+const BUILD_VERSION = "2026-03-31.v01  --- Updating status to normalise correctly";
 
 console.log(BUILD_VERSION);
 
@@ -18,6 +18,7 @@ const physicalLocations = [
   "Sydney",
   "New Zealand",
   "On Hire", 
+  "Workshop",
 ];
 
 const editableStatusOptions = [
@@ -72,13 +73,10 @@ const moveTypeOptions = [
 const moveCreateEndpoint =
   "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_create";
 
-const locationIdByName = {
-  Perth: "4456355c-1660-4d05-b018-24efb314375f",
-  Melbourne: "a58a4e1f-1f63-4173-bded-36720c44460d",
-};
 
 function normalizeStatus(rawStatus, rawLocation) {
   const status = typeof rawStatus === "string" ? rawStatus.trim() : "";
+  console.log("normalised status: ", status);
   if (status && /calibration/i.test(status)) {
     return "Quarantined";
   }
@@ -885,11 +883,6 @@ function deriveMoveType(fromLocation, toLocation) {
 function toNullableValue(value) {
   const trimmed = typeof value === "string" ? value.trim() : "";
   return trimmed || null;
-}
-
-function getLocationId(location) {
-  const key = typeof location === "string" ? location.trim() : "";
-  return locationIdByName[key] ?? null;
 }
 
 function dateOnlyToISOString(value) {
