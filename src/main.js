@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-31.v01  --- Updating status to normalise correctly";
+const BUILD_VERSION = "2026-03-31.v02  --- Updating status to normalise correctly";
 
 console.log(BUILD_VERSION);
 
@@ -6028,7 +6028,7 @@ function applyReceivedMoveLocally(moveEntry, receivedTimestamp) {
     }
     if (moveEntry.statusTo === "In transit") {
       const nextStatus =
-        moveEntry.shipping?.postReceiptStatus?.trim() || "Available";
+        moveEntry.nextStatus?.trim() || "Available";
       item.status = nextStatus;
     }
     item.lastMoved = formatTimestamp();
