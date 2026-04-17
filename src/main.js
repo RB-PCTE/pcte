@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-04-17.v05  --- Updating status to normalise correctly";
+const BUILD_VERSION = "2026-04-17.v06  --- Updating status to normalise correctly";
 
 console.log(BUILD_VERSION);
 
@@ -2228,7 +2228,8 @@ function renderStatusOptions() {
     .join("");
 
   if (elements.moveStatus) {
-    elements.moveStatus.innerHTML = `<option value="Keep current status">Keep current status</option>${selectionOptions}`;
+    //elements.moveStatus.innerHTML = `<option value="Keep current status">Keep current status</option>${selectionOptions}`;
+    elements.moveStatus.innerHTML = selectionOptions;
   }
   if (elements.addEquipmentStatus) {
     elements.addEquipmentStatus.innerHTML = selectionOptions;
