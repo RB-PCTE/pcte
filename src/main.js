@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-04-17.v02  --- Updating status to normalise correctly";
+const BUILD_VERSION = "2026-04-17.v03  --- Updating status to normalise correctly";
 
 console.log(BUILD_VERSION);
 
@@ -4912,6 +4912,7 @@ async function handleMoveSubmit(event) {
     }
 
     console.log("Move Id: ", moveId);
+    console.log("Move Payload: ", movePayload)
     repository.recordMove(normalizeHistoryEntry(movePayload));
     resetMoveForm();
     setMoveSubmitStatus(`Move created: ${moveId}`);
