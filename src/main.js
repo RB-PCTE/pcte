@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-04-17.v04  --- Updating status to normalise correctly";
+const BUILD_VERSION = "2026-04-17.v05  --- Updating status to normalise correctly";
 
 console.log(BUILD_VERSION);
 
@@ -4781,7 +4781,7 @@ async function handleMoveSubmit(event) {
   const shippingDate = elements.moveShippingShipDate.value.trim();
   console.log("equipmentID", equipmentId);
   console.log("Move Location: ", newLocation);
-  console.log("New Status: ", newStatus);
+  console.log("New Status: ", elements.moveStatus.value);
 
   const item = state.equipment.find((entry) => entry.id === equipmentId);
   if (!item) {
