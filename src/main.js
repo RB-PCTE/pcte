@@ -6,7 +6,7 @@ import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActive
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-03-31.v02  --- Updating status to normalise correctly";
+const BUILD_VERSION = "2026-04-17.v02  --- Updating status to normalise correctly";
 
 console.log(BUILD_VERSION);
 
@@ -6012,6 +6012,8 @@ function handleClearHistory() {
 }
 
 function applyReceivedMoveLocally(moveEntry, receivedTimestamp) {
+  console.log(moveEntry);
+
   moveEntry.receivedAt = receivedTimestamp;
   moveEntry.shipping = {
     ...moveEntry.shipping,
