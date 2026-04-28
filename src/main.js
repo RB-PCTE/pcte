@@ -1,12 +1,12 @@
 import { createAdminController } from "./admin.js";
-import { on } from "./events.js";
+import { emit, on } from "./events.js";
 import { createRepository } from "./repository/index.js";
-import { getEquipmentSnapshot, getSupabaseLocationID, handleAddEquipmentSupabase, supabase } from "./supabaseClient.js";
-import { createLocalStorageStorageAdapter, hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
+import { createSubscriptionRecord, createSupabaseStorageAdapter, getEquipmentSnapshot, getSupabaseLocationID, supabase } from "./supabaseClient.js";
+import { hasConditionMigrationFlag, loadActiveTab, readStoredAppState, saveActiveTab, setConditionMigrationFlag } from "./storage.js";
 
 // === BUILD VERSION ===
 // Update this string on each deployment.
-const BUILD_VERSION = "2026-04-17.v06  --- Updating status to normalise correctly";
+const BUILD_VERSION = "2026-04-28.v01  --- Branch: Load from Supabase";
 
 console.log(BUILD_VERSION);
 
@@ -99,163 +99,15 @@ function getSeedDate({ months = 0, days = 0 } = {}) {
 }
 
 function buildDefaultState() {
-  const projectionKitId = crypto.randomUUID();
-  const audioDemoId = crypto.randomUUID();
-  const lightingRigId = crypto.randomUUID();
-  const portableControlId = crypto.randomUUID();
-  return {
-    equipment: [
-      {
-        id: projectionKitId,
-        name: "Projection kit A",
-        model: "Epson EB-PU1007B",
-        serialNumber: "PKA-2024-0198",
-        purchaseDate: getSeedDate({ months: -28 }),
-        location: "Perth",
-        status: "Available",
-        lastMoved: "2024-05-14 09:10",
-        conditionReference: {
-          contentsChecklist: "",
-          functionalChecklist: "",
-        },
-        conditionRating: "",
-        conditionContentsOk: null,
-        conditionFunctionalOk: null,
-        conditionLastCheckedAt: "",
-        conditionLastCheckedBy: "",
-        conditionLastNotes: "",
-        currentCondition: null,
-        lastConditionCheckAt: "",
-        lastConditionCheck: null,
-        conditionHistory: [],
-        calibrationRequired: true,
-        calibrationIntervalMonths: 12,
-        lastCalibrationDate: getSeedDate({ months: -3 }),
-        subscriptionRequired: false,
-        subscriptionRenewalDate: "",
-      },
-      {
-        id: audioDemoId,
-        name: "Audio demo case",
-        model: "Pelican 1510",
-        serialNumber: "ADC-2023-4421",
-        purchaseDate: getSeedDate({ months: -18 }),
-        location: "Melbourne",
-        status: "On demo",
-        lastMoved: "2024-05-12 16:45",
-        conditionReference: {
-          contentsChecklist: "",
-          functionalChecklist: "",
-        },
-        conditionRating: "",
-        conditionContentsOk: null,
-        conditionFunctionalOk: null,
-        conditionLastCheckedAt: "",
-        conditionLastCheckedBy: "",
-        conditionLastNotes: "",
-        currentCondition: null,
-        lastConditionCheckAt: "",
-        lastConditionCheck: null,
-        conditionHistory: [],
-        calibrationRequired: false,
-        calibrationIntervalMonths: 12,
-        lastCalibrationDate: getSeedDate({ months: -6 }),
-        subscriptionRequired: false,
-        subscriptionRenewalDate: "",
-      },
-      {
-        id: lightingRigId,
-        name: "Lighting rig",
-        model: "Aputure LS 600X",
-        serialNumber: "LR-2022-7785",
-        purchaseDate: getSeedDate({ months: -36 }),
-        location: "Perth",
-        status: "On hire",
-        lastMoved: "2024-05-10 11:00",
-        conditionReference: {
-          contentsChecklist: "",
-          functionalChecklist: "",
-        },
-        conditionRating: "",
-        conditionContentsOk: null,
-        conditionFunctionalOk: null,
-        conditionLastCheckedAt: "",
-        conditionLastCheckedBy: "",
-        conditionLastNotes: "",
-        currentCondition: null,
-        lastConditionCheckAt: "",
-        lastConditionCheck: null,
-        conditionHistory: [],
-        calibrationRequired: true,
-        calibrationIntervalMonths: 12,
-        lastCalibrationDate: getSeedDate({ months: -14 }),
-        subscriptionRequired: false,
-        subscriptionRenewalDate: "",
-      },
-      {
-        id: portableControlId,
-        name: "Portable control unit",
-        model: "Q-SYS Core 8 Flex",
-        serialNumber: "PCU-2024-1043",
-        purchaseDate: getSeedDate({ months: -12 }),
-        location: "Sydney",
-        status: "In service / repair",
-        lastMoved: "2024-05-11 13:25",
-        conditionReference: {
-          contentsChecklist: "",
-          functionalChecklist: "",
-        },
-        conditionRating: "",
-        conditionContentsOk: null,
-        conditionFunctionalOk: null,
-        conditionLastCheckedAt: "",
-        conditionLastCheckedBy: "",
-        conditionLastNotes: "",
-        currentCondition: null,
-        lastConditionCheckAt: "",
-        lastConditionCheck: null,
-        conditionHistory: [],
-        calibrationRequired: true,
-        calibrationIntervalMonths: 12,
-        lastCalibrationDate: getSeedDate({ months: -10, days: -5 }),
-        subscriptionRequired: false,
-        subscriptionRenewalDate: "",
-      },
-    ],
-    moves: [
-      {
-        id: crypto.randomUUID(),
-        equipmentId: lightingRigId,
-        equipmentSnapshot: {
-          name: "Lighting rig",
-          model: "Aputure LS 600X",
-          serialNumber: "LR-2022-7785",
-        },
-        type: "move",
-        text: "Lighting rig moved to Perth with status On hire (Client demo).",
-        timestamp: "2024-05-10T11:00:00.000Z",
-      },
-    ],
-    corrections: [],
-    schemaVersion: SCHEMA_VERSION,
-  };
+  return { schemaVersion: SCHEMA_VERSION, equipment: [], moves: [], corrections: [], locations: [] };
 }
 
 
-const defaultState = buildDefaultState();
-
-const repository = createRepository({ adapter: createLocalStorageStorageAdapter() });
-const state = loadState();
-repository.mutate((draft) => Object.assign(draft, state));
+const repository = createRepository({ adapter: createSupabaseStorageAdapter() });
+const state = buildDefaultState();
 document.documentElement.setAttribute("data-build-stamp", BUILD_VERSION);
-const equipmentList = Array.isArray(state.equipment)
-  ? state.equipment
-  : Array.isArray(state.items)
-    ? state.items
-    : [];
-const equipmentById = new Map(
-  equipmentList.map((equipment) => [String(equipment.id), equipment])
-);
+const equipmentList = [];
+const equipmentById = new Map();
 const htmlEscapes = {
   "&": "&amp;",
   "<": "&lt;",
@@ -355,6 +207,12 @@ const elements = {
   ),
   addEquipmentSubscriptionDateField: document.querySelector(
     "#new-equipment-subscription-date-field"
+  ),
+  addEquipmentBillingCycle: document.querySelector(
+    "#new-equipment-billing-cycle"
+  ),
+  addEquipmentBillingCycleField: document.querySelector(
+    "#new-equipment-billing-cycle-field"
   ),
   editEquipmentForm: document.querySelector("#edit-equipment-form"),
   editEquipmentSelect: document.querySelector("#edit-equipment-select"),
@@ -5024,6 +4882,9 @@ async function handleAddEquipment(event) {
   const subscriptionRenewalDate = subscriptionRequired
     ? elements.addEquipmentSubscriptionDate?.value ?? ""
     : "";
+  const billingCycle =
+    (subscriptionRequired && elements.addEquipmentBillingCycle?.value) ||
+    "monthly";
   if (!name) {
     return;
   }
@@ -5062,22 +4923,19 @@ async function handleAddEquipment(event) {
     lastMoved: formatTimestamp(),
   });
 
+  // Set the current location on equipment_state (requires location UUID lookup)
   const locationUUID = await getSupabaseLocationID(location);
-
-  const supabasePayload = {
-    id: newItemId,
-    asset_tag: model.concat(" - ", serialNumber),
-    name: name,
-    serial: serialNumber,
-    home_location_id: locationUUID
+  if (locationUUID) {
+    await supabase.from("equipment_state").upsert(
+      { equipment_id: newItemId, current_location_id: locationUUID },
+      { onConflict: "equipment_id" }
+    );
   }
 
-  /*const supabaseEquipmentStatePayload = {
-    equipment_id: newItemId,
-    current_location_id: locationUUID
-  }*/
-
-  handleAddEquipmentSupabase(supabasePayload, 'equipment');
+  // Create subscription record in the subscription tracker if required
+  if (subscriptionRequired) {
+    await createSubscriptionRecord({ name, serialNumber }, billingCycle);
+  }
 
   logHistory({
     type: "details_updated",
@@ -5129,6 +4987,9 @@ async function handleAddEquipment(event) {
   }
   if (elements.addEquipmentSubscriptionDate) {
     elements.addEquipmentSubscriptionDate.value = "";
+  }
+  if (elements.addEquipmentBillingCycle) {
+    elements.addEquipmentBillingCycle.value = "";
   }
   syncAddSubscriptionInputs({ clearWhenDisabled: false });
   toggleSerialWarning(
@@ -5534,8 +5395,20 @@ function syncAddSubscriptionInputs({ clearWhenDisabled = true } = {}) {
       !isRequired
     );
   }
+  if (elements.addEquipmentBillingCycle) {
+    elements.addEquipmentBillingCycle.disabled = !isRequired;
+  }
+  if (elements.addEquipmentBillingCycleField) {
+    elements.addEquipmentBillingCycleField.classList.toggle(
+      "is-hidden",
+      !isRequired
+    );
+  }
   if (!isRequired && clearWhenDisabled) {
     elements.addEquipmentSubscriptionDate.value = "";
+    if (elements.addEquipmentBillingCycle) {
+      elements.addEquipmentBillingCycle.value = "";
+    }
   }
 }
 
@@ -6752,7 +6625,10 @@ if (elements.conditionHistoryClose) {
     elements.conditionHistoryModal?.close();
   });
 }
-on("state:changed", () => refreshUI());
+on("state:changed", (newState) => {
+  if (newState) Object.assign(state, newState);
+  refreshUI();
+});
 renderBuildVersion();
 refreshUI();
 syncCalibrationInputs();
@@ -6811,6 +6687,14 @@ if (elements.authPassword) {
     );
   });
 }
+
+(async function initFromSupabase() {
+  await repository.hydrate();
+  const loaded = repository.getState();
+  equipmentById.clear();
+  loaded.equipment.forEach((eq) => equipmentById.set(String(eq.id), eq));
+  emit("state:changed", loaded);
+})();
 
 supabase.auth.onAuthStateChange((_event, session) => {
   updateAuthUI(session ?? null);
