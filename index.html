@@ -3,816 +3,819 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Demo Equipment Tracker</title>
+    <title>Fleet Tracker — PCTE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="page">
-      <header class="hero">
-        <div>
-          <p class="eyebrow">Operations</p>
-          <h1>Demonstration Equipment Tracker</h1>
-          <p class="subhead">
-            Find where every kit is located, and log moves between offices, the workshop, and
-            customer hires.
-          </p>
-          <p class="subhead">Build: <span id="build-version"></span></p>
-        </div>
-      </header>
+    <div class="app-shell">
 
-      <div class="tab-controls">
-        <nav
-          class="tabs"
-          role="tablist"
-          aria-label="Equipment tracker sections"
-        >
+      <!-- ══════════════════════════════════════════════════════
+           SIDEBAR
+           ══════════════════════════════════════════════════════ -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <p class="brand-kicker">PCTE</p>
+          <h1>Fleet Tracker</h1>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Main navigation">
+          <p class="nav-group-label">Views</p>
           <button
-            class="tab-button"
+            class="nav-item is-active"
             type="button"
-            id="tab-button-operations"
-            role="tab"
-            aria-selected="true"
-            aria-controls="tab-operations"
-            data-tab="operations"
-          >
-            Operations
-          </button>
+            data-nav-target="operations"
+          >Operations</button>
           <button
-            class="tab-button"
+            class="nav-item"
             type="button"
-            id="tab-button-moves"
-            role="tab"
-            aria-selected="false"
-            aria-controls="tab-moves"
-            data-tab="moves"
-          >
-            Moves
-          </button>
+            data-nav-target="moves"
+          >Moves</button>
+          <!-- Admin nav item — shown only when admin access is confirmed -->
           <button
-            class="tab-button"
+            class="nav-item"
             type="button"
-            id="tab-button-admin"
-            role="tab"
-            aria-selected="false"
-            aria-controls="tab-admin"
-            data-tab="admin"
-          >
-            Admin
-          </button>
+            id="nav-admin"
+            data-nav-target="admin"
+            hidden
+          >Admin</button>
         </nav>
-        <div class="admin-controls">
-          <label class="admin-toggle" for="admin-mode-toggle">
-            <input id="admin-mode-toggle" type="checkbox" />
-            <span>Admin mode</span>
-          </label>
-          <p class="admin-toggle-note">
-            Admin mode is a local browser control, not enterprise authentication.
-          </p>
-        </div>
-      </div>
 
-      <main>
-        <div id="operations-view">
-          <section
-            id="tab-operations"
-            class="tab-panel"
-            role="tabpanel"
-            aria-labelledby="tab-button-operations"
-          >
-            <div class="stats" aria-live="polite">
-              <div>
-                <span class="stat-label">Tracked items</span>
-                <strong id="stat-total">0</strong>
+        <div class="sidebar-footer">
+          <!-- Shift+click 3× activates dev mode -->
+          <span id="build-version" title="Shift+click 3× for dev mode"></span>
+          <!-- Injected by auth.js when dev mode is on -->
+          <span id="dev-badge-container"></span>
+        </div>
+      </aside>
+
+      <!-- ══════════════════════════════════════════════════════
+           MAIN CONTENT
+           ══════════════════════════════════════════════════════ -->
+      <div class="app-main">
+
+        <!-- Top header — title + auth status -->
+        <header class="top-header">
+          <h2 class="top-header-title" id="view-title">Operations</h2>
+          <div class="header-actions">
+            <div class="current-user-area" id="auth-status-header" aria-live="polite">
+              Not signed in
+            </div>
+            <button type="button" class="btn-secondary btn-sm" id="auth-login-trigger">
+              Sign in
+            </button>
+            <button type="button" class="btn-secondary btn-sm is-hidden" id="auth-logout-button">
+              Sign out
+            </button>
+          </div>
+        </header>
+
+        <div class="content-area">
+
+          <!-- ════════════════════════════════════════════════
+               OPERATIONS VIEW
+               ════════════════════════════════════════════════ -->
+          <section data-view="operations">
+
+            <!-- Stats row -->
+            <div class="metrics-grid" aria-live="polite">
+              <div class="metric-card">
+                <h3>Tracked items</h3>
+                <p id="stat-total">—</p>
               </div>
-              <div>
-                <span class="stat-label">On hire</span>
-                <strong id="stat-hire">0</strong>
+              <div class="metric-card">
+                <h3>On hire</h3>
+                <p id="stat-hire">—</p>
               </div>
-              <div>
-                <span class="stat-label">Overdue calibration</span>
-                <strong id="stat-overdue">0</strong>
+              <div class="metric-card metric-card--danger">
+                <h3>Calibration overdue</h3>
+                <p id="stat-overdue">—</p>
               </div>
-              <div>
-                <span class="stat-label">Due soon calibration</span>
-                <strong id="stat-due-soon">0</strong>
+              <div class="metric-card metric-card--warn">
+                <h3>Calibration due soon</h3>
+                <p id="stat-due-soon">—</p>
               </div>
-              <div>
-                <span class="stat-label">Overdue subscription</span>
-                <strong id="stat-overdue-subscription">0</strong>
+              <div class="metric-card metric-card--danger">
+                <h3>Subscription overdue</h3>
+                <p id="stat-overdue-subscription">—</p>
               </div>
-              <div>
-                <span class="stat-label">Due soon subscription</span>
-                <strong id="stat-due-soon-subscription">0</strong>
+              <div class="metric-card metric-card--warn">
+                <h3>Subscription due soon</h3>
+                <p id="stat-due-soon-subscription">—</p>
               </div>
             </div>
 
-            <div class="grid">
-              <section class="card">
-                <div class="card-header">
-                  <div>
-                    <h2>Find equipment</h2>
-                    <p>Search by equipment name, location, or status.</p>
-                  </div>
-                  <div class="filters">
-                    <div class="filter">
-                      <label for="location-filter">Location</label>
-                      <select id="location-filter"></select>
-                    </div>
-                    <div class="filter">
-                      <label for="status-filter">Status</label>
-                      <select id="status-filter"></select>
-                    </div>
-                    <div class="filter">
-                      <label for="calibration-filter">Calibration</label>
-                      <select id="calibration-filter"></select>
-                    </div>
-                    <div class="filter">
-                      <label for="subscription-filter">Subscription</label>
-                      <select id="subscription-filter"></select>
-                    </div>
-                  </div>
+            <!-- Equipment card -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2>Equipment</h2>
+                  <p style="margin:0; color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                    Search by name, serial, location, or tracking number.
+                  </p>
                 </div>
-                <div class="search">
+              </div>
+
+              <!-- Filter toolbar -->
+              <div class="toolbar">
+                <div class="toolbar-field toolbar-search">
+                  <span>Search</span>
                   <input
-                    id="search-input"
                     type="search"
-                    placeholder="Search equipment..."
+                    id="search-input"
+                    placeholder="Name, serial, location, tracking…"
                     autocomplete="off"
                   />
                 </div>
-                <div class="table-wrapper">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Equipment</th>
-                        <th>Model</th>
-                        <th>Serial</th>
-                        <th>Status</th>
-                        <th>Location</th>
-                        <th>Calibration</th>
-                        <th>Subscription</th>
-                        <th>Condition</th>
-                        <th>Last moved</th>
-                      </tr>
-                    </thead>
-                    <tbody id="equipment-table"></tbody>
-                  </table>
+                <div class="toolbar-field">
+                  <span>Location</span>
+                  <select id="location-filter"></select>
                 </div>
+                <div class="toolbar-field">
+                  <span>Status</span>
+                  <select id="status-filter"></select>
+                </div>
+                <div class="toolbar-field">
+                  <span>Calibration</span>
+                  <select id="calibration-filter"></select>
+                </div>
+                <div class="toolbar-field">
+                  <span>Subscription</span>
+                  <select id="subscription-filter"></select>
+                </div>
+              </div>
 
-                <div class="location-summary">
-                  <div class="summary-header">
-                    <h3>Location overview</h3>
-                    <p>Quick counts and assigned equipment per location.</p>
+              <!-- Equipment table -->
+              <div class="table-wrap" style="margin-top: var(--space-4);">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Equipment</th>
+                      <th>Model</th>
+                      <th>Serial</th>
+                      <th>Status</th>
+                      <th>Location</th>
+                      <th>Calibration</th>
+                      <th>Subscription</th>
+                      <th>Condition</th>
+                      <th>Last moved</th>
+                    </tr>
+                  </thead>
+                  <tbody id="equipment-table">
+                    <!-- Rendered by src/ui/operations.js -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Location summary -->
+              <div style="margin-top: var(--space-5);">
+                <p
+                  class="nav-group-label"
+                  style="margin-bottom: var(--space-3);"
+                >
+                  By location
+                </p>
+                <div
+                  id="location-summary"
+                  class="location-summary-grid"
+                  aria-live="polite"
+                >
+                  <!-- Rendered by src/ui/operations.js -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Move form card -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2>Record a move</h2>
+                  <p style="margin:0; color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                    Log where equipment is going and check its condition.
+                  </p>
+                </div>
+              </div>
+
+              <form id="move-form" class="move-form-grid" novalidate>
+
+                <!-- Core fields -->
+                <label>
+                  Equipment
+                  <select id="move-equipment" required>
+                    <option value="">Select equipment…</option>
+                  </select>
+                </label>
+
+                <label>
+                  Destination
+                  <select id="move-location" required>
+                    <option value="">Select location…</option>
+                  </select>
+                </label>
+
+                <label>
+                  Status after move
+                  <span class="field-note" style="display:inline; margin-left: var(--space-1);">
+                    optional — defaults to Available
+                  </span>
+                  <select id="move-status">
+                    <option value="">No change</option>
+                  </select>
+                </label>
+
+                <label>
+                  Notes
+                  <span class="field-note" style="display:inline; margin-left: var(--space-1);">
+                    optional
+                  </span>
+                  <input
+                    type="text"
+                    id="move-notes"
+                    placeholder="Customer name, demo date…"
+                  />
+                </label>
+
+                <!-- Shipping section (shown by JS when applicable) -->
+                <fieldset
+                  id="move-shipping-section"
+                  class="shipping-section is-hidden"
+                >
+                  <legend>Shipping details</legend>
+                  <div class="shipping-details-grid">
+                    <label>
+                      Carrier
+                      <select id="move-shipping-carrier">
+                        <option value="">Select carrier…</option>
+                        <option value="Team Global Express">Team Global Express</option>
+                        <option value="TNT/FedEx">TNT / FedEx</option>
+                        <option value="DHL">DHL</option>
+                        <option value="StarTrack">StarTrack</option>
+                        <option value="Toll">Toll</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </label>
+                    <label>
+                      Tracking number
+                      <input type="text" id="move-shipping-tracking" />
+                    </label>
+                    <label>
+                      Ship date
+                      <input type="date" id="move-shipping-ship-date" />
+                    </label>
+                    <label>
+                      ETA date
+                      <input type="date" id="move-shipping-eta-date" />
+                    </label>
                   </div>
-                  <div
-                    id="location-summary"
-                    class="summary-grid"
-                    aria-live="polite"
-                  ></div>
-                </div>
-              </section>
+                  <p id="move-shipping-override-note" class="field-note is-hidden">
+                    Status shown as <strong>In transit</strong> until equipment is received.
+                  </p>
+                  <p id="move-shipping-validation" class="field-error is-hidden"></p>
+                </fieldset>
 
-              <section class="card">
-                <h2>Console</h2>
-                <p>Use the console to log equipment moves.</p>
+                <!-- Condition check (shown by JS when applicable) -->
+                <div id="move-condition-section" class="condition-section is-hidden">
+                  <h4>Condition check</h4>
+                  <p id="move-condition-exempt-note" class="field-note is-hidden">
+                    Condition check not required for this destination status.
+                  </p>
+                  <div class="condition-grid">
+                    <label>
+                      Condition rating
+                      <select id="move-condition-rating">
+                        <option value="">Select…</option>
+                        <option value="Excellent">Excellent</option>
+                        <option value="Good">Good</option>
+                        <option value="Fair">Fair</option>
+                        <option value="Needs attention">Needs attention</option>
+                        <option value="Unserviceable">Unserviceable</option>
+                      </select>
+                    </label>
+                    <label>
+                      Contents complete?
+                      <select id="move-contents-ok">
+                        <option value="">Select…</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                    <label>
+                      Functioning correctly?
+                      <select id="move-functional-ok">
+                        <option value="">Select…</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Condition notes
+                    <textarea
+                      id="move-condition-notes"
+                      rows="3"
+                      placeholder="Describe any damage, missing items, or faults…"
+                    ></textarea>
+                    <span id="move-condition-notes-error" class="field-error is-hidden">
+                      Please add notes for failed checks.
+                    </span>
+                  </label>
 
-                <div class="console console--operations">
-                  <form id="move-form" class="panel">
-                    <h3>Log a move</h3>
-                    <label>
-                      Equipment
-                      <select id="move-equipment"></select>
-                    </label>
-                    <label>
-                      New location
-                      <select id="move-location"></select>
-                    </label>
-                    <label>
-                      Status (optional)
-                      <select id="move-status"></select>
-                    </label>
-                    <label>
-                      Notes (optional)
-                      <input
-                        id="move-notes"
-                        type="text"
-                        placeholder="Customer name, demo date..."
-                      />
-                    </label>
-                    <fieldset id="move-shipping-section" class="shipping-section">
-                      <legend>Shipping details (optional)</legend>
-                      <label>
-                        Carrier / Courier
-                        <select id="move-shipping-carrier">
-                          <option value="">Select carrier...</option>
-                          <option value="Team Global Express">Team Global Express</option>
-                          <option value="TNT/FedEx">TNT/FedEx</option>
-                          <option value="DHL">DHL</option>
-                          <option value="StarTrack">StarTrack</option>
-                          <option value="Toll">Toll</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </label>
-                      <label>
-                        Tracking number
-                        <input id="move-shipping-tracking" type="text" />
-                      </label>
-                      <label>
-                        Ship date
-                        <input id="move-shipping-ship-date" type="date" />
-                      </label>
-                      <label>
-                        ETA date
-                        <input id="move-shipping-eta-date" type="date" />
-                      </label>
-                      <p id="move-shipping-override-note" class="field-warning is-hidden">
-                      Shipping details are active: status is shown as <strong>In transit</strong> until received.
-                    </p>
-                      <p id="move-shipping-validation" class="field-error is-hidden"></p>
-                    </fieldset>
-                    <div class="condition-section">
-                      <h4>Condition check</h4>
-                      <p
-                        id="move-condition-exempt-note"
-                        class="field-note is-hidden"
-                      >
-                        Condition check not required for this status.
-                      </p>
-                      <div class="condition-grid">
-                        <label>
-                          Condition rating
-                          <select id="move-condition-rating">
-                            <option value="" selected>Select...</option>
-                            <option value="Excellent">Excellent</option>
-                            <option value="Good">Good</option>
-                            <option value="Fair">Fair</option>
-                            <option value="Needs attention">Needs attention</option>
-                            <option value="Unserviceable">Unserviceable</option>
-                          </select>
-                        </label>
-                        <label>
-                          Contents OK?
-                          <select id="move-contents-ok">
-                            <option value="" selected>Select...</option>
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                          </select>
-                        </label>
-                        <label>
-                          Functional OK?
-                          <select id="move-functional-ok">
-                            <option value="" selected>Select...</option>
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                          </select>
-                        </label>
+                  <!-- Reference checklist (collapsed by default) -->
+                  <details class="reference-panel" id="move-checklist-reference">
+                    <summary>What should I check?</summary>
+                    <div class="reference-panel-body">
+                      <div class="reference-section">
+                        <h5>Contents checklist</h5>
+                        <ul id="move-contents-checklist" class="reference-list"></ul>
+                        <p id="move-contents-checklist-empty" class="reference-empty is-hidden">
+                          No contents list defined for this equipment.
+                        </p>
                       </div>
-                      <label>
-                        Condition notes
-                        <textarea
-                          id="move-condition-notes"
-                          rows="3"
-                          placeholder="Record any issues if checks failed..."
-                        ></textarea>
-                        <span
-                          id="move-condition-notes-error"
-                          class="field-error is-hidden"
-                        >
-                          Please add notes for failed checks.
-                        </span>
-                      </label>
-                      <details class="reference-panel">
-                        <summary>What should I check?</summary>
-                        <div class="reference-panel-body">
-                          <div class="reference-section">
-                            <h5>Contents checklist</h5>
-                            <ul
-                              id="move-contents-checklist"
-                              class="reference-list"
-                            ></ul>
-                            <p
-                              id="move-contents-checklist-empty"
-                              class="reference-empty"
-                            >
-                              No reference defined for this equipment.
-                            </p>
-                          </div>
-                          <div class="reference-section">
-                            <h5>Functional check guide</h5>
-                            <ul
-                              id="move-functional-checklist"
-                              class="reference-list"
-                            ></ul>
-                            <p
-                              id="move-functional-checklist-empty"
-                              class="reference-empty"
-                            >
-                              No reference defined for this equipment.
-                            </p>
-                          </div>
-                        </div>
-                      </details>
+                      <div class="reference-section">
+                        <h5>Functional check guide</h5>
+                        <ul id="move-functional-checklist" class="reference-list"></ul>
+                        <p id="move-functional-checklist-empty" class="reference-empty is-hidden">
+                          No functional checks defined for this equipment.
+                        </p>
+                      </div>
                     </div>
-                    <p
-                      id="move-checklist-lock"
-                      class="field-warning is-hidden"
-                    >
-                      This equipment does not have a condition checklist
-                      defined. An admin must define it before it can be moved.
-                      <button
-                        type="button"
-                        class="link-button"
-                        id="move-checklist-admin-link"
-                      >
-                        Go to Admin → Edit equipment
-                      </button>
-                    </p>
-                    <p
-                      id="move-submit-blocked"
-                      class="field-warning is-hidden"
-                    >
-                      Condition check required for this move.
-                    </p>
-                    <p id="move-submit-status" class="field-note is-hidden"></p>
-                    <button type="submit" id="move-submit">
-                      Record move
-                    </button>
-                  </form>
+                  </details>
                 </div>
 
-                <div class="history">
-                  <div class="history-header">
-                    <h3>Recent moves</h3>
-                    <button id="clear-history" type="button">
-                      Archive history
-                    </button>
-                  </div>
-                  <ul id="history-list"></ul>
+                <!-- Warnings & submit -->
+                <p id="move-checklist-lock" class="field-warning is-hidden">
+                  No condition checklist defined for this equipment.
+                  <button
+                    type="button"
+                    class="link-button"
+                    id="move-checklist-admin-link"
+                  >Go to Admin → Edit equipment</button>
+                </p>
+                <p id="move-submit-blocked" class="field-warning is-hidden">
+                  Complete the condition check before submitting.
+                </p>
+                <p id="move-submit-status" class="field-note is-hidden"></p>
+
+                <div>
+                  <button type="submit" id="move-submit">Record move</button>
                 </div>
-              </section>
+
+              </form>
             </div>
 
           </section>
-        </div>
+          <!-- /operations -->
 
-        <div id="moves-view" hidden>
-          <section
-            id="tab-moves"
-            class="tab-panel"
-            role="tabpanel"
-            aria-labelledby="tab-button-moves"
-          >
-            <section class="card">
+
+          <!-- ════════════════════════════════════════════════
+               MOVES VIEW
+               ════════════════════════════════════════════════ -->
+          <section data-view="moves" class="is-view-hidden">
+
+            <div class="card">
               <div class="card-header">
                 <div>
                   <h2>Moves log</h2>
-                  <p>
-                    Review every recorded move, calibration, subscription, and
-                    update.
+                  <p style="margin:0; color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                    Every recorded move, calibration, and correction.
                   </p>
                 </div>
-                <div class="filters">
-                  <div class="filter">
-                    <label for="moves-equipment-filter">Equipment</label>
-                    <select id="moves-equipment-filter"></select>
-                  </div>
-                  <div class="filter">
-                    <label for="moves-type-filter">Type</label>
-                    <select id="moves-type-filter"></select>
-                  </div>
-                  <div class="filter">
-                    <label for="moves-destination-filter">Destination</label>
-                    <select id="moves-destination-filter"></select>
-                  </div>
-                  <div class="filter">
-                    <label class="checkbox-field">
-                      Show deleted
-                      <input id="moves-show-deleted" type="checkbox" />
-                    </label>
-                  </div>
-                  <div class="filter">
-                    <label class="checkbox-field">
-                      Requiring receipt
-                      <input id="moves-receipt-only" type="checkbox" />
-                    </label>
-                  </div>
+              </div>
+
+              <!-- Moves filter toolbar -->
+              <div class="toolbar">
+                <div class="toolbar-field toolbar-search">
+                  <span>Search</span>
+                  <input
+                    type="search"
+                    id="moves-search"
+                    placeholder="Equipment, notes, tracking…"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="toolbar-field">
+                  <span>Equipment</span>
+                  <select id="moves-equipment-filter">
+                    <option value="">All equipment</option>
+                  </select>
+                </div>
+                <div class="toolbar-field">
+                  <span>Type</span>
+                  <select id="moves-type-filter">
+                    <option value="">All types</option>
+                  </select>
+                </div>
+                <div class="toolbar-field">
+                  <span>Destination</span>
+                  <select id="moves-destination-filter">
+                    <option value="">All destinations</option>
+                  </select>
+                </div>
+                <div class="toolbar-field" style="display: grid; gap: var(--space-2); align-self: end;">
+                  <label class="inline-checkbox" style="font-size: var(--font-size-sm); color: var(--color-text-primary);">
+                    <input type="checkbox" id="moves-receipt-only" />
+                    Awaiting receipt
+                  </label>
+                  <label class="inline-checkbox" style="font-size: var(--font-size-sm); color: var(--color-text-primary);">
+                    <input type="checkbox" id="moves-show-deleted" />
+                    Show archived
+                  </label>
                 </div>
               </div>
-              <div class="search">
-                <input
-                  id="moves-search"
-                  type="search"
-                  placeholder="Search moves and notes..."
-                  autocomplete="off"
-                />
-              </div>
-              <div class="table-wrapper">
+
+              <div class="table-wrap" style="margin-top: var(--space-4);">
                 <table>
-                  <thead id="moves-table-header"></thead>
-                  <tbody id="moves-table-body"></tbody>
+                  <thead id="moves-table-header">
+                    <!-- Rendered by src/ui/moves.js -->
+                  </thead>
+                  <tbody id="moves-table-body">
+                    <!-- Rendered by src/ui/moves.js -->
+                  </tbody>
                 </table>
               </div>
-            </section>
-          </section>
-        </div>
+            </div>
 
-        <div id="admin-view" hidden>
-          <section
-            id="tab-admin"
-            class="tab-panel"
-            role="tabpanel"
-            aria-labelledby="tab-button-admin"
-          >
-            <section class="card">
-              <section class="panel" aria-label="Supabase authentication">
-                <h3>Login</h3>
-                <label for="auth-email">
+          </section>
+          <!-- /moves -->
+
+
+          <!-- ════════════════════════════════════════════════
+               ADMIN VIEW  (hidden until admin access confirmed)
+               ════════════════════════════════════════════════ -->
+          <section data-view="admin" class="is-view-hidden">
+
+            <!-- Supabase auth -->
+            <div class="card">
+              <div class="card-header">
+                <h2>Supabase connection</h2>
+              </div>
+              <div class="auth-card">
+                <label>
                   Email
-                  <input id="auth-email" type="email" autocomplete="email" />
+                  <input type="email" id="auth-email" autocomplete="email" />
                 </label>
-                <label for="auth-password">
+                <label>
                   Password
                   <input
-                    id="auth-password"
                     type="password"
+                    id="auth-password"
                     autocomplete="current-password"
                   />
                 </label>
-                <div class="panel-actions">
-                  <button type="button" id="auth-login-button">Login</button>
-                  <button
-                    type="button"
-                    id="auth-logout-button"
-                    class="button-secondary"
-                  >
-                    Logout
+                <div style="display: flex; gap: var(--space-2);">
+                  <button type="button" id="auth-login-button">Sign in</button>
+                  <button type="button" class="btn-secondary" id="auth-logout-button-admin">
+                    Sign out
                   </button>
                 </div>
-                <p id="auth-status" class="panel-hint" aria-live="polite">
-                  Not logged in
-                </p>
-              </section>
+                <p
+                  id="auth-status"
+                  class="field-note"
+                  style="margin: 0;"
+                  aria-live="polite"
+                >Not signed in</p>
+              </div>
+            </div>
 
-              <section class="panel" aria-label="Supabase move create test">
-                <h3>move_create test</h3>
-                <div class="panel-actions">
-                  <button type="button" id="auth-test-move-create-button">
-                    Test move_create (Supabase)
-                  </button>
+            <div class="admin-panels-grid">
+
+              <!-- ── Add equipment ── -->
+              <div class="card">
+                <div class="card-header">
+                  <h3 style="margin:0;">Add equipment</h3>
                 </div>
-                <pre id="auth-test-move-create-output" class="panel-hint">
-Not run yet
-                </pre>
-              </section>
-
-              <section class="panel" aria-label="Supabase move receipt test">
-                <h3>move_receipt test</h3>
-                <div class="panel-actions">
-                  <button type="button" id="auth-test-move-receipt-button">
-                    Test move_receipt (Supabase)
-                  </button>
-                </div>
-                <pre id="auth-test-move-receipt-output" class="panel-hint">
-Not run yet
-                </pre>
-              </section>
-
-              <h2>Administration</h2>
-              <p>Use these tools to add or update equipment records.</p>
-
-              <div class="console">
-                <form id="add-equipment-form" class="panel">
-                  <h3>Add new equipment</h3>
+                <form id="add-equipment-form" class="move-form-grid" novalidate>
                   <label>
                     Equipment name
-                    <input id="new-equipment-name" type="text" required />
+                    <input
+                      type="text"
+                      id="new-equipment-name"
+                      required
+                      placeholder="e.g. RIEGL VZ-400i"
+                    />
                   </label>
                   <label>
-                    Model
-                    <input id="new-equipment-model" type="text" />
+                    Model / type
+                    <input
+                      type="text"
+                      id="new-equipment-model"
+                      placeholder="e.g. Terrestrial LiDAR"
+                    />
                   </label>
                   <label>
                     Serial number
-                    <input id="new-equipment-serial" type="text" />
-                    <span
-                      id="new-equipment-serial-warning"
-                      class="field-warning is-hidden"
-                    >
+                    <input type="text" id="new-equipment-serial" />
+                    <span id="new-equipment-serial-warning" class="field-warning is-hidden">
                       Another item already has this serial number.
                     </span>
                   </label>
                   <label>
                     Purchase date
-                    <input id="new-equipment-purchase-date" type="date" />
+                    <input type="date" id="new-equipment-purchase-date" />
                   </label>
                   <label>
                     Starting location
-                    <select id="new-equipment-location"></select>
+                    <select id="new-equipment-location">
+                      <option value="">Select…</option>
+                    </select>
                   </label>
                   <label>
-                    Status
-                    <select id="new-equipment-status"></select>
-                  </label>
-                  <label class="checkbox-field">
-                    Calibration required
-                    <input
-                      id="new-equipment-calibration-required"
-                      type="checkbox"
-                      checked
-                    />
-                  </label>
-                  <label id="new-equipment-calibration-interval-field">
-                    Calibration interval
-                    <select id="new-equipment-calibration-interval">
-                      <option value="12">12 months</option>
-                      <option value="24">24 months</option>
-                      <option value="custom">Custom</option>
+                    Starting status
+                    <select id="new-equipment-status">
+                      <option value="">Select…</option>
                     </select>
                   </label>
-                  <label
-                    id="new-equipment-calibration-interval-custom-field"
-                    class="is-hidden"
-                  >
-                    Custom interval (months)
-                    <input
-                      id="new-equipment-calibration-interval-custom"
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="e.g. 18"
-                    />
-                  </label>
-                  <label id="new-equipment-last-calibration-field">
-                    Last calibration date
-                    <input id="new-equipment-last-calibration" type="date" />
-                  </label>
-                  <label class="checkbox-field">
-                    Subscription required
-                    <input
-                      id="new-equipment-subscription-required"
-                      type="checkbox"
-                    />
-                  </label>
-                  <label id="new-equipment-subscription-date-field">
-                    Subscription renewal date
-                    <input
-                      id="new-equipment-subscription-date"
-                      type="date"
-                    />
-                  </label>
-                  <label id="new-equipment-billing-cycle-field">
-                    Billing cycle
-                    <select id="new-equipment-billing-cycle">
-                      <option value="">— select —</option>
-                      <option value="monthly">Monthly</option>
-                      <option value="annually">Annually</option>
-                    </select>
-                  </label>
-                  <button type="submit">Add equipment</button>
-                </form>
 
-                <form id="edit-equipment-form" class="panel">
-                  <h3>Edit equipment</h3>
+                  <fieldset class="form-group">
+                    <legend>Calibration</legend>
+                    <label class="inline-checkbox">
+                      <input
+                        type="checkbox"
+                        id="new-equipment-calibration-required"
+                        checked
+                      />
+                      Calibration required
+                    </label>
+                    <label id="new-equipment-calibration-interval-field">
+                      Interval
+                      <select id="new-equipment-calibration-interval">
+                        <option value="12">12 months</option>
+                        <option value="24">24 months</option>
+                        <option value="custom">Custom…</option>
+                      </select>
+                    </label>
+                    <label
+                      id="new-equipment-calibration-interval-custom-field"
+                      class="is-hidden"
+                    >
+                      Custom interval (months)
+                      <input
+                        type="number"
+                        id="new-equipment-calibration-interval-custom"
+                        min="1"
+                        step="1"
+                        placeholder="e.g. 18"
+                      />
+                    </label>
+                    <label id="new-equipment-last-calibration-field">
+                      Last calibration date
+                      <input type="date" id="new-equipment-last-calibration" />
+                    </label>
+                  </fieldset>
+
+                  <fieldset class="form-group">
+                    <legend>Subscription</legend>
+                    <label class="inline-checkbox">
+                      <input
+                        type="checkbox"
+                        id="new-equipment-subscription-required"
+                      />
+                      Subscription required
+                    </label>
+                    <label
+                      id="new-equipment-subscription-date-field"
+                      class="is-hidden"
+                    >
+                      Next renewal date
+                      <input type="date" id="new-equipment-subscription-date" />
+                    </label>
+                    <label
+                      id="new-equipment-billing-cycle-field"
+                      class="is-hidden"
+                    >
+                      Billing cycle
+                      <select id="new-equipment-billing-cycle">
+                        <option value="monthly">Monthly</option>
+                        <option value="annually">Annually</option>
+                      </select>
+                    </label>
+                  </fieldset>
+
+                  <div>
+                    <button type="submit">Add equipment</button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- ── Edit equipment ── -->
+              <div class="card">
+                <div class="card-header">
+                  <h3 style="margin:0;">Edit equipment</h3>
+                </div>
+                <form id="edit-equipment-form" class="move-form-grid" novalidate>
                   <label>
-                    Equipment
-                    <select id="edit-equipment-select"></select>
+                    Select equipment to edit
+                    <select id="edit-equipment-select">
+                      <option value="">Select…</option>
+                    </select>
                   </label>
                   <label>
                     Equipment name
-                    <input id="edit-equipment-name" type="text" required />
-                    <span
-                      id="edit-equipment-name-error"
-                      class="field-error is-hidden"
-                    >
+                    <input type="text" id="edit-equipment-name" required />
+                    <span id="edit-equipment-name-error" class="field-error is-hidden">
                       Equipment name is required.
                     </span>
-                    <span
-                      id="edit-equipment-name-warning"
-                      class="field-warning is-hidden"
-                    >
+                    <span id="edit-equipment-name-warning" class="field-warning is-hidden">
                       Another item already uses this name.
                     </span>
                   </label>
                   <label>
-                    Model
-                    <input id="edit-equipment-model" type="text" />
+                    Model / type
+                    <input type="text" id="edit-equipment-model" />
                   </label>
                   <label>
                     Serial number
-                    <input id="edit-equipment-serial" type="text" />
-                    <span
-                      id="edit-equipment-serial-warning"
-                      class="field-warning is-hidden"
-                    >
+                    <input type="text" id="edit-equipment-serial" />
+                    <span id="edit-equipment-serial-warning" class="field-warning is-hidden">
                       Another item already has this serial number.
                     </span>
                   </label>
                   <label>
                     Purchase date
-                    <input id="edit-equipment-purchase-date" type="date" />
+                    <input type="date" id="edit-equipment-purchase-date" />
                   </label>
                   <label>
-                    Physical location
+                    Location
                     <select id="edit-equipment-location"></select>
                   </label>
                   <label>
                     Status
                     <select id="edit-equipment-status"></select>
                   </label>
-                  <label class="checkbox-field">
-                    Calibration required
-                    <input
-                      id="edit-equipment-calibration-required"
-                      type="checkbox"
-                    />
-                  </label>
-                  <label id="edit-equipment-calibration-interval-field">
-                    Calibration interval
-                    <select id="edit-equipment-calibration-interval">
-                      <option value="12">12 months</option>
-                      <option value="24">24 months</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </label>
-                  <label
-                    id="edit-equipment-calibration-interval-custom-field"
-                    class="is-hidden"
-                  >
-                    Custom interval (months)
-                    <input
-                      id="edit-equipment-calibration-interval-custom"
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="e.g. 18"
-                    />
-                  </label>
-                  <label id="edit-equipment-last-calibration-field">
-                    Last calibration date
-                    <input id="edit-equipment-last-calibration" type="date" />
-                  </label>
-                  <label class="checkbox-field">
-                    Subscription required
-                    <input
-                      id="edit-equipment-subscription-required"
-                      type="checkbox"
-                    />
-                  </label>
-                  <label id="edit-equipment-subscription-date-field">
-                    Subscription renewal date
-                    <input
-                      id="edit-equipment-subscription-date"
-                      type="date"
-                    />
-                  </label>
-                  <label>
-                    Contents checklist (reference)
-                    <textarea
-                      id="edit-equipment-contents-checklist"
-                      rows="4"
-                      placeholder="List contents to verify, one per line..."
-                    ></textarea>
-                  </label>
-                  <label>
-                    Functional check guide (reference)
-                    <textarea
-                      id="edit-equipment-functional-checklist"
-                      rows="4"
-                      placeholder="List functional checks, one per line..."
-                    ></textarea>
-                  </label>
-                  <div class="copy-checklist">
-                    <label>
-                      Copy checklist from
-                      <select id="edit-equipment-copy-source">
-                        <option value="">Select equipment...</option>
+
+                  <fieldset class="form-group">
+                    <legend>Calibration</legend>
+                    <label class="inline-checkbox">
+                      <input
+                        type="checkbox"
+                        id="edit-equipment-calibration-required"
+                      />
+                      Calibration required
+                    </label>
+                    <label id="edit-equipment-calibration-interval-field">
+                      Interval
+                      <select id="edit-equipment-calibration-interval">
+                        <option value="12">12 months</option>
+                        <option value="24">24 months</option>
+                        <option value="custom">Custom…</option>
                       </select>
                     </label>
-                    <button
-                      type="button"
-                      id="edit-equipment-copy-button"
-                      disabled
+                    <label
+                      id="edit-equipment-calibration-interval-custom-field"
+                      class="is-hidden"
                     >
-                      Copy checklist
-                    </button>
-                    <span
-                      id="edit-equipment-copy-warning"
-                      class="field-warning is-hidden"
-                    ></span>
-                  </div>
-                  <div class="panel-actions">
+                      Custom interval (months)
+                      <input
+                        type="number"
+                        id="edit-equipment-calibration-interval-custom"
+                        min="1"
+                        step="1"
+                      />
+                    </label>
+                    <label id="edit-equipment-last-calibration-field">
+                      Last calibration date
+                      <input type="date" id="edit-equipment-last-calibration" />
+                    </label>
+                  </fieldset>
+
+                  <fieldset class="form-group">
+                    <legend>Subscription</legend>
+                    <label class="inline-checkbox">
+                      <input
+                        type="checkbox"
+                        id="edit-equipment-subscription-required"
+                      />
+                      Subscription required
+                    </label>
+                    <label
+                      id="edit-equipment-subscription-date-field"
+                      class="is-hidden"
+                    >
+                      Next renewal date
+                      <input type="date" id="edit-equipment-subscription-date" />
+                    </label>
+                  </fieldset>
+
+                  <fieldset class="form-group">
+                    <legend>Condition checklist</legend>
+                    <div class="copy-checklist">
+                      <label>
+                        Copy from another item
+                        <select id="edit-equipment-copy-source">
+                          <option value="">Select…</option>
+                        </select>
+                      </label>
+                      <div>
+                        <button
+                          type="button"
+                          class="btn-secondary btn-sm"
+                          id="edit-equipment-copy-button"
+                          disabled
+                        >Copy checklist</button>
+                        <span
+                          id="edit-equipment-copy-warning"
+                          class="field-warning is-hidden"
+                        >This will overwrite the current checklist.</span>
+                      </div>
+                    </div>
+                    <label>
+                      Contents (one item per line)
+                      <textarea
+                        id="edit-equipment-contents-checklist"
+                        rows="4"
+                        placeholder="e.g.&#10;Carry case&#10;Power cable&#10;USB dongle"
+                      ></textarea>
+                    </label>
+                    <label>
+                      Functional checks (one item per line)
+                      <textarea
+                        id="edit-equipment-functional-checklist"
+                        rows="4"
+                        placeholder="e.g.&#10;Powers on correctly&#10;Laser fires&#10;Software connects"
+                      ></textarea>
+                    </label>
+                  </fieldset>
+
+                  <div style="display: flex; gap: var(--space-2);">
                     <button type="submit">Save changes</button>
                     <button
                       type="button"
-                      class="button-secondary"
+                      class="btn-secondary"
                       id="edit-equipment-cancel"
-                    >
-                      Cancel
-                    </button>
+                    >Cancel</button>
                   </div>
                 </form>
+              </div>
 
-                <form id="calibration-form" class="panel">
-                  <h3>Record calibration</h3>
+              <!-- ── Record calibration ── -->
+              <div class="card">
+                <div class="card-header">
+                  <h3 style="margin:0;">Record calibration</h3>
+                </div>
+                <form id="calibration-form" class="move-form-grid" novalidate>
                   <label>
                     Equipment
-                    <select id="calibration-equipment"></select>
+                    <select id="calibration-equipment">
+                      <option value="">Select…</option>
+                    </select>
                   </label>
                   <label>
                     Calibration date
-                    <input id="calibration-date" type="date" />
+                    <input type="date" id="calibration-date" />
                   </label>
                   <label>
-                    Interval months (optional override)
+                    Override interval (months)
+                    <span class="field-note" style="display:inline; margin-left: var(--space-1);">
+                      optional
+                    </span>
                     <input
-                      id="calibration-interval"
                       type="number"
+                      id="calibration-interval"
                       min="1"
                       step="1"
-                      placeholder="e.g. 18"
+                      placeholder="Leave blank to keep current"
                     />
                   </label>
-                  <label class="checkbox-field">
+                  <label class="inline-checkbox">
+                    <input type="checkbox" id="calibration-required" />
                     Calibration required
-                    <input id="calibration-required" type="checkbox" />
                   </label>
-                  <button type="submit">Save calibration</button>
-                </form>
-
-                <form id="admin-passcode-settings" class="panel">
-                  <h3>Admin passcode</h3>
-                  <p class="panel-hint">
-                    This passcode is stored only in this browser (not enterprise
-                    authentication). Clearing local storage resets it.
-                  </p>
-                  <label>
-                    Current passcode
-                    <input id="admin-passcode-current" type="password" />
-                  </label>
-                  <label>
-                    New passcode
-                    <input id="admin-passcode-update" type="password" />
-                  </label>
-                  <label>
-                    Confirm new passcode
-                    <input id="admin-passcode-update-confirm" type="password" />
-                  </label>
-                  <p
-                    id="admin-passcode-update-error"
-                    class="field-error is-hidden"
-                  ></p>
-                  <p
-                    id="admin-passcode-update-success"
-                    class="field-success is-hidden"
-                  >
-                    Passcode updated.
-                  </p>
-                  <button type="submit">Update passcode</button>
-                </form>
-
-                <section class="panel diagnostics">
-                  <h3>Diagnostics</h3>
-                  <label class="checkbox-field" for="admin-diagnostics-toggle">
-                    Show diagnostics
-                    <input id="admin-diagnostics-toggle" type="checkbox" />
-                  </label>
-                  <div id="admin-diagnostics-panel" class="is-hidden">
-                    <textarea
-                      id="admin-diagnostics-log"
-                      rows="8"
-                      readonly
-                      aria-label="Application diagnostics"
-                    ></textarea>
+                  <div>
+                    <button type="submit">Record calibration</button>
                   </div>
-                </section>
+                </form>
+              </div>
 
-                <div class="panel import-panel">
-                  <h3>Import equipment</h3>
-                  <p class="panel-hint">
-                    Upload a CSV to bulk add equipment. Existing items are never
-                    removed. Dates accepted: yyyy-mm-dd or dd/mm/yyyy. Excel serial dates also supported.
-                  </p>
-                  <div class="panel-actions">
-                    <button type="button" id="import-template-button">
-                      Download CSV template
-                    </button>
+              <!-- ── CSV Import ── -->
+              <div class="card">
+                <div class="card-header">
+                  <h3 style="margin:0;">Import equipment</h3>
+                </div>
+                <div class="move-form-grid">
+                  <div>
+                    <button
+                      type="button"
+                      class="btn-secondary btn-sm"
+                      id="import-template-button"
+                    >Download CSV template</button>
                   </div>
                   <label>
                     CSV file
-                    <input
-                      id="import-file-input"
-                      type="file"
-                      accept=".csv"
-                    />
+                    <input type="file" id="import-file-input" accept=".csv" />
                   </label>
                   <label>
-                    On duplicate serial
+                    Duplicate serials
                     <select id="import-duplicate-behavior">
-                      <option value="skip" selected>Skip</option>
+                      <option value="skip">Skip duplicates</option>
                       <option value="import">Import anyway</option>
                     </select>
                   </label>
-                  <div class="import-summary" id="import-summary" aria-live="polite">
+
+                  <div class="import-summary is-hidden" id="import-preview-stats">
                     <div>
                       <span class="import-label">Rows detected</span>
                       <strong id="import-total-count">0</strong>
@@ -826,182 +829,292 @@ Not run yet
                       <strong id="import-invalid-count">0</strong>
                     </div>
                   </div>
-                  <div class="import-preview">
-                    <p id="import-empty-state" class="import-empty">
-                      Select a CSV file to preview the import.
-                    </p>
-                    <div class="import-preview-table table-wrapper is-hidden">
-                      <table>
-                        <thead id="import-preview-header"></thead>
-                        <tbody id="import-preview-body"></tbody>
-                      </table>
-                    </div>
+
+                  <div
+                    class="import-preview-table table-wrap is-hidden"
+                    id="import-preview-table"
+                  >
+                    <table>
+                      <thead id="import-preview-header"></thead>
+                      <tbody id="import-preview-body"></tbody>
+                    </table>
                   </div>
-                  <div class="import-warnings">
-                    <h4>Warnings</h4>
-                    <ul id="import-warnings" class="import-warning-list">
-                      <li class="import-empty">No warnings yet.</li>
-                    </ul>
-                  </div>
-                  <div class="panel-actions">
+
+                  <ul class="import-warning-list is-hidden" id="import-warnings"></ul>
+                  <p class="import-empty" id="import-empty-state">
+                    Select a CSV file to preview before importing.
+                  </p>
+
+                  <div style="display: flex; gap: var(--space-2);">
                     <button type="button" id="import-submit" disabled>
                       Import
                     </button>
-                    <button
-                      type="button"
-                      class="button-secondary"
-                      id="import-clear"
-                    >
+                    <button type="button" class="btn-secondary" id="import-clear">
                       Clear
                     </button>
                   </div>
                 </div>
               </div>
-            </section>
+
+              <!-- ── Dev tools (hidden until dev mode active) ── -->
+              <div class="card is-hidden" id="devtools-card">
+                <div class="card-header">
+                  <h3 style="margin:0;">Developer tools</h3>
+                  <label
+                    class="inline-checkbox"
+                    style="font-size: var(--font-size-sm);"
+                  >
+                    <input type="checkbox" id="admin-diagnostics-toggle" />
+                    Show log
+                  </label>
+                </div>
+                <div id="admin-diagnostics-panel" class="is-hidden">
+                  <div class="devtools-panel">
+                    <textarea
+                      class="devtools-log"
+                      id="admin-diagnostics-log"
+                      readonly
+                      aria-label="Diagnostics log"
+                    ></textarea>
+                  </div>
+                </div>
+                <div style="display: flex; gap: var(--space-2); margin-top: var(--space-3);">
+                  <button
+                    type="button"
+                    class="btn-secondary btn-sm"
+                    id="auth-test-move-create-button"
+                  >Test move_create</button>
+                  <button
+                    type="button"
+                    class="btn-secondary btn-sm"
+                    id="auth-test-move-receipt-button"
+                  >Test move_receipt</button>
+                </div>
+                <pre
+                  id="auth-test-move-create-output"
+                  class="is-hidden"
+                  style="font-size: var(--font-size-xs); margin-top: var(--space-2);"
+                ></pre>
+                <pre
+                  id="auth-test-move-receipt-output"
+                  class="is-hidden"
+                  style="font-size: var(--font-size-xs); margin-top: var(--space-2);"
+                ></pre>
+              </div>
+
+            </div>
+            <!-- /admin-panels-grid -->
+
           </section>
+          <!-- /admin -->
+
         </div>
-      </main>
+        <!-- /content-area -->
+      </div>
+      <!-- /app-main -->
     </div>
+    <!-- /app-shell -->
 
 
-    <dialog id="condition-history-modal" class="condition-history-modal">
-      <div class="condition-history-header">
-        <h3 id="condition-history-title">Condition history</h3>
-        <button type="button" class="icon-button" id="condition-history-close">Close</button>
-      </div>
-      <ul id="condition-history-list" class="condition-history-list"></ul>
-    </dialog>
+    <!-- ══════════════════════════════════════════════════════
+         MODALS  (outside app-shell so z-index stacking is clean)
+         ══════════════════════════════════════════════════════ -->
 
-    <dialog id="correction-modal" class="admin-passcode-dialog correction-dialog">
-      <form id="correction-form" class="panel" novalidate>
-        <h3>Add correction</h3>
-        <p class="panel-hint" id="correction-target-label"></p>
-
-        <fieldset class="correction-grid">
-          <legend>Fields to correct</legend>
-          <label class="checkbox-field">
-            <input type="checkbox" id="correction-field-shipping" />
-            Shipping tracking
-          </label>
-          <label>
-            <input id="correction-shipping-tracking" type="text" />
-          </label>
-
-          <label class="checkbox-field">
-            <input type="checkbox" id="correction-field-receipt" />
-            Receipt date
-          </label>
-          <label>
-            <input id="correction-receipt-date" type="date" />
-          </label>
-
-          <label class="checkbox-field">
-            <input type="checkbox" id="correction-field-from" />
-            From location
-          </label>
-          <label>
-            <select id="correction-from-location"></select>
-          </label>
-
-          <label class="checkbox-field">
-            <input type="checkbox" id="correction-field-to" />
-            To location
-          </label>
-          <label>
-            <select id="correction-to-location"></select>
-          </label>
-
-          <label class="checkbox-field">
-            <input type="checkbox" id="correction-field-condition" />
-            Condition rating
-          </label>
-          <label>
-            <select id="correction-condition-rating">
-              <option value="">Select...</option>
-              <option value="Excellent">Excellent</option>
-              <option value="Good">Good</option>
-              <option value="Fair">Fair</option>
-              <option value="Needs attention">Needs attention</option>
-              <option value="Unserviceable">Unserviceable</option>
-            </select>
-          </label>
-
-          <label class="checkbox-field">
-            <input type="checkbox" id="correction-field-notes" />
-            Notes
-          </label>
-          <label>
-            <textarea id="correction-notes" rows="2"></textarea>
-          </label>
-        </fieldset>
-
-        <label>
-          Reason
-          <textarea id="correction-reason" rows="2" required></textarea>
-        </label>
-        <p id="correction-error" class="field-error is-hidden"></p>
-        <div class="dialog-actions">
-          <button type="button" class="button-secondary" id="correction-cancel">Cancel</button>
-          <button type="submit">Save correction</button>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="correction-details-modal" class="admin-passcode-dialog correction-dialog">
-      <div class="panel">
+    <!-- Condition history -->
+    <dialog id="condition-history-modal" aria-labelledby="condition-history-title">
+      <div class="dialog-inner">
         <div class="condition-history-header">
-          <h3>Correction audit trail</h3>
-          <button type="button" class="icon-button" id="correction-details-close">Close</button>
+          <h3 id="condition-history-title">Condition history</h3>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            id="condition-history-close"
+          >Close</button>
         </div>
-        <ul id="correction-details-list" class="condition-history-list"></ul>
+        <ul
+          class="condition-history-list"
+          id="condition-history-list"
+          role="list"
+        ></ul>
       </div>
     </dialog>
 
+    <!-- Correction -->
+    <dialog id="correction-modal" aria-labelledby="correction-modal-title">
+      <div class="dialog-inner">
+        <h3 id="correction-modal-title">Add correction</h3>
+        <p id="correction-target-label" class="field-note"></p>
+        <form id="correction-form" novalidate>
+
+          <!-- Each row: checkbox to enable the field, then the input -->
+          <div style="display: grid; gap: var(--space-3);">
+            <label class="inline-checkbox">
+              <input type="checkbox" id="correction-field-shipping" />
+              Tracking number
+            </label>
+            <input
+              type="text"
+              id="correction-shipping-tracking"
+              class="is-hidden"
+              placeholder="New tracking number"
+            />
+
+            <label class="inline-checkbox">
+              <input type="checkbox" id="correction-field-receipt" />
+              Receipt date
+            </label>
+            <input
+              type="date"
+              id="correction-receipt-date"
+              class="is-hidden"
+            />
+
+            <label class="inline-checkbox">
+              <input type="checkbox" id="correction-field-from" />
+              From location
+            </label>
+            <select id="correction-from-location" class="is-hidden"></select>
+
+            <label class="inline-checkbox">
+              <input type="checkbox" id="correction-field-to" />
+              To location
+            </label>
+            <select id="correction-to-location" class="is-hidden"></select>
+
+            <label class="inline-checkbox">
+              <input type="checkbox" id="correction-field-condition" />
+              Condition rating
+            </label>
+            <select id="correction-condition-rating" class="is-hidden">
+              <option>Excellent</option>
+              <option>Good</option>
+              <option>Fair</option>
+              <option>Needs attention</option>
+              <option>Unserviceable</option>
+            </select>
+
+            <label class="inline-checkbox">
+              <input type="checkbox" id="correction-field-notes" />
+              Notes
+            </label>
+            <textarea
+              id="correction-notes"
+              class="is-hidden"
+              rows="2"
+            ></textarea>
+          </div>
+
+          <label style="margin-top: var(--space-4);">
+            Reason for correction <span class="field-error">*</span>
+            <textarea
+              id="correction-reason"
+              rows="2"
+              required
+              placeholder="e.g. Wrong location entered — went to Melbourne not Perth"
+            ></textarea>
+          </label>
+
+          <p class="field-error is-hidden" id="correction-error"></p>
+
+          <div class="dialog-actions" style="margin-top: var(--space-3);">
+            <button
+              type="button"
+              class="btn-secondary"
+              id="correction-cancel"
+            >Cancel</button>
+            <button type="submit">Save correction</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Correction details (audit trail) -->
+    <dialog
+      id="correction-details-modal"
+      aria-labelledby="correction-details-title"
+    >
+      <div class="dialog-inner">
+        <div class="condition-history-header">
+          <h3 id="correction-details-title">Correction history</h3>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            id="correction-details-close"
+          >Close</button>
+        </div>
+        <ul
+          class="condition-history-list"
+          id="correction-details-list"
+          role="list"
+        ></ul>
+      </div>
+    </dialog>
+
+    <!-- Admin passcode (dev mode) -->
+    <dialog id="admin-passcode-dialog" aria-labelledby="admin-passcode-title">
+      <div class="dialog-inner">
+        <h3 id="admin-passcode-title">Enable admin mode</h3>
+        <p id="admin-passcode-hint" class="field-note"></p>
+
+        <form id="admin-passcode-form" novalidate>
+          <!-- Verify existing passcode -->
+          <div id="admin-passcode-verify">
+            <label>
+              Passcode
+              <input
+                type="password"
+                id="admin-passcode-input"
+                autocomplete="current-password"
+              />
+            </label>
+            <p style="margin-top: var(--space-2); font-size: 0.8rem;">
+              <a href="#" id="admin-passcode-reset">Forgot passcode? Reset</a>
+            </p>
+          </div>
+
+          <!-- Set new passcode (shown on first use) -->
+          <div id="admin-passcode-setup" class="is-hidden">
+            <label>
+              New passcode
+              <input
+                type="password"
+                id="admin-passcode-new"
+                autocomplete="new-password"
+              />
+            </label>
+            <label style="margin-top: var(--space-2);">
+              Confirm passcode
+              <input
+                type="password"
+                id="admin-passcode-confirm"
+                autocomplete="new-password"
+              />
+            </label>
+          </div>
+
+          <p class="field-error is-hidden" id="admin-passcode-error"></p>
+
+          <div class="dialog-actions" style="margin-top: var(--space-4);">
+            <button
+              type="button"
+              class="btn-secondary"
+              id="admin-passcode-cancel"
+            >Cancel</button>
+            <button type="submit" id="admin-passcode-submit">Enable</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Toast notifications -->
     <div
       id="toast-container"
       class="toast-container"
+      role="status"
       aria-live="polite"
-      aria-atomic="true"
+      aria-atomic="false"
     ></div>
 
-    <dialog id="admin-passcode-dialog" class="admin-passcode-dialog">
-      <form id="admin-passcode-form" class="panel" novalidate>
-        <h3 id="admin-passcode-title">Enable Admin mode</h3>
-        <p class="panel-hint" id="admin-passcode-hint">
-          Enter the local browser passcode to unlock Admin mode.
-        </p>
-        <div id="admin-passcode-verify">
-          <label>
-            Passcode
-            <input id="admin-passcode-input" type="password" />
-          </label>
-        </div>
-        <div id="admin-passcode-setup" class="is-hidden">
-          <label>
-            Set a new passcode
-            <input id="admin-passcode-new" type="password" />
-          </label>
-          <label>
-            Confirm passcode
-            <input id="admin-passcode-confirm" type="password" />
-          </label>
-        </div>
-        <p id="admin-passcode-error" class="field-error is-hidden"></p>
-        <div class="dialog-actions">
-          <button
-            type="button"
-            class="button-secondary"
-            id="admin-passcode-cancel"
-          >
-            Cancel
-          </button>
-          <button type="submit" id="admin-passcode-submit">
-            Enable Admin mode
-          </button>
-        </div>
-      </form>
-    </dialog>
-
-    <script type="module" src="./src/main.js"></script>
+    <script type="module" src="src/main.js"></script>
   </body>
 </html>
