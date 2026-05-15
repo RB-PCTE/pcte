@@ -112,7 +112,6 @@ p { margin-top: 0; }
 .sidebar-nav {
   display: grid;
   gap: var(--space-1);
-  flex: 1;
 }
 
 .nav-group-label {
@@ -225,6 +224,11 @@ p { margin-top: 0; }
 
 /* ── Content Area ──────────────────────────────────────────── */
 .content-area {
+  display: grid;
+  gap: var(--space-5);
+}
+
+[data-view] {
   display: grid;
   gap: var(--space-5);
 }
@@ -435,6 +439,12 @@ button:disabled {
 .btn-secondary {
   background: var(--color-bg-surface);
   color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.btn-secondary-accent {
+  background: var(--color-primary-hover);
+  color: #ffffff;
   border-color: var(--color-border);
 }
 

@@ -5,7 +5,7 @@
 //   2. Listen to "auth:changed" DOM events (fired by main.js from supabase.auth.onAuthStateChange).
 //   3. After login, query profiles.role to determine admin access.
 //   4. Fire "auth:admin-changed" so main.js and other modules know the admin state.
-//   5. Show/hide the Admin nav button (#nav-admin) based on admin state.
+//   5. Show/hide the admin form cards (#admin-panels-grid) based on admin state.
 //   6. Update auth status labels in the UI.
 //   7. Handle the dev-mode passcode dialog (Shift+click version ×3 → "devmode:request").
 //
@@ -36,42 +36,55 @@ function fireAdminChanged(isAdmin) {
   );
 }
 
-function setNavAdminVisible(visible) {
-  const btn = document.getElementById("nav-admin");
-  if (btn) btn.hidden = !visible;
+function setAdminContentVisible(visible) {
+  const grid = document.getElementById("admin-panels-grid");
+  // classList.toggle(className, force):
+  //   force=true  → always ADD the class    → grid hidden
+  //   force=false → always REMOVE the class → grid visible
+  // !visible flips it: setAdminContentVisible(true) removes is-hidden, showing the grid
+  grid?.classList.toggle("is-hidden", !visible);
 }
 
 function updateAuthUI(session, isAdmin) {
-  const statusEl       = document.getElementById("auth-status");
-  const headerStatusEl = document.getElementById("auth-status-header");
-  const logoutBtn      = document.getElementById("auth-logout-button-admin");
-  const loginEmailEl   = document.getElementById("auth-email");
+  const statusEl        = document.getElementById("auth-status");
+  const headerStatusEl  = document.getElementById("auth-status-header");
+  const logoutBtn       = document.getElementById("auth-logout-button-admin");
+  const loginEmailEl    = document.getElementById("auth-email");
   const loginPasswordEl = document.getElementById("auth-password");
-  const loginBtn       = document.getElementById("auth-login-button");
+  const loginBtn        = document.getElementById("auth-login-button");
+
+  // Header sign-in / sign-out buttons (always visible in top ribbon)
+  const headerLoginBtn  = document.getElementById("auth-login-trigger");
+  const headerLogoutBtn = document.getElementById("auth-logout-button");
 
   if (session) {
     const email = session.user?.email ?? "Signed in";
     const label = isAdmin ? `${email} (admin)` : email;
 
+    if (statusEl)        statusEl.textContent  = label;
+    if (headerStatusEl)  headerStatusEl.textContent = label;
+    if (logoutBtn)       logoutBtn.disabled    = false;
+    if (loginBtn)        loginBtn.disabled     = true;
+    if (loginEmailEl)    loginEmailEl.disabled = true;
+    if (loginPasswordEl) loginPasswordEl.disabled = true;
+
+    // Header: hide "Sign in", show "Sign out"
+    headerLoginBtn?.classList.add("is-hidden");
+    headerLogoutBtn?.classList.remove("is-hidden");
+  } else {
+    const label = isAdmin ? "Dev mode (admin)" : "Not signed in";
+
     if (statusEl)       statusEl.textContent = label;
     if (headerStatusEl) headerStatusEl.textContent = label;
-    if (logoutBtn)      logoutBtn.disabled = false;
-    if (loginBtn)       loginBtn.disabled  = true;
-    if (loginEmailEl)   loginEmailEl.disabled = true;
-    if (loginPasswordEl) loginPasswordEl.disabled = true;
-  } else {
-    // Dev mode active (passcode, no Supabase session)
-    if (isAdmin && !session) {
-      if (statusEl)       statusEl.textContent = "Dev mode (admin)";
-      if (headerStatusEl) headerStatusEl.textContent = "Dev mode";
-    } else {
-      if (statusEl)       statusEl.textContent = "Not signed in";
-      if (headerStatusEl) headerStatusEl.textContent = "";
-    }
-    if (logoutBtn)       logoutBtn.disabled = true;
-    if (loginBtn)        loginBtn.disabled  = false;
+
+    if (logoutBtn)       logoutBtn.disabled    = true;
+    if (loginBtn)        loginBtn.disabled     = false;
     if (loginEmailEl)    loginEmailEl.disabled = false;
     if (loginPasswordEl) loginPasswordEl.disabled = false;
+
+    // Header: show "Sign in", hide "Sign out"
+    headerLoginBtn?.classList.remove("is-hidden");
+    headerLogoutBtn?.classList.add("is-hidden");
   }
 }
 
@@ -83,7 +96,7 @@ async function checkAdminRole(session) {
     const { data, error } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", session.user.id)
+      .eq("user_id", session.user.id)
       .single();
     if (error) {
       console.warn("auth.js: could not read profiles.role —", error.message);
@@ -103,13 +116,13 @@ async function handleAuthChanged(session) {
   if (session) {
     const isAdmin = await checkAdminRole(session);
     fireAdminChanged(isAdmin);
-    setNavAdminVisible(isAdmin);
+    setAdminContentVisible(isAdmin);
     updateAuthUI(session, isAdmin);
   } else {
     // No Supabase session — check if dev passcode mode is active
     const devActive = localStorage.getItem(DEV_MODE_KEY) === "true";
     fireAdminChanged(devActive);
-    setNavAdminVisible(devActive);
+    setAdminContentVisible(devActive);
     updateAuthUI(null, devActive);
   }
 }
@@ -145,7 +158,7 @@ async function handleLogout(showToast) {
   // Clear dev mode too when explicitly signing out
   localStorage.removeItem(DEV_MODE_KEY);
   fireAdminChanged(false);
-  setNavAdminVisible(false);
+  setAdminContentVisible(false);
   updateAuthUI(null, false);
   showToast("Signed out.", "success");
 }
@@ -242,7 +255,7 @@ function initPasscodeDialog(showToast) {
         localStorage.setItem(DEV_MODE_KEY, "true");
         document.getElementById("admin-passcode-dialog")?.close();
         fireAdminChanged(true);
-        setNavAdminVisible(true);
+        setAdminContentVisible(true);
         updateAuthUI(_session, true);
         showToast("Passcode set. Admin mode enabled.", "success");
 
@@ -259,7 +272,7 @@ function initPasscodeDialog(showToast) {
         localStorage.setItem(DEV_MODE_KEY, "true");
         document.getElementById("admin-passcode-dialog")?.close();
         fireAdminChanged(true);
-        setNavAdminVisible(true);
+        setAdminContentVisible(true);
         updateAuthUI(_session, true);
         showToast("Admin mode enabled.", "success");
       }
@@ -289,6 +302,18 @@ export function initAuth({ showToast }) {
   document.getElementById("auth-logout-button")
     ?.addEventListener("click", () => handleLogout(showToast));
 
+  // Header "Sign in" → navigate to Admin tab so user can see the login form.
+  // We simulate a click on the Admin nav button rather than importing showView
+  // directly — importing from main.js would create a circular dependency.
+  document.getElementById("auth-login-trigger")
+    ?.addEventListener("click", () => {
+      document.querySelector('[data-nav-target="admin"]')?.click();
+    });
+
+  // Header "Sign out" → same action as the sign-out button inside the Admin panel
+  document.getElementById("auth-logout-button")
+    ?.addEventListener("click", () => handleLogout(showToast));
+
   // Passcode dialog (dev mode)
   initPasscodeDialog(showToast);
 
@@ -299,7 +324,7 @@ export function initAuth({ showToast }) {
   // Restore dev mode from a previous session
   if (localStorage.getItem(DEV_MODE_KEY) === "true") {
     fireAdminChanged(true);
-    setNavAdminVisible(true);
+    setAdminContentVisible(true);
     updateAuthUI(null, true);
   }
 }

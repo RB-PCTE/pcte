@@ -41,7 +41,6 @@
             type="button"
             id="nav-admin"
             data-nav-target="admin"
-            hidden
           >Admin</button>
         </nav>
 
@@ -65,7 +64,7 @@
             <div class="current-user-area" id="auth-status-header" aria-live="polite">
               Not signed in
             </div>
-            <button type="button" class="btn-secondary btn-sm" id="auth-login-trigger">
+            <button type="button" class="btn-secondary-accent btn-sm" id="auth-login-trigger">
               Sign in
             </button>
             <button type="button" class="btn-secondary btn-sm is-hidden" id="auth-logout-button">
@@ -451,7 +450,7 @@
             <!-- Supabase auth -->
             <div class="card">
               <div class="card-header">
-                <h2>Supabase connection</h2>
+                <h2>Login to Supabase</h2>
               </div>
               <div class="auth-card">
                 <label>
@@ -481,7 +480,7 @@
               </div>
             </div>
 
-            <div class="admin-panels-grid">
+            <div class="admin-panels-grid is-hidden" id="admin-panels-grid">
 
               <!-- ── Add equipment ── -->
               <div class="card">

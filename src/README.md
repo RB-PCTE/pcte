@@ -274,7 +274,7 @@ Handles all authentication concerns: Supabase login/logout, role-based admin acc
 
 ### `initAuth({ showToast })`
 
-**Purpose:** Wire all auth event listeners and restore dev mode from a previous session. Called once at startup from `main.js`.
+**Purpose:** Wire all auth event listeners and restore dev mode from a previous session. Called once at startup from `main.js`. Also wires the header `#auth-login-trigger` button (navigates to Admin tab) and `#auth-logout-button` (signs out), and registers the `"devmode:request"` listener once so it cannot accumulate duplicates.
 
 **Parameters:**
 
@@ -288,7 +288,7 @@ Handles all authentication concerns: Supabase login/logout, role-based admin acc
 
 ### `handleAuthChanged(session)` *(internal)*
 
-**Purpose:** Handle a Supabase auth state change. Checks the user's role via `checkAdminRole`, fires `"auth:admin-changed"`, shows/hides the Admin nav button, and updates all auth status labels.
+**Purpose:** Handle a Supabase auth state change. Checks the user's role via `checkAdminRole`, fires `"auth:admin-changed"`, shows/hides the admin form cards, and updates all auth status labels.
 
 **Parameters:**
 
@@ -302,7 +302,7 @@ Handles all authentication concerns: Supabase login/logout, role-based admin acc
 
 ### `checkAdminRole(session)` *(internal)*
 
-**Purpose:** Query `profiles.role` in Supabase to determine if the logged-in user has admin access.
+**Purpose:** Query `profiles.role` in Supabase to determine if the logged-in user has admin access. Filters by `user_id` (the primary key of the `profiles` table).
 
 **Parameters:**
 
@@ -356,15 +356,15 @@ Handles all authentication concerns: Supabase login/logout, role-based admin acc
 
 ---
 
-### `setNavAdminVisible(visible)` *(internal)*
+### `setAdminContentVisible(visible)` *(internal)*
 
-**Purpose:** Show or hide the `#nav-admin` sidebar button.
+**Purpose:** Show or hide `#admin-panels-grid` — the block of admin-only form cards (add/edit equipment, calibration, import). The Admin nav button is always visible; only the form content is gated behind authentication.
 
 **Parameters:**
 
 | Parameter | Type | Description |
 |---|---|---|
-| `visible` | `boolean` | `true` to show the Admin nav item |
+| `visible` | `boolean` | `true` to reveal the admin form cards; `false` to hide them |
 
 **Returns:** `void`
 
@@ -396,7 +396,7 @@ Handles all authentication concerns: Supabase login/logout, role-based admin acc
 
 ### `updateAuthUI(session, isAdmin)` *(internal)*
 
-**Purpose:** Update all auth-related UI elements (`#auth-status`, `#auth-status-header`, login/logout button states) to reflect the current session and admin state.
+**Purpose:** Update all auth-related UI elements to reflect the current session and admin state. Controls: `#auth-status`, `#auth-status-header`, `#auth-login-trigger` (header), `#auth-logout-button` (header), and the login form field/button disabled states. When signed in, shows the user's email (with `"(admin)"` suffix if applicable). When signed out, shows `"Dev mode (admin)"` or `"Not signed in"` depending on `isAdmin`.
 
 **Parameters:**
 
