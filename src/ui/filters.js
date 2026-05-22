@@ -126,10 +126,10 @@ export function applyCorrectionsToMoves(moves = [], corrections = []) {
 export function readEquipmentFilters() {
   return {
     search:       document.getElementById("search-input")?.value.trim().toLowerCase() ?? "",
-    location:     document.getElementById("location-filter")?.value ?? "All locations",
-    status:       document.getElementById("status-filter")?.value   ?? "All statuses",
-    calibration:  document.getElementById("calibration-filter")?.value ?? "All",
-    subscription: document.getElementById("subscription-filter")?.value ?? "All",
+    location:     document.getElementById("location-filter")?.value || "All locations",
+    status:       document.getElementById("status-filter")?.value   || "All statuses",
+    calibration:  document.getElementById("calibration-filter")?.value || "All",
+    subscription: document.getElementById("subscription-filter")?.value || "All",
   };
 }
 
@@ -257,8 +257,8 @@ export function getFilteredMoves(state, filters, equipmentById) {
 
     // Destination (only applies to "move" type entries)
     if (f.destination !== "All locations") {
-      if (entry.type !== "move") return false;
-      if ((entry.toLocation ?? "").trim() !== f.destination) return false;
+      //if (entry.type !== "move") return false;
+      if (entry.toLocationId !== f.destination) return false;
     }
 
     // Full-text search

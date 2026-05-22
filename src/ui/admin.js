@@ -47,10 +47,11 @@ function checked(id) {
 // ── Location + status option builders ─────────────────────────────────────────
 
 function locationOptions(locations, current = "") {
-  const locs = locations?.length ? locations : physicalLocations;
+  const raw = locations?.length ? locations : physicalLocations;
+  const locs = raw.map((l) => (typeof l === "string" ? { id: l, name: l } : l));
   return [
     opt("", "Select…"),
-    ...locs.map((l) => opt(l, l, l === current)),
+    ...locs.map((l) => opt(l.name, l.name, l.name === current)),
   ];
 }
 

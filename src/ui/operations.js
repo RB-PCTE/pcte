@@ -68,7 +68,7 @@ function renderFilterSelects(state) {
   // Location filter
   populateSelect("location-filter", [
     opt("All locations", "All locations"),
-    ...locations.map((l) => opt(l, l)),
+    ...locations.map((l) => opt(l.name, l.name)),
   ]);
 
   // Status filter
@@ -104,7 +104,7 @@ function renderMoveFormSelects(state) {
   // Destination dropdown (locations only, no "all" option)
   populateSelect("move-location", [
     opt("", "Select location…"),
-    ...locations.map((l) => opt(l, l)),
+    ...locations.map((l) => opt(l.name, l.name)),
   ]);
 
   // Status-after-move
@@ -209,7 +209,7 @@ function renderLocationSummary(state) {
 
   container.innerHTML = locations
     .map((location) => {
-      const items = equipment.filter((item) => item.location === location);
+      const items = equipment.filter((item) => item.location === location.name);
       const listItems = items.length
         ? items.map((item) => `
             <li class="summary-item">
@@ -219,9 +219,9 @@ function renderLocationSummary(state) {
         : '<li class="summary-item summary-empty">No equipment here.</li>';
 
       return `
-        <article class="location-card" tabindex="0" data-location="${escapeHTML(location)}">
+        <article class="location-card" tabindex="0" data-location="${escapeHTML(location.name)}">
           <div class="location-card-header">
-            <h4>${escapeHTML(location)}</h4>
+            <h4>${escapeHTML(location.name)}</h4>
             <span class="location-card-count">${items.length}</span>
           </div>
           <ul class="summary-list">${listItems}</ul>
@@ -518,11 +518,11 @@ async function handleMoveSubmit(event, state, { showToast, repository }) {
  * @param {object} state - full app state from repository.getState()
  */
 export function renderOperationsView(state) {
+  renderFilterSelects(state);
   const now      = new Date();
   const filtered = getFilteredEquipment(state);
 
   renderStats(filtered, state.moves, now);
-  renderFilterSelects(state);
   renderMoveFormSelects(state);
   renderEquipmentTable(filtered, state, now);
   renderLocationSummary(state);

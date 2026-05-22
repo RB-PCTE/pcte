@@ -110,7 +110,7 @@ const CORRECTION_FIELDS = [
 
 function populateCorrectionLocationSelects(state) {
   const locations = Array.isArray(state.locations) ? state.locations : [];
-  const opts = ['<option value="">Select…</option>', ...locations.map((l) => `<option value="${escapeHTML(l)}">${escapeHTML(l)}</option>`)].join("");
+  const opts = ['<option value="">Select…</option>', ...locations.map((l) => `<option value="${escapeHTML(l.id)}">${escapeHTML(l.name)}</option>`)].join("");
   const fromEl = document.getElementById("correction-from-location");
   const toEl   = document.getElementById("correction-to-location");
   if (fromEl) fromEl.innerHTML = opts;

@@ -130,6 +130,8 @@ function mapMoveFromDb(row) {
     text: row.notes ?? "",
     timestamp: row.moved_at,
     archived: row.archived ?? false,
+    fromLocationId: row.from_location_id ?? null,  
+    toLocationId:   row.to_location_id   ?? null,
     receiptData: row.move_receipts?.[0] ?? null,
   };
 }
@@ -201,7 +203,10 @@ export function createSupabaseStorageAdapter() {
         subscriptionSupabase
           .from("subscriptions")
           .select("serial_number, renewal_date"),
-        supabase.from("locations").select("name").eq("active", true).order("name"),
+        supabase
+          .from("locations")
+          .select("id, name")
+          .eq("active", true).order("name"),
       ]);
 
       if (eqRes.error) console.error("Supabase load equipment:", eqRes.error);
@@ -216,7 +221,7 @@ export function createSupabaseStorageAdapter() {
 
       return {
         schemaVersion: 2,
-        locations: (locRes.data ?? []).map((r) => r.name),
+        locations: (locRes.data ?? []).map((r) => ({ id: r.id, name: r.name })),
         equipment: (eqRes.data ?? []).map((row) =>
           mapEquipmentFromDb(row, subscriptionBySerial)
         ),

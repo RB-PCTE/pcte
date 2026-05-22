@@ -65,7 +65,7 @@ function renderMovesFilterSelects(state) {
   // Destination
   populateSelect("moves-destination-filter", [
     opt("All locations", "All destinations"),
-    ...locations.map((l) => opt(l, l)),
+    ...locations.map((l) => opt(l.id, l.name)),
   ]);
 }
 
@@ -190,16 +190,18 @@ function buildActionsCell(entry, isAdmin) {
   return actions.join(" ");
 }
 
-function buildRow(entry, equipmentById, isAdmin, showActions) {
+function buildRow(entry, equipmentById, locById, isAdmin, showActions) {
   const deleted = isEntryDeleted(entry);
   const corrections = entry._corrections ?? [];
+  const fromLocation = locById.get(entry.fromLocationId) ?? "—";
+  const toLocation   = locById.get(entry.toLocationId)   ?? "—";
 
   return `
     <tr class="${deleted ? "moves-row--deleted" : ""}">
       <td>${escapeHTML(formatDateTime(entry.timestamp))}</td>
       <td>${escapeHTML(buildEquipmentLabel(entry, equipmentById))}</td>
-      <td>${escapeHTML(entry.fromLocation?.trim() || "—")}</td>
-      <td>${escapeHTML(entry.toLocation?.trim()   || "—")}</td>
+      <td>${escapeHTML(fromLocation)}</td>
+      <td>${escapeHTML(toLocation)}</td>
       <td>${escapeHTML(getStatusChangeLabel(entry))}</td>
       <td>${escapeHTML(getReceiptDisplay(entry))}</td>
       <td>${buildConditionPill(entry)}</td>
@@ -226,6 +228,7 @@ export function renderMovesView(state, { isAdmin = false } = {}) {
   const filters      = readMovesFilters();
   const corrected    = getFilteredMoves(state, filters);
   const equipmentById = new Map((state.equipment ?? []).map((eq) => [String(eq.id), eq]));
+  const locById = new Map((state.locations ?? []).map((l) => [l.id, l.name]));
 
   const showActions = isAdmin || corrected.some((e) => isMoveAwaitingReceipt(e) && !isEntryDeleted(e));
 
@@ -251,7 +254,7 @@ export function renderMovesView(state, { isAdmin = false } = {}) {
   }
 
   tbody.innerHTML = corrected
-    .map((entry) => buildRow(entry, equipmentById, isAdmin, showActions))
+    .map((entry) => buildRow(entry, equipmentById, locById, isAdmin, showActions))
     .join("");
 }
 
