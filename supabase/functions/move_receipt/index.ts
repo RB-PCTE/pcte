@@ -54,7 +54,15 @@ serve(async (req) => {
     );
 
     const body = await req.json();
-    const { move_id, received_at, condition_result, condition_notes } = body ?? {};
+    const { move_id, received_at, condition_result, condition_notes,
+            condition_contents_ok, condition_functional_ok } = body ?? {};
+
+    // move_receipts.condition_result has a check constraint (pass/fail only).
+    // Map the full rating string from the UI to the constrained value.
+    const PASS_RATINGS = new Set(["Excellent", "Good", "Fair"]);
+    const mappedResult = condition_result
+      ? (PASS_RATINGS.has(condition_result) ? "pass" : "fail")
+      : null;
 
     if (!move_id) return json(req, 400, { error: "Missing required field: move_id" });
 
@@ -62,7 +70,7 @@ serve(async (req) => {
 
     const { data: move, error: moveErr } = await supabase
       .from("moves")
-      .select("id, equipment_id, to_location_id")
+      .select("id, equipment_id, to_location_id, status_to")
       .eq("id", move_id)
       .single();
 
@@ -75,7 +83,7 @@ serve(async (req) => {
           move_id,
           received_at: receivedAt,
           received_by: userId,
-          condition_result: condition_result ?? null,
+          condition_result: mappedResult,
           condition_notes: condition_notes ?? null,
         },
       ])
@@ -83,6 +91,27 @@ serve(async (req) => {
       .single();
 
     if (receiptErr) throw receiptErr;
+
+    // Apply the intended post-move status now that receipt is confirmed
+    const conditionPatch = condition_result ? {
+      last_condition_result:    condition_result,
+      last_condition_at:        new Date().toISOString(),
+      condition_last_checked_by: userId,
+      condition_last_notes:     condition_notes      ?? null,
+      condition_contents_ok:    condition_contents_ok  ?? null,
+      condition_functional_ok:  condition_functional_ok ?? null,
+    } : {};
+
+    const { error: stateErr } = await supabase
+      .from("equipment_state")
+      .update({
+        status:     move.status_to ?? "Available",
+        updated_at: new Date().toISOString(),
+        ...conditionPatch,
+      })
+      .eq("equipment_id", move.equipment_id);
+
+    if (stateErr) throw stateErr;
 
     return json(req, 200, { success: true, receipt, move });
   } catch (err) {

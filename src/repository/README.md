@@ -113,13 +113,15 @@ The repository wraps a storage adapter (Supabase in production, mock/localStorag
 
 ### `recordMove(payload)`
 
-**Purpose:** Add a new move entry to the moves log (prepended so newest is first).
+**Purpose:** Add a new move entry to the moves log (prepended so newest is first). Also patches the equipment item's condition fields immediately when condition data is present.
 
 **Parameters:**
 
 | Parameter | Type | Source | Description |
 |---|---|---|---|
-| `payload` | `object` | `~/src/ui/operations.js → handleMoveSubmit()` | `{ equipmentId, type, timestamp, fromLocation, toLocation, notes, … }` |
+| `payload` | `object` | `~/src/ui/operations.js → handleMoveSubmit()` | `{ equipmentId, type, timestamp, fromLocation, toLocation, notes, condition?: { rating, checkedAt, contentsOk, functionalOk, notes }, … }` |
+
+**Side effect:** When `payload.condition.rating` is truthy, patches `item.conditionRating`, `item.conditionLastCheckedAt`, `item.conditionContentsOk`, `item.conditionFunctionalOk`, and `item.conditionLastNotes` on the matching equipment item so the table re-renders instantly.
 
 **Returns:** `Promise<object>` — updated state.
 
@@ -127,14 +129,16 @@ The repository wraps a storage adapter (Supabase in production, mock/localStorag
 
 ### `recordReceipt(moveId, receiptData)`
 
-**Purpose:** Record that equipment has been physically received at its destination, including condition data.
+**Purpose:** Record that equipment has been physically received at its destination, including condition data. Also patches the equipment item's condition fields immediately when condition data is present.
 
 **Parameters:**
 
 | Parameter | Type | Source | Description |
 |---|---|---|---|
 | `moveId` | `string` | `~/src/ui/moves.js → handleMarkReceived()` | UUID of the move entry to update |
-| `receiptData` | `object` | `~/src/ui/moves.js → handleMarkReceived()` | `{ receivedAt, conditionResult, conditionNotes }` |
+| `receiptData` | `object` | `~/src/ui/moves.js → handleMarkReceived()` | `{ receivedAt, conditionResult, conditionNotes, receivedBy? }` — mapped to `move.receiptData` with snake_case keys to match the Supabase join shape |
+
+**Side effect:** When `receiptData.conditionResult` is truthy, patches `item.conditionRating`, `item.conditionLastCheckedAt`, and `item.conditionLastNotes` on the matching equipment item so the table re-renders instantly.
 
 **Returns:** `Promise<object>` — updated state.
 

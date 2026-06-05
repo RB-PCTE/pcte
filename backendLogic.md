@@ -30,14 +30,14 @@ Each entry follows this format:
 | `src/ui/toast.js` | ✅ Done | `showToast(message, type)` — appends toast to `#toast-container`, auto-dismisses after 3.5 s, click-to-dismiss |
 | `src/ui/stats.js` | ✅ Done | `renderStats(filteredEquipment, moves, now?)` — fills 6 metric card counts; syncs danger/warn card colour based on non-zero counts |
 | `src/ui/operations.js` | ✅ Done | `renderOperationsView(state)` — filter selects, equipment table, location summary, move form selects; `bindOperationsEvents({repository, showToast})` — all event listeners including move form submit |
-| `src/ui/moves.js` | ✅ Done | `renderMovesView(state, {isAdmin})` — filter selects + table; `bindMovesEvents({repository, showToast})` — mark-received (calls move_receipt edge fn), soft-delete, correction modal dispatch |
+| `src/ui/moves.js` | ✅ Done | `renderMovesView(state, {isAdmin})` — filter selects + table; `bindMovesEvents({repository, showToast})` — mark-received (dispatches `"modal:mark-received"` event), soft-delete, correction modal dispatch |
 | `src/ui/admin.js` | ✅ Done | `renderAdminView(state)` — populates equipment/location/status selects in all admin forms; `bindAdminEvents({repository, showToast})` — add equipment, edit equipment, calibration, CSV import |
-| `src/ui/modals.js` | ✅ Done | `bindModalsEvents({repository, showToast})` — condition history, correction, correction-details dialogs; all event-driven via DOM custom events |
+| `src/ui/modals.js` | ✅ Done | `bindModalsEvents({repository, showToast})` — condition history, correction, correction-details, mark-received dialogs; all event-driven via DOM custom events |
 | `src/auth.js` | ✅ Done | `initAuth({showToast})` — Supabase login/logout, `profiles.role` check, dev mode passcode, fires `"auth:admin-changed"` |
 | `src/legacy/localStorage.js` | ✅ Done | Archived adapters: `createLocalStorageStorageAdapter`, `createMockApiStorageAdapter`, migration helpers — not in main flow |
 | `src/ui/devtools.js` | ✅ Done | `initDevtools()` — reveals `#devtools-card` on admin mode, diagnostics log, edge-function test buttons |
-| `supabase/functions/move_create/` | ✅ Keep as-is | Untouched |
-| `supabase/functions/move_receipt/` | ✅ Keep as-is | Untouched |
+| `supabase/functions/move_create/` | ✅ Done | Accepts condition fields; persists them to `equipment_state` |
+| `supabase/functions/move_receipt/` | ✅ Done | Writes condition fields back to `equipment_state` on receipt |
 
 ---
 
@@ -307,9 +307,9 @@ await repository.updateEquipment(equipment.id, { status: "On hire", location: "M
 
 **What it does:** Records that a piece of equipment has moved to a new location.
 
-**How it works:** Creates a new move object with a generated UUID and unshifts it to the front of `state.moves` (so the most recent move is always first). Also updates the equipment's `location` and `status` fields. Calls `persist()`.
+**How it works:** Creates a new move object with a generated UUID and unshifts it to the front of `state.moves` (so the most recent move is always first). If `payload.condition.rating` is present, also patches the matching equipment item's condition fields (`conditionRating`, `conditionLastCheckedAt`, `conditionContentsOk`, `conditionFunctionalOk`, `conditionLastNotes`) so the equipment table updates immediately. Calls `persist()`.
 
-**Frontend suggestion:** Currently called after the `move_create` Supabase edge function succeeds. The edge function handles the DB write; this updates the in-memory state. Keep this two-step pattern for now — the edge function validates auth and does the atomic multi-table write, then this syncs the in-memory copy.
+**Frontend suggestion:** Called after the `move_create` Supabase edge function succeeds. The edge function handles the DB write (including persisting condition to `equipment_state`); this updates the in-memory state including the equipment item's condition fields so the table re-renders instantly.
 
 ---
 
@@ -317,9 +317,9 @@ await repository.updateEquipment(equipment.id, { status: "On hire", location: "M
 
 **What it does:** Records that equipment has been physically received at its destination, along with the condition it arrived in.
 
-**How it works:** Finds the move with the matching `moveId` and updates it with the receipt data object (received date, condition rating, notes). Calls `persist()`.
+**How it works:** Finds the move with the matching `moveId` and sets `move.receiptData`. If `receiptData.conditionResult` is present, also patches the matching equipment item's condition fields (`conditionRating`, `conditionLastCheckedAt`, `conditionLastNotes`) so the equipment table updates immediately. Calls `persist()`.
 
-**Frontend suggestion:** Call this when a user confirms receipt of equipment. In the new UI, this could be a "Mark as received" button on the equipment card or in the Moves tab.
+**Frontend suggestion:** Called after the `move_receipt` edge function succeeds. The edge function writes condition to `equipment_state` in the DB; this patches the in-memory equipment item so the condition badge re-renders instantly.
 
 ---
 
@@ -599,7 +599,7 @@ Handles the Admin tab: adding new equipment, editing existing equipment (includi
 6. Inserts a new row into `moves` with `created_by = userId`
 7. Sets `requires_receipt = false` only for `"workshop"` moves; all others require a receipt
 8. If shipping details are provided, inserts into `move_shipping`
-9. Upserts `equipment_state` to update `current_location_id` and `current_move_id`
+9. Upserts `equipment_state` with `current_location_id`, `current_move_id`, and — when `condition_rating` is provided — condition fields (`last_condition_result`, `last_condition_at`, `condition_contents_ok`, `condition_functional_ok`, `condition_last_checked_by`, `condition_last_notes`)
 10. Returns `{success: true, move}` with the created move object
 
 **Request body fields:**
@@ -614,6 +614,10 @@ Handles the Admin tab: adding new equipment, editing existing equipment (includi
 | `carrier` | string | Required if shipping move type |
 | `tracking_number` | string | Required if shipping move type |
 | `booked_at` | timestamptz | No |
+| `condition_rating` | string | No |
+| `condition_contents_ok` | boolean | No |
+| `condition_functional_ok` | boolean | No |
+| `condition_notes` | string | No |
 
 **Frontend suggestion:** Keep this pattern. The edge function runs with the user's JWT, so it can enforce that only authenticated users create moves, and it handles the multi-table write atomically. The new form submit handler should call this endpoint, then call `repository.recordMove()` to sync the in-memory state.
 
@@ -629,7 +633,8 @@ Handles the Admin tab: adding new equipment, editing existing equipment (includi
 3. Validates `move_id` is provided
 4. Fetches the move from the DB to confirm it exists (404 if not found)
 5. Inserts a new row into `move_receipts` with `received_by = userId`
-6. Returns `{success: true, receipt, move}` with the created receipt and the move it belongs to
+6. Updates `equipment_state` with the post-move `status` and — when `condition_result` is provided — condition fields (`last_condition_result`, `last_condition_at`, `condition_last_checked_by`, `condition_last_notes`)
+7. Returns `{success: true, receipt, move}` with the created receipt and the move it belongs to
 
 **Request body fields:**
 | Field | Type | Required? |

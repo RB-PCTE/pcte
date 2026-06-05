@@ -874,6 +874,7 @@ dialog::backdrop {
 #condition-history-modal  { max-width: 640px; }
 #correction-modal         { max-width: 540px; }
 #correction-details-modal { max-width: 540px; }
+#mark-received-modal      { max-width: 540px; }
 
 .condition-history-header {
   display: flex;

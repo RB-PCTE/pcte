@@ -87,24 +87,20 @@
                 <p id="stat-total">—</p>
               </div>
               <div class="metric-card">
+                <h3>In transit</h3>
+                <p id="stat-in-transit">—</p>
+              </div>
+              <div class="metric-card">
                 <h3>On hire</h3>
                 <p id="stat-hire">—</p>
               </div>
-              <div class="metric-card metric-card--danger">
-                <h3>Calibration overdue</h3>
-                <p id="stat-overdue">—</p>
+              <div class="metric-card">
+                <h3>Calibration</h3>
+                <p id="stat-calibration">—</p>
               </div>
-              <div class="metric-card metric-card--warn">
-                <h3>Calibration due soon</h3>
-                <p id="stat-due-soon">—</p>
-              </div>
-              <div class="metric-card metric-card--danger">
-                <h3>Subscription overdue</h3>
-                <p id="stat-overdue-subscription">—</p>
-              </div>
-              <div class="metric-card metric-card--warn">
-                <h3>Subscription due soon</h3>
-                <p id="stat-due-soon-subscription">—</p>
+              <div class="metric-card">
+                <h3>Subscription</h3>
+                <p id="stat-subscription">—</p>
               </div>
             </div>
 
@@ -1046,6 +1042,64 @@
           id="correction-details-list"
           role="list"
         ></ul>
+      </div>
+    </dialog>
+
+    <!-- Mark received — condition check at receipt -->
+    <dialog id="mark-received-modal" aria-labelledby="mark-received-title">
+      <div class="dialog-inner">
+        <h3 id="mark-received-title">Mark as received</h3>
+        <input type="hidden" id="receipt-move-id">
+        <p id="receipt-equipment-name" class="field-note"></p>
+
+        <form id="mark-received-form" novalidate>
+
+          <div class="condition-grid">
+            <label>
+              Condition rating <span class="required-star">*</span>
+              <select id="receipt-condition-rating">
+                <option value="">Select…</option>
+                <option value="Excellent">Excellent</option>
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Needs attention">Needs attention</option>
+                <option value="Unserviceable">Unserviceable</option>
+              </select>
+            </label>
+            <label>
+              Contents complete?
+              <select id="receipt-contents-ok">
+                <option value="">Select…</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+            <label>
+              Functioning correctly?
+              <select id="receipt-functional-ok">
+                <option value="">Select…</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            Condition notes
+            <textarea
+              id="receipt-condition-notes"
+              rows="3"
+              placeholder="Describe any damage, missing items, or faults…"
+            ></textarea>
+          </label>
+
+          <p id="receipt-error" class="field-error is-hidden"></p>
+
+          <div class="dialog-actions">
+            <button type="button" class="btn btn-secondary" id="receipt-cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="receipt-submit-btn">Confirm receipt</button>
+          </div>
+        </form>
       </div>
     </dialog>
 

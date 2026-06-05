@@ -46,13 +46,42 @@ export function createRepository({ adapter }) {
   function recordMove(payload) {
     return mutate((draft) => {
       draft.moves.unshift({ id: crypto.randomUUID(), ...payload });
+      if (payload.condition?.rating) {
+        const item = draft.equipment.find((e) => e.id === payload.equipmentId);
+        if (item) {
+          item.conditionRating        = payload.condition.rating;
+          item.conditionLastCheckedAt = payload.condition.checkedAt;
+          item.conditionContentsOk    = payload.condition.contentsOk  ?? null;
+          item.conditionFunctionalOk  = payload.condition.functionalOk ?? null;
+          item.conditionLastNotes     = payload.condition.notes        ?? null;
+        }
+      }
     });
   }
 
   function recordReceipt(moveId, receiptData) {
     return mutate((draft) => {
       const move = draft.moves.find((entry) => entry.id === moveId);
-      if (move) Object.assign(move, receiptData);
+      if (move) {
+        move.receiptData = {
+          received_at:          receiptData.receivedAt,
+          condition_result:     receiptData.conditionResult  ?? null,
+          condition_notes:      receiptData.conditionNotes   ?? null,
+          condition_contents_ok:  receiptData.contentsOk    ?? null,
+          condition_functional_ok: receiptData.functionalOk ?? null,
+          received_by:          receiptData.receivedBy       ?? null,
+        };
+        if (receiptData.conditionResult) {
+          const item = draft.equipment.find((e) => e.id === move.equipmentId);
+          if (item) {
+            item.conditionRating        = receiptData.conditionResult;
+            item.conditionLastCheckedAt = new Date().toISOString();
+            item.conditionContentsOk    = receiptData.contentsOk   ?? null;
+            item.conditionFunctionalOk  = receiptData.functionalOk ?? null;
+            item.conditionLastNotes     = receiptData.conditionNotes ?? null;
+          }
+        }
+      }
     });
   }
 

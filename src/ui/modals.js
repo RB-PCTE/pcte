@@ -8,11 +8,13 @@
 //   "modal:condition-history"   → detail: { item }
 //   "modal:correction"          → detail: { moveId }
 //   "modal:correction-details"  → detail: { moveId, entry }
+//   "modal:mark-received"       → detail: { moveId, equipmentName }
 //
 // Public surface:
 //   bindModalsEvents({ repository, showToast }) — called once at startup
 
 import { escapeHTML, formatDateTime } from "./computed.js";
+import { supabase } from "../supabaseClient.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -296,6 +298,116 @@ function initCorrectionDetailsModal() {
     });
 }
 
+// ── Mark received modal ───────────────────────────────────────────────────────
+// Opened from moves.js "Mark received" button.
+// Collects condition data before submitting the receipt to Supabase.
+
+const MOVE_RECEIPT_ENDPOINT =
+  "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_receipt";
+
+function initMarkReceivedModal(getDeps) {
+  // Open
+  document.addEventListener("modal:mark-received", (e) => {
+    const { moveId, equipmentName } = e.detail ?? {};
+
+    const moveIdEl = document.getElementById("receipt-move-id");
+    if (moveIdEl) moveIdEl.value = moveId ?? "";
+
+    const nameEl = document.getElementById("receipt-equipment-name");
+    if (nameEl) nameEl.textContent = equipmentName ?? "";
+
+    // Reset form and clear error
+    document.getElementById("mark-received-form")?.reset();
+    hide("receipt-error");
+
+    openDialog("mark-received-modal");
+  });
+
+  // Cancel / backdrop
+  document.getElementById("receipt-cancel-btn")
+    ?.addEventListener("click", () => closeDialog("mark-received-modal"));
+
+  document.getElementById("mark-received-modal")
+    ?.addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeDialog("mark-received-modal");
+    });
+
+  // Submit
+  document.getElementById("mark-received-form")
+    ?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const { repository, showToast } = getDeps();
+
+      const moveId     = document.getElementById("receipt-move-id")?.value ?? "";
+      const condRating = document.getElementById("receipt-condition-rating")?.value ?? "";
+      const contentsOk = document.getElementById("receipt-contents-ok")?.value ?? "";
+      const funcOk     = document.getElementById("receipt-functional-ok")?.value ?? "";
+      const condNotes  = (document.getElementById("receipt-condition-notes")?.value ?? "").trim();
+
+      const errorEl = document.getElementById("receipt-error");
+
+      if (!condRating) {
+        if (errorEl) { errorEl.textContent = "Condition rating is required."; show("receipt-error"); }
+        return;
+      }
+      hide("receipt-error");
+
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) {
+        showToast("Please sign in to receipt a move.", "error");
+        return;
+      }
+
+      const submitBtn = document.getElementById("receipt-submit-btn");
+      const originalLabel = submitBtn?.textContent ?? "Confirm receipt";
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
+
+      try {
+        const receivedAt = new Date().toISOString();
+
+        const res = await fetch(MOVE_RECEIPT_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type":  "application/json",
+            Authorization:   `Bearer ${data.session.access_token}`,
+          },
+          body: JSON.stringify({
+            move_id:                 moveId,
+            received_at:             receivedAt,
+            condition_result:        condRating,
+            condition_contents_ok:   contentsOk === "Yes" ? true : contentsOk === "No" ? false : null,
+            condition_functional_ok: funcOk     === "Yes" ? true : funcOk     === "No" ? false : null,
+            condition_notes:         condNotes  || null,
+          }),
+        });
+
+        let body = null;
+        try { body = await res.json(); } catch { /* empty */ }
+
+        if (!res.ok) {
+          const msg = body?.error ?? body?.message ?? `HTTP ${res.status}`;
+          if (errorEl) { errorEl.textContent = `Error: ${msg}`; show("receipt-error"); }
+          return;
+        }
+
+        repository.recordReceipt(moveId, {
+          receivedAt,
+          conditionResult:  condRating,
+          conditionNotes:   condNotes || null,
+          contentsOk:       contentsOk === "Yes" ? true : contentsOk === "No" ? false : null,
+          functionalOk:     funcOk     === "Yes" ? true : funcOk     === "No" ? false : null,
+        });
+
+        showToast("Move marked as received.", "success");
+        closeDialog("mark-received-modal");
+      } catch (err) {
+        if (errorEl) { errorEl.textContent = `Error: ${err.message}`; show("receipt-error"); }
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
+      }
+    });
+}
+
 // ── Main binding ──────────────────────────────────────────────────────────────
 
 /**
@@ -311,6 +423,7 @@ export function bindModalsEvents({ repository, showToast }) {
   initConditionHistoryModal();
   initCorrectionModal(getDeps);
   initCorrectionDetailsModal();
+  initMarkReceivedModal(getDeps);
 
   return {
     syncState(state) {

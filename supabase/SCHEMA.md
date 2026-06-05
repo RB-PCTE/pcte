@@ -57,6 +57,8 @@ Two separate Supabase projects are used by this application.
 | notes | text | YES | maps to app `text` |
 | requires_receipt | boolean | NO | default false |
 | archived | boolean | YES | default false |
+| status_from | text | YES | equipment status before this move |
+| status_to | text | YES | intended equipment status after receipt |
 | created_at | timestamptz | NO | now() |
 
 ### `move_receipts`
@@ -197,6 +199,10 @@ ALTER TABLE equipment ALTER COLUMN asset_tag DROP NOT NULL;
 
 ALTER TABLE moves
   ADD COLUMN IF NOT EXISTS archived boolean DEFAULT false;
+
+ALTER TABLE moves
+  ADD COLUMN IF NOT EXISTS status_from text,
+  ADD COLUMN IF NOT EXISTS status_to   text;
 
 CREATE TABLE IF NOT EXISTS corrections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

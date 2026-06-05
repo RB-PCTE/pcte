@@ -441,11 +441,19 @@ async function handleMoveSubmit(event, state, { showToast, repository }) {
       from_location_id: await getSupabaseLocationID(item.location),
       to_location_id:   await getSupabaseLocationID(toLocation),
       move_type:        moveType,
-      moved_at:         shipDate ? new Date(`${shipDate}T00:00:00.000Z`).toISOString() : new Date().toISOString(),
+      moved_at:         new Date().toISOString(),
       notes:            notes || null,
       carrier:          carrier  || null,
       tracking_number:  tracking || null,
       booked_at:        new Date().toISOString(),
+      status_from:      item.status || null,
+      status_to:        statusValue || "Available",
+      ...(condRating ? {
+        condition_rating:        condRating,
+        condition_contents_ok:   contentsOk === "Yes" ? true : contentsOk === "No" ? false : null,
+        condition_functional_ok: funcOk     === "Yes" ? true : funcOk     === "No" ? false : null,
+        condition_notes:         condNotes || null,
+      } : {}),
     };
 
     const res = await fetch(MOVE_CREATE_ENDPOINT, {
@@ -474,9 +482,10 @@ async function handleMoveSubmit(event, state, { showToast, repository }) {
       id:              moveId,
       equipmentId:     equipmentId,
       equipmentSnapshot: { name: item.name, model: item.model, serialNumber: item.serialNumber },
-      type:            "move",
+      type:            moveType,
       fromLocation:    item.location,
       toLocation:      toLocation,
+      statusFrom:      item.status || null,
       statusTo:        statusValue || "Available",
       condition: condRating ? {
         rating:      condRating,

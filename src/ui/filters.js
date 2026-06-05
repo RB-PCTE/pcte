@@ -217,8 +217,10 @@ export function isEntryDeleted(entry) {
  * @param {object} entry - move entry (possibly with corrections applied)
  * @returns {boolean}
  */
+const PHYSICAL_MOVE_TYPES = new Set(["move", "hire_out", "hire_return", "office_transfer", "workshop"]);
+
 export function isMoveAwaitingReceipt(entry) {
-  if (!entry || entry.type !== "move") return false;
+  if (!entry || !PHYSICAL_MOVE_TYPES.has(entry.type)) return false;
   return !entry.receiptData;
 }
 

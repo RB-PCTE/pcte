@@ -18,12 +18,6 @@ import {
 } from "./filters.js";
 
 import { moveTypeOptions } from "../model.js";
-import { supabase } from "../supabaseClient.js";
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const MOVE_RECEIPT_ENDPOINT =
-  "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_receipt";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -149,24 +143,16 @@ function buildEquipmentLabel(entry, equipmentById) {
   return "Unknown equipment";
 }
 
-// Per-move in-flight receipt state (cleared on re-render)
-const _receiptStatus = new Map(); // moveId → { state, message }
-
 function buildActionsCell(entry, isAdmin) {
   const actions = [];
   const awaiting = isMoveAwaitingReceipt(entry) && !isEntryDeleted(entry);
 
   if (awaiting) {
-    const rs = _receiptStatus.get(entry.id);
-    const isSending = rs?.state === "sending";
     actions.push(
-      `<button class="btn btn-sm" type="button" data-action="mark-received" data-id="${escapeHTML(entry.id)}" ${isSending ? "disabled" : ""}>
-        ${isSending ? "Saving…" : "Mark received"}
+      `<button class="btn btn-sm" type="button" data-action="mark-received" data-id="${escapeHTML(entry.id)}">
+        Mark received
       </button>`
     );
-    if (rs?.message) {
-      actions.push(`<span class="field-note">${escapeHTML(rs.message)}</span>`);
-    }
   }
 
   if (isAdmin && !isEntryDeleted(entry)) {
@@ -260,54 +246,12 @@ export function renderMovesView(state, { isAdmin = false } = {}) {
 
 // ── Mark received ─────────────────────────────────────────────────────────────
 
-async function handleMarkReceived(moveId, state, { showToast, repository, rerenderFn }) {
-  if (_receiptStatus.get(moveId)?.state === "sending") return;
-
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session) {
-    showToast("Please sign in to receipt a move.", "error");
-    return;
-  }
-
-  _receiptStatus.set(moveId, { state: "sending", message: "Saving…" });
-  rerenderFn();
-
-  try {
-    const receivedAt = new Date().toISOString();
-    const res = await fetch(MOVE_RECEIPT_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${data.session.access_token}`,
-      },
-      body: JSON.stringify({
-        move_id: moveId,
-        received_at: receivedAt,
-        condition_result: "pass",
-        condition_notes: "",
-      }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || `HTTP ${res.status}`);
-    }
-
-    // Update local state
-    repository.recordReceipt(moveId, {
-      receivedAt,
-      conditionResult: "pass",
-      conditionNotes: "",
-    });
-
-    _receiptStatus.set(moveId, { state: "success", message: "Received ✓" });
-    showToast("Move marked as received.", "success");
-  } catch (err) {
-    _receiptStatus.set(moveId, { state: "error", message: `Error: ${err.message}` });
-    showToast(`Receipt failed: ${err.message}`, "error");
-  } finally {
-    rerenderFn();
-  }
+function handleMarkReceived(moveId, state) {
+  const entry = (state.moves ?? []).find((m) => m.id === moveId);
+  const equipmentName = entry?.equipmentSnapshot?.name ?? entry?.equipmentId ?? "Unknown";
+  document.dispatchEvent(
+    new CustomEvent("modal:mark-received", { detail: { moveId, equipmentName } })
+  );
 }
 
 // ── Soft delete ───────────────────────────────────────────────────────────────
@@ -368,7 +312,7 @@ export function bindMovesEvents({ repository, showToast }) {
     const { action, id } = btn.dataset;
 
     if (action === "mark-received") {
-      await handleMarkReceived(id, _state, { showToast, repository, rerenderFn: rerender });
+      handleMarkReceived(id, _state);
     }
 
     if (action === "add-correction") {

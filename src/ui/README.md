@@ -269,7 +269,7 @@ Reads filter values from the DOM and applies them to in-memory state arrays. Als
 
 ### `isMoveAwaitingReceipt(entry)`
 
-**Purpose:** Return `true` if a move entry is of a type that requires a receipt and has not yet been receipted.
+**Purpose:** Return `true` if a move entry is a physical move type (`"move"`, `"hire_out"`, `"hire_return"`, `"office_transfer"`, `"workshop"`) and has not yet been receipted (`receiptData` is null/falsy).
 
 **Parameters:**
 
@@ -546,21 +546,18 @@ Renders the Moves Log view and handles the mark-received and soft-delete actions
 
 ---
 
-### `handleMarkReceived(moveId, state, { showToast, repository, rerenderFn })` *(internal)*
+### `handleMarkReceived(moveId, state)` *(internal)*
 
-**Purpose:** Post to the `move_receipt` Supabase edge function with the user's JWT to mark a move as received, then update local state via `repository.recordReceipt`.
+**Purpose:** Dispatch a `"modal:mark-received"` custom event to open the receipt condition modal. The actual API call and state update happen inside `modals.js` once the user confirms.
 
 **Parameters:**
 
 | Parameter | Type | Source | Description |
 |---|---|---|---|
 | `moveId` | `string` | DOM button `data-id` attribute | UUID of the move to receipt |
-| `state` | `object` | `~/src/repository/index.js → getState()` | Current app state |
-| `showToast` | `Function` | `~/src/ui/toast.js → showToast` | For feedback |
-| `repository` | `object` | `~/src/repository/index.js → createRepository()` | For `recordReceipt()` |
-| `rerenderFn` | `Function` | `~/src/ui/moves.js → bindMovesEvents()` | Triggers a re-render of the moves table |
+| `state` | `object` | `~/src/repository/index.js → getState()` | Current app state (used to look up equipment name for modal title) |
 
-**Returns:** `Promise<void>`
+**Returns:** `void`
 
 ---
 
@@ -814,7 +811,7 @@ All dialog (modal) behaviour. Three dialogs are managed here, each opened by a D
 
 ### `bindModalsEvents({ repository, showToast })`
 
-**Purpose:** Initialise all three dialog listeners. Called once at startup. Returns a controller for state sync.
+**Purpose:** Initialise all four dialog listeners (condition history, correction, correction details, mark received). Called once at startup. Returns a controller for state sync.
 
 **Parameters:**
 

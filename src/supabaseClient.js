@@ -130,8 +130,10 @@ function mapMoveFromDb(row) {
     text: row.notes ?? "",
     timestamp: row.moved_at,
     archived: row.archived ?? false,
-    fromLocationId: row.from_location_id ?? null,  
+    fromLocationId: row.from_location_id ?? null,
     toLocationId:   row.to_location_id   ?? null,
+    statusFrom:     row.status_from      ?? null,
+    statusTo:       row.status_to        ?? null,
     receiptData: row.move_receipts?.[0] ?? null,
   };
 }
@@ -145,7 +147,9 @@ function mapMoveToDb(move) {
     moved_at: move.timestamp,
     archived: move.archived ?? false,
     ...(move.fromLocationId ? { from_location_id: move.fromLocationId } : {}),
-    ...(move.toLocationId ? { to_location_id: move.toLocationId } : {}),
+    ...(move.toLocationId   ? { to_location_id:   move.toLocationId   } : {}),
+    status_from: move.statusFrom ?? null,
+    status_to:   move.statusTo   ?? null,
   };
 }
 

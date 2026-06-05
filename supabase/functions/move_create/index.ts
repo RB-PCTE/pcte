@@ -59,6 +59,12 @@ serve(async (req) => {
       carrier,
       tracking_number,
       booked_at,
+      status_from,
+      status_to,
+      condition_rating,
+      condition_contents_ok,
+      condition_functional_ok,
+      condition_notes,
     } = body;
 
     if (!equipment_id || !move_type || !to_location_id || !moved_at) {
@@ -86,6 +92,8 @@ serve(async (req) => {
           created_by: userId,
           notes: notes ?? null,
           requires_receipt: move_type !== "workshop",
+          status_from: status_from ?? null,
+          status_to:   status_to   ?? null,
         },
       ])
       .select()
@@ -105,12 +113,22 @@ serve(async (req) => {
       if (shipError) throw shipError;
     }
 
+    const conditionPatch = condition_rating ? {
+      last_condition_result:    condition_rating,
+      last_condition_at:        new Date().toISOString(),
+      condition_contents_ok:    condition_contents_ok  ?? null,
+      condition_functional_ok:  condition_functional_ok ?? null,
+      condition_last_checked_by: userId,
+      condition_last_notes:     condition_notes ?? null,
+    } : {};
+
     const { error: stateError } = await supabase.from("equipment_state").upsert([
       {
         equipment_id,
         current_location_id: to_location_id,
         current_move_id: move.id,
         updated_at: new Date().toISOString(),
+        ...conditionPatch,
       },
     ]);
 
