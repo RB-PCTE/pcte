@@ -16,7 +16,7 @@ import { showToast } from "./ui/toast.js";
 
 // ── Build version ─────────────────────────────────────────────────────────────
 // Update this string before each deployment.
-export const BUILD_VERSION = "2026-05-08.v03  — Steps 13+14: legacy + devtools";
+export const BUILD_VERSION = "2026-05-08.v04  — Steps 13+14: legacy + devtools";
 
 // ── Repository ────────────────────────────────────────────────────────────────
 // Single shared repository instance used by all UI modules.
