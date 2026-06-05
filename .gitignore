@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Supabase CLI
+.supabase/
+supabase/.temp/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# OS clutter
+.DS_Store
+Thumbs.db
+
+# Editor metadata
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Claude Code internal state
+.claude/
