@@ -46,9 +46,12 @@ export function createRepository({ adapter }) {
   function recordMove(payload) {
     return mutate((draft) => {
       draft.moves.unshift({ id: crypto.randomUUID(), ...payload });
-      if (payload.condition?.rating) {
-        const item = draft.equipment.find((e) => e.id === payload.equipmentId);
-        if (item) {
+      const item = draft.equipment.find((e) => e.id === payload.equipmentId);
+      if (item) {
+        // Keep local location in sync with the destination so the table and the
+        // next adapter.save() match what move_create wrote to the DB.
+        if (payload.toLocation) item.location = payload.toLocation;
+        if (payload.condition?.rating) {
           item.conditionRating        = payload.condition.rating;
           item.conditionLastCheckedAt = payload.condition.checkedAt;
           item.conditionContentsOk    = payload.condition.contentsOk  ?? null;
@@ -63,6 +66,11 @@ export function createRepository({ adapter }) {
     return mutate((draft) => {
       const move = draft.moves.find((entry) => entry.id === moveId);
       if (move) {
+        // On receipt the item has arrived — settle its location on the destination.
+        if (move.toLocation) {
+          const arrived = draft.equipment.find((e) => e.id === move.equipmentId);
+          if (arrived) arrived.location = move.toLocation;
+        }
         move.receiptData = {
           received_at:          receiptData.receivedAt,
           condition_result:     receiptData.conditionResult  ?? null,

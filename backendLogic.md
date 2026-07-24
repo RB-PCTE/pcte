@@ -444,11 +444,11 @@ const locationId = loc?.id;
 
 ---
 
-### `mapEquipmentStateToDb(eq)` ★★★★★
+### `mapEquipmentStateToDb(eq, locationIdByName)` ★★★★★
 
 **What it does:** Converts an app equipment object into the format the `equipment_state` table expects.
 
-**How it works:** Picks the fields that belong in `equipment_state` (status, condition data, checklists, etc.) and renames them to snake_case column names.
+**How it works:** Picks the fields that belong in `equipment_state` (status, condition data, checklists, etc.) and renames them to snake_case column names. Also resolves the item's location **name** (`eq.location`) to its DB **uuid** via the `locationIdByName` map (built in `save()` from `state.locations`) and includes `current_location_id` only when the name resolves — an unresolved name (blank, or a pseudo-location like "On hire") is omitted so the column is left untouched on upsert rather than nulled.
 
 **Frontend suggestion:** Keep as-is. The split between `equipment` and `equipment_state` is a DB design choice — this function hides that complexity from the rest of the app.
 
@@ -517,13 +517,15 @@ Returns one assembled state object: `{ equipment, moves, corrections, locations 
 
 **What it does:** Writes the current in-memory state back to all the Supabase tables.
 
-**How it works:** Fires 4 parallel upserts (create-or-update based on `id`):
-1. `equipment` table — upserts using `mapEquipmentToDb`
-2. `equipment_state` table — upserts using `mapEquipmentStateToDb`
+**How it works:** Writes the **parent** `equipment` table first and awaits it, then fires the **child** tables in parallel:
+1. `equipment` table — upserts using `mapEquipmentToDb` (awaited first)
+2. `equipment_state` table — upserts using `mapEquipmentStateToDb` (passed a `locationIdByName` map)
 3. `moves` table — upserts using `mapMoveToDb`
 4. `corrections` table — upserts using `mapCorrectionToDb`
 
-Each upsert uses `onConflict: "id"` so existing rows are updated and new rows are created.
+The ordering matters: `equipment_state.equipment_id` and `moves.equipment_id` are FKs → `equipment.id`. If a brand-new item's child row is written concurrently with its parent, the child insert loses the race and is rejected with a foreign-key violation (which previously left new items with no `equipment_state` row). Writing the parent first prevents this. Errors from every table are logged with the table name.
+
+`equipment`/`corrections`/`moves` upserts use `onConflict: "id"`; `equipment_state` uses `onConflict: "equipment_id"` (its primary key).
 
 **Frontend suggestion:** Keep as-is. One future improvement: save only the changed records (delta saves) rather than re-upsetting everything every time. This would make writes faster as the equipment list grows.
 

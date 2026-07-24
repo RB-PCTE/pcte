@@ -105,9 +105,19 @@ function mapEquipmentToDb(eq) {
   };
 }
 
-function mapEquipmentStateToDb(eq) {
+function mapEquipmentStateToDb(eq, locationIdByName = new Map()) {
+  // Resolve the item's location NAME to its DB uuid. Only include
+  // `current_location_id` when the name maps to a real row — a blank location or
+  // a pseudo-location like "On hire" resolves to undefined, so we omit the key
+  // and leave the column untouched on upsert rather than nulling it.
+  const currentLocationId = locationIdByName.get(eq.location);
+  const locationPatch = currentLocationId
+    ? { current_location_id: currentLocationId }
+    : {};
+
   return {
     equipment_id: eq.id,
+    ...locationPatch,
     status: eq.status ?? "Available",
     last_condition_result: eq.conditionRating ?? null,
     last_condition_at: eq.conditionLastCheckedAt ?? null,
@@ -235,15 +245,27 @@ export function createSupabaseStorageAdapter() {
     },
 
     async save(state) {
-      const results = await Promise.all([
-        supabase
-          .from("equipment")
-          .upsert(state.equipment.map(mapEquipmentToDb), { onConflict: "id" }),
+      // Location names live in app state; equipment_state stores location ids.
+      const locationIdByName = new Map(
+        (state.locations ?? []).map((l) => [l.name, l.id])
+      );
+
+      // equipment_state.equipment_id and moves.equipment_id are FKs → equipment.id.
+      // The parent equipment rows must be committed BEFORE the child rows are
+      // written, otherwise a brand-new item's child insert loses the race and is
+      // rejected with a foreign-key violation. Write the parent first, await it,
+      // then write the children in parallel.
+      const equipmentRes = await supabase
+        .from("equipment")
+        .upsert(state.equipment.map(mapEquipmentToDb), { onConflict: "id" });
+
+      const childResults = await Promise.all([
         supabase
           .from("equipment_state")
-          .upsert(state.equipment.map(mapEquipmentStateToDb), {
-            onConflict: "equipment_id",
-          }),
+          .upsert(
+            state.equipment.map((eq) => mapEquipmentStateToDb(eq, locationIdByName)),
+            { onConflict: "equipment_id" }
+          ),
         supabase
           .from("moves")
           .upsert(state.moves.map(mapMoveToDb), { onConflict: "id" }),
@@ -253,8 +275,10 @@ export function createSupabaseStorageAdapter() {
             onConflict: "id",
           }),
       ]);
-      results.forEach(({ error }, i) => {
-        if (error) console.error(`Supabase save error [table ${i}]:`, error);
+
+      const labels = ["equipment", "equipment_state", "moves", "corrections"];
+      [equipmentRes, ...childResults].forEach(({ error }, i) => {
+        if (error) console.error(`Supabase save error [${labels[i]}]:`, error);
       });
     },
 

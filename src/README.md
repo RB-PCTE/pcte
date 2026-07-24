@@ -194,7 +194,7 @@ All Supabase connectivity lives here: both database clients, every DB↔app fiel
 
 **Returns:** `object` — adapter with:
 - `load()` → `Promise<object>` — runs 5 parallel Supabase queries and assembles full state
-- `save(state)` → `Promise<void>` — upserts equipment, equipment_state, moves, and corrections
+- `save(state)` → `Promise<void>` — upserts the parent `equipment` table first (awaited), then the child tables (`equipment_state`, `moves`, `corrections`) in parallel. Ordering avoids FK violations on brand-new items. Resolves each item's location name to `current_location_id` via a `state.locations` name→uuid map.
 - `clear()` → `Promise<void>` — no-op (Supabase data is not cleared from the client)
 
 ---
