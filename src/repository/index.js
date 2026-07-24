@@ -48,9 +48,11 @@ export function createRepository({ adapter }) {
       draft.moves.unshift({ id: crypto.randomUUID(), ...payload });
       const item = draft.equipment.find((e) => e.id === payload.equipmentId);
       if (item) {
-        // Keep local location in sync with the destination so the table and the
-        // next adapter.save() match what move_create wrote to the DB.
+        // Keep local location + status in sync with the move so the table and the
+        // next adapter.save() match what the edge functions wrote to the DB —
+        // otherwise save() would clobber them with stale values.
         if (payload.toLocation) item.location = payload.toLocation;
+        item.status = payload.statusTo ?? "Available";
         if (payload.condition?.rating) {
           item.conditionRating        = payload.condition.rating;
           item.conditionLastCheckedAt = payload.condition.checkedAt;
@@ -66,10 +68,12 @@ export function createRepository({ adapter }) {
     return mutate((draft) => {
       const move = draft.moves.find((entry) => entry.id === moveId);
       if (move) {
-        // On receipt the item has arrived — settle its location on the destination.
-        if (move.toLocation) {
-          const arrived = draft.equipment.find((e) => e.id === move.equipmentId);
-          if (arrived) arrived.location = move.toLocation;
+        // On receipt the item has arrived — settle its location and status so the
+        // next save() reinforces move_receipt's write instead of clobbering it.
+        const arrived = draft.equipment.find((e) => e.id === move.equipmentId);
+        if (arrived) {
+          if (move.toLocation) arrived.location = move.toLocation;
+          arrived.status = move.statusTo ?? "Available";
         }
         move.receiptData = {
           received_at:          receiptData.receivedAt,

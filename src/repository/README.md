@@ -113,7 +113,7 @@ The repository wraps a storage adapter (Supabase in production, mock/localStorag
 
 ### `recordMove(payload)`
 
-**Purpose:** Add a new move entry to the moves log (prepended so newest is first). Also sets the equipment item's `location` to the destination (`payload.toLocation`) so the table and the next `save()` match the DB, and patches the item's condition fields immediately when condition data is present.
+**Purpose:** Add a new move entry to the moves log (prepended so newest is first). Also sets the equipment item's `location` to the destination (`payload.toLocation`) and its `status` to the post-move target (`payload.statusTo ?? "Available"`) so the table and the next `save()` match what the edge functions wrote (rather than clobbering them with stale values), and patches the item's condition fields immediately when condition data is present.
 
 **Parameters:**
 
@@ -129,7 +129,7 @@ The repository wraps a storage adapter (Supabase in production, mock/localStorag
 
 ### `recordReceipt(moveId, receiptData)`
 
-**Purpose:** Record that equipment has been physically received at its destination, including condition data. Settles the equipment item's `location` on the received move's `toLocation`, and also patches the item's condition fields immediately when condition data is present.
+**Purpose:** Record that equipment has been physically received at its destination, including condition data. Settles the equipment item's `location` on the received move's `toLocation` and its `status` on `move.statusTo ?? "Available"` (matching the `move_receipt` edge function), and also patches the item's condition fields immediately when condition data is present.
 
 **Parameters:**
 
