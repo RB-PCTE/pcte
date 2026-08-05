@@ -625,6 +625,56 @@
                    endpoint (routers/equipment.py has only POST and PATCH).
                    Restore this card once POST /equipment/import exists. -->
 
+              <!-- ── Locations ── -->
+              <div class="card admin-card--wide">
+                <div class="card-header">
+                  <div>
+                    <h3 style="margin:0;">Locations</h3>
+                    <p style="margin:0; color: var(--color-text-secondary); font-size: var(--font-size-sm);">
+                      Feeds the home-location and move-destination lists. Deactivating
+                      keeps the location and its move history — it just stops appearing
+                      as a choice.
+                    </p>
+                  </div>
+                </div>
+
+                <form id="add-location-form" class="move-form-grid" novalidate>
+                  <label>
+                    Name
+                    <input type="text" id="new-location-name" placeholder="e.g. Adelaide" />
+                    <span id="new-location-name-error" class="field-error is-hidden">
+                      Location name is required.
+                    </span>
+                  </label>
+                  <label>
+                    Category
+                    <select id="new-location-category"></select>
+                    <span id="new-location-category-error" class="field-error is-hidden">
+                      Category is required.
+                    </span>
+                  </label>
+                  <div>
+                    <button type="submit" id="add-location-submit">Add location</button>
+                  </div>
+                </form>
+
+                <div class="table-wrap" style="margin-top: var(--space-4);">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="locations-table">
+                      <!-- Rendered by src/ui/admin.js -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <!-- ── Dev tools (hidden until dev mode active) ── -->
               <div class="card is-hidden" id="devtools-card">
                 <div class="card-header">

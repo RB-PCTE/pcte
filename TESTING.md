@@ -53,6 +53,20 @@ origin listed in the backend's `ALLOWED_ORIGINS`.
 - [ ] Request body has no `condition_contents_ok`, `condition_functional_ok` or `received_by`.
 - [ ] After receipt: location, status and the condition badge all update.
 
+## Locations (admin only)
+
+- [ ] Create a location — it appears in the table with its category as a label
+      (e.g. "Office", not `office`).
+- [ ] Edit one location's category only — the `PUT` body still carries the
+      unchanged `name` and `active` (full replace, not a partial patch).
+- [ ] Deactivate — `confirm()` fires; the row stays in the table, dimmed, with an
+      "Inactive" pill. Reactivate returns it to Active.
+- [ ] A new location is immediately selectable as an equipment home location and
+      a move destination; a deactivated one drops out of both, but still appears
+      in the Moves-log destination filter.
+- [ ] Empty name or unselected category blocks submit with an inline error and
+      fires no network request.
+
 ## Regression
 
 - [ ] No UI element anywhere references corrections; no console errors on any view.

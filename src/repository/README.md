@@ -133,6 +133,57 @@ There is no local draft, no optimistic patch, and no `save()`. The previous vers
 
 ---
 
+### `createLocation(payload)`
+
+**Purpose:** `POST /locations`. Admin-only server-side.
+
+**Parameters:**
+
+| Parameter | Type | Source | Description |
+|---|---|---|---|
+| `payload` | `object` | `~/src/ui/admin.js → handleAddLocationSubmit()` | `{ name, category }` |
+
+**Returns:** `Promise<object>` — the created `LocationOut`.
+
+> `active` is deliberately omitted — the server defaults it to `true`, and there is no reason to create a location already switched off.
+
+---
+
+### `updateLocation(id, payload)`
+
+**Purpose:** `PUT /locations/{id}`. Admin-only server-side.
+
+**Parameters:**
+
+| Parameter | Type | Source | Description |
+|---|---|---|---|
+| `id` | `string` | `~/src/ui/admin.js` | Location UUID |
+| `payload` | `object` | `handleSaveLocation()` / `handleReactivateLocation()` | `{ name, category, active }` — **all three required** |
+
+**Returns:** `Promise<object>`
+
+> PUT is a **full replace**, not a partial patch. All three fields must be sent on every call even when only one changed; omitting one is a 422. Callers send the row's current values for whatever they aren't touching.
+>
+> This is also how a location is reactivated — same endpoint, `active: true`. There is no separate `reactivateLocation`: a second method wrapping the identical call would only add somewhere for the two to drift apart.
+
+---
+
+### `deactivateLocation(id)`
+
+**Purpose:** `DELETE /locations/{id}`. Admin-only server-side.
+
+**Parameters:**
+
+| Parameter | Type | Source | Description |
+|---|---|---|---|
+| `id` | `string` | `~/src/ui/admin.js → handleDeactivateLocation()` | Location UUID |
+
+**Returns:** `Promise<object>` — the updated row with `active: false`.
+
+> Soft delete. The row is never removed and every move referencing it stays intact. A `200` carrying `active: false` is the **success** path, not an error.
+
+---
+
 ## Removed in step 7a
 
 | Method | Why |

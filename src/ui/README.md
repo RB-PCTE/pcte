@@ -139,15 +139,17 @@ Wire the filter controls and the delegated "Mark received" button, which dispatc
 
 ## `admin.js`
 
-Admin view: add equipment, edit equipment, record calibration.
+Admin view: add equipment, edit equipment, record calibration, manage locations.
+
+Everything in this file lives inside `#admin-panels-grid`, which `auth.js` hides wholesale for non-admins. There is no per-control gating — the backend enforces admin access on the write endpoints independently, so the visibility rule here is UX rather than security.
 
 Removed in step 7a: CSV import (no bulk-create endpoint), subscription fields (no DB-B data), the condition checklist (no backend concept), and the status/location controls (owned by `equipment_state`, changed only through moves).
 
 ### `renderAdminView(state)`
-Populate the category, location, and equipment selects in all three forms.
+Populate the category, location, and equipment selects in all forms, and render the locations table.
 
-### `locationOptions(state, current?)` / `categoryOptions(current?)` / `equipmentOptions(equipment, current?)` *(internal)*
-Option builders. Locations are filtered to `active`.
+### `locationOptions(state, current?)` / `categoryOptions(current?)` / `locationCategoryOptions(current?)` / `equipmentOptions(equipment, current?)` *(internal)*
+Option builders. `locationOptions` (which locations an item can live at) filters to `active`; `locationCategoryOptions` builds the `location_category` select for the locations card.
 
 ### `getCalibrationIntervalMonths(prefix)` *(internal)*
 Read the interval select, resolving `"custom"` against the paired number input. **Returns** `number|null`.
@@ -167,8 +169,32 @@ Validate, then `repository.updateEquipment` with an `EquipmentPatchIn` payload. 
 ### `handleCalibrationSubmit(e, state, { repository, showToast })` *(internal)*
 Call `repository.recordCalibration`, which PATCHes the equipment row. This no longer creates a Moves-log entry.
 
+### Locations
+
+Unlike equipment, locations are a short, slow-changing list, so the whole table is on screen and edited **in place** rather than loaded into a form.
+
+#### `renderLocationsTable(state)` *(internal)*
+Four columns: Name, Category (mapped through `LOCATION_CATEGORY`), Status, Actions. Sorted active-first then alphabetically. Inactive rows are **shown**, dimmed with `.locations-row--inactive` and an "Inactive" pill — a deactivated location still owns move history, and hiding it makes "why can't I pick Perth any more?" unanswerable from the UI.
+
+#### `_editingLocationId` *(module state)*
+The row currently open in the inline editor. `renderAdminView` re-runs on every `"state:changed"` — including changes this card didn't cause — which would otherwise wipe an open editor mid-typing. Rendering re-opens the row this points at.
+
+#### `buildLocationRow(location)` / `locationRowActions(location)` *(internal)*
+In edit mode the Name and Category cells become an `<input>` and a `<select>`, and the actions become Save / Cancel. Otherwise: Edit, plus Deactivate or Reactivate depending on `active`.
+
+#### `handleAddLocationSubmit(e, { repository, showToast })` *(internal)*
+Validate name and category, then `repository.createLocation({ name, category })`. `active` is not sent — the server defaults it.
+
+#### `handleSaveLocation(id, state, { repository, showToast })` *(internal)*
+Always sends the complete `{ name, category, active }`, because PUT is a full replace. `active` is carried over unchanged — editing never flips it; that's what Deactivate/Reactivate are for.
+
+`_editingLocationId` is cleared **before** the call, not after: `updateLocation` refetches and emits, which re-renders the table. Clearing afterwards would render the row as an open editor one last time. On failure the flag is restored and the DOM is left alone, so what was typed isn't discarded.
+
+#### `handleDeactivateLocation` / `handleReactivateLocation` *(internal)*
+`window.confirm()` then `deactivateLocation` (soft delete) or `updateLocation` with `active: true` and the row's existing name and category.
+
 ### `bindAdminEvents({ repository, showToast })`
-Wire the calibration toggles, live duplicate-name/serial warnings, the edit-form select, cancel, and all three submits. **Returns** `{ syncState(state) }`.
+Wire the calibration toggles, live duplicate-name/serial warnings, the edit-form select, cancel, all three equipment submits, the add-location form, and a delegated click handler on `#locations-table` for the five `data-action` values. **Returns** `{ syncState(state) }`.
 
 ---
 

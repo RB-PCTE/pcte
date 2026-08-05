@@ -709,12 +709,35 @@ tbody tr {
   color: var(--color-text-secondary);
 }
 
-/* ── Correction Modal ──────────────────────────────────────── */
 /* ── Admin Panel ───────────────────────────────────────────── */
 .admin-panels-grid {
   display: grid;
   gap: var(--space-5);
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+/* Cards holding a table need the full grid width — a four-column table in a
+   340px auto-fit cell is unreadable. */
+.admin-card--wide {
+  grid-column: 1 / -1;
+}
+
+/* ── Locations table ───────────────────────────────────────── */
+.locations-row--inactive {
+  opacity: 0.55;
+}
+
+/* Keep the inline editor's input and select from stretching the row height. */
+.locations-edit-input,
+.locations-edit-select {
+  width: 100%;
+  min-width: 120px;
+}
+
+.locations-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 /* ── CSV Import ────────────────────────────────────────────── */

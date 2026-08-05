@@ -100,6 +100,45 @@ export function createRepository({ api = { apiFetch, loadState } } = {}) {
     return updateEquipment(equipmentId, payload);
   }
 
+  /**
+   * Create a location. Admin-only server-side.
+   * `active` is omitted deliberately — the server defaults it to true, and
+   * there is no reason to create a location already switched off.
+   * @param {{name: string, category: string}} payload
+   */
+  function createLocation(payload) {
+    return commit(() => api.apiFetch("/locations", { method: "POST", body: payload }));
+  }
+
+  /**
+   * Replace a location.
+   *
+   * PUT is a **full replace**, not a partial patch: `name`, `category` and
+   * `active` are all required on every call, even when only one of them
+   * changed. Callers must send the row's current values for the fields they
+   * aren't touching.
+   *
+   * This is also how a location is reactivated — same endpoint, `active: true`.
+   * A separate `reactivateLocation` wrapping the identical call would only add
+   * somewhere for the two to drift apart.
+   *
+   * @param {string} id
+   * @param {{name: string, category: string, active: boolean}} payload
+   */
+  function updateLocation(id, payload) {
+    return commit(() => api.apiFetch(`/locations/${id}`, { method: "PUT", body: payload }));
+  }
+
+  /**
+   * Deactivate a location. Soft delete — the server sets `active = false` and
+   * returns the updated row; it is never removed, and every move referencing it
+   * stays intact.
+   * @param {string} id
+   */
+  function deactivateLocation(id) {
+    return commit(() => api.apiFetch(`/locations/${id}`, { method: "DELETE" }));
+  }
+
   return {
     hydrate,
     getState,
@@ -108,5 +147,8 @@ export function createRepository({ api = { apiFetch, loadState } } = {}) {
     recordMove,
     recordReceipt,
     recordCalibration,
+    createLocation,
+    updateLocation,
+    deactivateLocation,
   };
 }

@@ -1,8 +1,13 @@
-// src/ui/admin.js — Admin view: add equipment, edit equipment, record calibration.
+// src/ui/admin.js — Admin view: add/edit equipment, record calibration, manage locations.
 //
 // Public surface:
 //   renderAdminView(state)                      — called on every state:changed
 //   bindAdminEvents({ repository, showToast })  — called once at startup
+//
+// Everything in this file lives inside #admin-panels-grid, which auth.js hides
+// wholesale for non-admins. There is no per-control gating — the backend
+// enforces admin access on the write endpoints independently, so the visibility
+// rule here is UX rather than security.
 //
 // Removed in step 7a:
 //   • CSV import — no bulk-create endpoint exists yet (POST and PATCH only).
@@ -12,7 +17,7 @@
 //     by equipment_state and change only through the move endpoints.
 
 import { escapeHTML, equipmentLabel } from "./computed.js";
-import { EQUIPMENT_CATEGORY, options } from "../enums.js";
+import { EQUIPMENT_CATEGORY, LOCATION_CATEGORY, display, options } from "../enums.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +67,13 @@ function categoryOptions(current = "") {
   ];
 }
 
+function locationCategoryOptions(current = "") {
+  return [
+    opt("", "Select…"),
+    ...options(LOCATION_CATEGORY).map((o) => opt(o.value, o.label, o.value === current)),
+  ];
+}
+
 function equipmentOptions(equipment, current = "") {
   return [
     opt("", "Select…"),
@@ -88,6 +100,9 @@ export function renderAdminView(state) {
 
   const calCurrent = val("calibration-equipment");
   populateSelect("calibration-equipment", equipmentOptions(equipment, calCurrent));
+
+  populateSelect("new-location-category", locationCategoryOptions());
+  renderLocationsTable(state);
 }
 
 // ── Calibration interval ──────────────────────────────────────────────────────
@@ -336,6 +351,205 @@ async function handleCalibrationSubmit(e, state, { repository, showToast }) {
   }
 }
 
+// ── Locations ─────────────────────────────────────────────────────────────────
+// Unlike equipment, locations are a short, slow-changing list, so the whole
+// table is on screen and edited in place rather than loaded into a form.
+
+/**
+ * The row currently being edited, if any.
+ *
+ * `renderAdminView` re-runs on every "state:changed" — including changes this
+ * card didn't cause, like a move recorded in another tab — which would
+ * otherwise wipe an open editor mid-typing. Rendering re-opens the row this
+ * points at.
+ */
+let _editingLocationId = null;
+
+function locationRowActions(location) {
+  if (location.id === _editingLocationId) {
+    return `
+      <button class="btn btn-sm" type="button" data-action="save-location" data-id="${escapeHTML(location.id)}">Save</button>
+      <button class="btn btn-sm btn-secondary" type="button" data-action="cancel-edit-location">Cancel</button>`;
+  }
+
+  const toggle = location.active
+    ? `<button class="btn btn-sm btn-danger" type="button" data-action="deactivate-location" data-id="${escapeHTML(location.id)}">Deactivate</button>`
+    : `<button class="btn btn-sm btn-secondary" type="button" data-action="reactivate-location" data-id="${escapeHTML(location.id)}">Reactivate</button>`;
+
+  return `
+    <button class="btn btn-sm btn-secondary" type="button" data-action="edit-location" data-id="${escapeHTML(location.id)}">Edit</button>
+    ${toggle}`;
+}
+
+function buildLocationRow(location) {
+  const editing = location.id === _editingLocationId;
+
+  const nameCell = editing
+    ? `<input type="text" class="locations-edit-input" id="edit-location-name" value="${escapeHTML(location.name)}" />`
+    : escapeHTML(location.name);
+
+  const categoryCell = editing
+    ? `<select class="locations-edit-select" id="edit-location-category">${locationCategoryOptions(location.category).join("")}</select>`
+    : escapeHTML(display(LOCATION_CATEGORY, location.category));
+
+  const statusPill = location.active
+    ? '<span class="pill pill--ok">Active</span>'
+    : '<span class="pill pill--n-a">Inactive</span>';
+
+  return `
+    <tr class="${location.active ? "" : "locations-row--inactive"}" data-location-id="${escapeHTML(location.id)}">
+      <td>${nameCell}</td>
+      <td>${categoryCell}</td>
+      <td>${statusPill}</td>
+      <td><div class="locations-actions">${locationRowActions(location)}</div></td>
+    </tr>`;
+}
+
+/**
+ * Render the locations table from `state.locations`.
+ *
+ * Inactive rows are shown rather than hidden — a deactivated location still
+ * owns move history, and hiding it makes "why can't I pick Perth any more?"
+ * unanswerable from the UI.
+ *
+ * @param {object} state
+ */
+function renderLocationsTable(state) {
+  const tbody = document.getElementById("locations-table");
+  if (!tbody) return;
+
+  const locations = state.locations ?? [];
+
+  if (!locations.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="4" style="text-align:center; padding: var(--space-4); color: var(--color-text-muted);">No locations yet. Add one above.</td></tr>';
+    return;
+  }
+
+  // Active first, then alphabetical — the list people actually pick from
+  // shouldn't be interleaved with retired entries.
+  const ordered = [...locations].sort((a, b) => {
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  tbody.innerHTML = ordered.map(buildLocationRow).join("");
+}
+
+async function handleAddLocationSubmit(e, { repository, showToast }) {
+  e.preventDefault();
+
+  const name = val("new-location-name");
+  const category = val("new-location-category");
+
+  hide("new-location-name-error");
+  hide("new-location-category-error");
+
+  if (!name) {
+    show("new-location-name-error");
+    showToast("Location name is required.", "error");
+    return;
+  }
+  if (!category) {
+    show("new-location-category-error");
+    showToast("Category is required.", "error");
+    return;
+  }
+
+  const btn = document.getElementById("add-location-submit");
+  if (btn) btn.disabled = true;
+
+  try {
+    // `active` is omitted — the server defaults it to true.
+    await repository.createLocation({ name, category });
+    showToast(`${name} added.`, "success");
+    document.getElementById("add-location-form")?.reset();
+    populateSelect("new-location-category", locationCategoryOptions());
+  } catch (err) {
+    showToast(err.message, "error");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/**
+ * Save the open inline editor.
+ *
+ * PUT is a full replace, so this always sends all three fields. `active` is
+ * carried over from the row as it stands — editing a location never changes
+ * whether it's active; that's what Deactivate/Reactivate are for.
+ */
+async function handleSaveLocation(id, state, { repository, showToast }) {
+  const location = (state.locations ?? []).find((l) => l.id === id);
+  if (!location) return;
+
+  const name = (document.getElementById("edit-location-name")?.value ?? "").trim();
+  const category = document.getElementById("edit-location-category")?.value ?? "";
+
+  if (!name) {
+    showToast("Location name is required.", "error");
+    return;
+  }
+  if (!category) {
+    showToast("Category is required.", "error");
+    return;
+  }
+
+  // Cleared *before* the call, not after: updateLocation refetches and emits,
+  // which re-renders this table. Clearing afterwards would render the row as an
+  // open editor one last time, and the follow-up render would be working from
+  // the pre-save state captured at click time.
+  _editingLocationId = null;
+
+  try {
+    await repository.updateLocation(id, { name, category, active: location.active });
+    showToast(`${name} updated.`, "success");
+  } catch (err) {
+    // The call threw before any re-render, so the editor is still on screen
+    // with what was typed. Restore the flag and leave the DOM alone rather than
+    // re-rendering and discarding their input.
+    _editingLocationId = id;
+    showToast(err.message, "error");
+  }
+}
+
+async function handleDeactivateLocation(id, state, { repository, showToast }) {
+  const location = (state.locations ?? []).find((l) => l.id === id);
+  if (!location) return;
+
+  const confirmed = window.confirm(
+    `Deactivate "${location.name}"?\n\nIt will stop appearing as a choice for new equipment and moves. Existing move history is kept, and you can reactivate it later.`
+  );
+  if (!confirmed) return;
+
+  try {
+    await repository.deactivateLocation(id);
+    showToast(`${location.name} deactivated.`, "success");
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+async function handleReactivateLocation(id, state, { repository, showToast }) {
+  const location = (state.locations ?? []).find((l) => l.id === id);
+  if (!location) return;
+
+  if (!window.confirm(`Reactivate "${location.name}"?`)) return;
+
+  try {
+    // Same PUT as an edit — full replace, with the row's existing name and
+    // category unchanged and only `active` flipped.
+    await repository.updateLocation(id, {
+      name: location.name,
+      category: location.category,
+      active: true,
+    });
+    showToast(`${location.name} reactivated.`, "success");
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
 // ── Event binding ─────────────────────────────────────────────────────────────
 
 /**
@@ -412,6 +626,43 @@ export function bindAdminEvents({ repository, showToast }) {
 
   document.getElementById("calibration-form")?.addEventListener("submit", (e) => {
     handleCalibrationSubmit(e, _state, { repository, showToast });
+  });
+
+  // ── Locations ──────────────────────────────────────────────────────────────
+
+  document.getElementById("add-location-form")?.addEventListener("submit", (e) => {
+    handleAddLocationSubmit(e, { repository, showToast });
+  });
+
+  // Delegated, so the buttons survive every re-render — same pattern moves.js
+  // uses for its Mark-received button.
+  document.getElementById("locations-table")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn) return;
+    const { action, id } = btn.dataset;
+
+    if (action === "edit-location") {
+      _editingLocationId = id;
+      renderLocationsTable(_state);
+      document.getElementById("edit-location-name")?.focus();
+    }
+
+    if (action === "cancel-edit-location") {
+      _editingLocationId = null;
+      renderLocationsTable(_state);
+    }
+
+    if (action === "save-location") {
+      handleSaveLocation(id, _state, { repository, showToast });
+    }
+
+    if (action === "deactivate-location") {
+      handleDeactivateLocation(id, _state, { repository, showToast });
+    }
+
+    if (action === "reactivate-location") {
+      handleReactivateLocation(id, _state, { repository, showToast });
+    }
   });
 
   return {
