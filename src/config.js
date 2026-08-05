@@ -8,4 +8,4 @@
 // origin is listed in the backend's ALLOWED_ORIGINS env var, or every request
 // will fail CORS preflight.
 
-export const API_BASE = "http://localhost:8000";
+export const API_BASE = "https://pcte-fleet-tracker.onrender.com";
