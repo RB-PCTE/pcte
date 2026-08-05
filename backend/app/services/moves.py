@@ -115,6 +115,7 @@ _APPLY_RECEIPT_TO_STATE_QUERY = """
     SET current_move_id = NULL,
         current_location_id = $2,
         status = $3,
+        condition = $4,
         updated_at = now()
     WHERE equipment_id = $1
 """
@@ -272,12 +273,16 @@ async def receipt_move(pool: asyncpg.Pool, move_id, fields: dict, *, received_by
                     f"move_logistics row missing for move {move_id} — data integrity bug",
                 )
 
-            # Destination and status come from the stored move, not the request.
+            # Destination and status come from the stored move, not the
+            # request. condition is the one exception here — it comes from
+            # the receipt body (fields["condition_result"]), the value just
+            # written to move_logistics above in this same transaction.
             await conn.execute(
                 _APPLY_RECEIPT_TO_STATE_QUERY,
                 move["equipment_id"],
                 move["to_location_id"],
                 move["status_to"],
+                fields["condition_result"],
             )
 
             row = await conn.fetchrow(_SELECT_MOVE_WITH_LOGISTICS_QUERY, move_id)

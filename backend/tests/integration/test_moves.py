@@ -253,9 +253,9 @@ def test_non_admin_cannot_write_equipment(api, user_headers, equipment, run):
 
 
 def test_patch_rejects_state_owned_fields(api, admin_headers, equipment, locations):
-    """current_location_id and status belong to equipment_state and move only
-    via POST /moves and the receipt endpoint. PATCH must reject them outright,
-    not quietly drop them."""
+    """current_location_id, status, and condition belong to equipment_state
+    and move only via POST /moves and the receipt endpoint. PATCH must reject
+    them outright, not quietly drop them."""
     equipment_id = equipment["created"]["id"]
 
     # Read current state rather than assuming creation values — this test must
@@ -265,6 +265,7 @@ def test_patch_rejects_state_owned_fields(api, admin_headers, equipment, locatio
     rejected = {
         "current_location_id": {"current_location_id": locations["dest"]["id"]},
         "status": {"status": "on_hire"},
+        "condition": {"condition": "pass"},
         "empty body": {},
     }
     for label, body in rejected.items():
@@ -286,6 +287,7 @@ def test_patch_rejects_state_owned_fields(api, admin_headers, equipment, locatio
         "PATCH changed current_location_id"
     )
     assert patched["status"] == before["status"], "PATCH changed status"
+    assert patched["condition"] == before["condition"], "PATCH changed condition"
 
 
 def test_move_creation_rejects_server_derived_fields(api, user_headers, equipment, locations, run):
@@ -448,6 +450,10 @@ def test_move_lifecycle(api, admin_headers, user_headers, user_id, equipment, lo
     # assert after_equipment["current_location_id"] == home_id
     assert after_equipment["status"] == "on_hire", (
         f"equipment status should be the move's status_to, got {after_equipment['status']}"
+    )
+    assert after_equipment["condition"] == CONDITION, (
+        f"equipment_state.condition should be set from the receipt's condition_result, "
+        f"got {after_equipment['condition']}"
     )
     assert after_equipment["in_transit"] is False  # STEP-5 (read path)
 

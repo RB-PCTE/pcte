@@ -56,6 +56,7 @@ class EquipmentOut(BaseModel):
     current_location_name: str | None
     current_move_id: UUID | None
     status: str | None
+    condition: str | None
     in_transit: bool
     location_display: LocationDisplayOut
     created_at: datetime

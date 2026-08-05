@@ -40,3 +40,4 @@ COMMIT;
 -- backend/app/db.py), so `MoveOut.move_type: str` in
 -- backend/app/routers/state.py keeps working unchanged after this runs.
 -- ============================================================================
+ALTER TABLE public.equipment ALTER COLUMN calibration_required SET NOT NULL;

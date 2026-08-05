@@ -48,6 +48,11 @@ EquipmentStatus = Literal[
     "available", "on_demo", "on_hire", "in_service_repair", "quarantined"
 ]
 
+# The `condition_assessment` enum from migrations/003_equipment_condition.sql.
+# Shared by equipment_state.condition and move_logistics.condition_result —
+# see that migration's header comment for why the two columns use one enum.
+Condition = Literal["pass", "needs_attention", "fail"]
+
 
 class MoveLogisticsRecordOut(BaseModel):
     carrier: str | None
@@ -97,10 +102,10 @@ class MoveCreateIn(BaseModel):
 class MoveReceiptIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # Required by this API, though the column is nullable and carries no CHECK
-    # constraint — receipting is the only record of what condition the
-    # equipment arrived in, so closing a move without one is not allowed here.
-    condition_result: str
+    # Required by this API. The column also carries a real enum constraint as
+    # of migrations/003_equipment_condition.sql; this Literal gives a clean
+    # 422 instead of a raw DB error for a bad value.
+    condition_result: Condition
     condition_notes: str | None = None
 
 

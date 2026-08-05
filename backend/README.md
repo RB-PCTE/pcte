@@ -95,12 +95,13 @@ Both endpoints are admin-only (`require_admin`). There is no `GET /equipment`
   field sent as `null` is set to null. `updated_at` is bumped explicitly
   (there's no trigger on the table).
 
-  `current_location_id` and `status` are **rejected with a 422**, not silently
-  ignored. They live on `equipment_state` and change only via `POST /moves`
-  and the receipt endpoint; letting an admin set them directly would
-  desynchronise the move history from where the equipment actually is. Every
-  step-6 request model uses `extra="forbid"`, so an unknown or misspelled
-  field is a 422 too.
+  `current_location_id`, `status`, and `condition` are **rejected with a
+  422**, not silently ignored. They live on `equipment_state` and change only
+  via `POST /moves` and the receipt endpoint (which also sets `condition` —
+  see Moves below); letting an admin set them directly would desynchronise
+  the move history from where the equipment actually is. Every step-6
+  request model uses `extra="forbid"`, so an unknown or misspelled field is
+  a 422 too.
 
 Responses are the record as stored (equipment columns plus its
 `equipment_state` fields) — no `age_label` / `calibration` /
@@ -162,20 +163,30 @@ the result. A plain read-then-write is a race: two concurrent requests both see
   Body: `condition_result` (required) and `condition_notes` (optional);
   `received_by` is the authenticated user, so sending it is a 422.
 
-  `condition_result` is required by this API even though the column is
-  nullable and carries no CHECK constraint (the old pass/fail CHECK on
-  `move_receipts` went away with that table). Receipting is the only record of
-  what condition the equipment arrived in, so closing a move without one isn't
-  allowed here.
+  `condition_result` is required by this API. It's also enum-constrained at
+  the database level as of `migrations/003_equipment_condition.sql`
+  (`pass` / `needs_attention` / `fail`), and rejected with a 422 by
+  `MoveReceiptIn` before it ever reaches the database if it's anything else.
+  Receipting is the only record of what condition the equipment arrived in,
+  so closing a move without one isn't allowed here.
 
   Under the same lock, it confirms `current_move_id` is actually this move —
   **409** if not, rather than a silent no-op, which is what makes a double
   receipt fail. Then it fills in the receipt half of `move_logistics` and
-  applies the move's `to_location_id` and `status_to` to `equipment_state`,
-  clearing `current_move_id`. Both values are read back from the stored `moves`
-  row, never from the request. (The legacy `move_receipt` edge function never
-  cleared `current_move_id`, which under the current schema would leave
-  equipment reading as "In transit" forever.)
+  applies the move's `to_location_id` and `status_to` to `equipment_state`
+  (read back from the stored `moves` row, never from the request), clearing
+  `current_move_id`. In the same `UPDATE`, it also writes
+  `equipment_state.condition = condition_result` — the value just saved to
+  `move_logistics` in this same transaction. (The legacy `move_receipt` edge
+  function never cleared `current_move_id`, which under the current schema
+  would leave equipment reading as "In transit" forever.)
+
+  `equipment_state.condition` and `move_logistics.condition_result` are
+  different things that happen to share a value at the moment of receipt:
+  `condition_result` is a permanent, per-move record of what that specific
+  receipt assessed; `condition` is the equipment's current/ongoing condition,
+  overwritten by every new receipt. `equipment_state.condition` is `NULL`
+  until the equipment's first move is ever receipted.
 
 **`move_logistics` is seeded unconditionally at move creation**, not at receipt
 time — with the shipping half populated if supplied and the receipt half null.
@@ -185,9 +196,10 @@ If that update matches nothing the invariant is broken, and the endpoint says
 so with a 500 rather than papering over it by creating a row.
 
 `POST /corrections` and `POST /equipment/import` (CSV) are **not** built — both
-deferred. Nothing here reads or writes `move_shipping`, `move_receipts`, or any
-`condition_*` column on `equipment_state`; those don't exist after
-`migrations/001_db_simplification.sql`.
+deferred. Nothing here reads or writes `move_shipping` or `move_receipts` —
+those tables don't exist after `migrations/001_db_simplification.sql`.
+`equipment_state.condition` **does** exist, as of
+`migrations/003_equipment_condition.sql` — see above.
 
 ## Tests
 

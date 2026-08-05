@@ -23,7 +23,7 @@ _EQUIPMENT_QUERY = """
         e.last_calibration_date, e.created_at, e.updated_at,
         e.home_location_id, hl.name AS home_location_name,
         es.status, es.current_location_id, cl.name AS current_location_name,
-        es.current_move_id
+        es.current_move_id, es.condition
     FROM public.equipment e
     LEFT JOIN public.equipment_state es ON es.equipment_id = e.id
     LEFT JOIN public.locations hl ON hl.id = e.home_location_id
@@ -76,6 +76,7 @@ def _build_equipment(row: asyncpg.Record) -> dict:
         "current_location_name": row["current_location_name"],
         "current_move_id": row["current_move_id"],
         "status": row["status"],
+        "condition": row["condition"],
         "in_transit": in_transit,
         "location_display": get_equipment_location_display(
             row["current_location_name"], in_transit

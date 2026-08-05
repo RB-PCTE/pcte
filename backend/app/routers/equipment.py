@@ -1,12 +1,13 @@
 """
 /equipment writes — admin-only. Reads go through GET /state.
 
-PATCH accepts structural fields only. `current_location_id` and `status` are
-deliberately absent from `EquipmentPatchIn`, so with `extra="forbid"` an
-attempt to set either is a 422 rather than a silently ignored value. Those two
-belong to `equipment_state` and change only through POST /moves (which sets
-`current_move_id`) and POST /moves/{id}/receipt (which sets the location and
-status). Letting an admin poke them directly would desynchronise the move
+PATCH accepts structural fields only. `current_location_id`, `status`, and
+`condition` are deliberately absent from `EquipmentPatchIn`, so with
+`extra="forbid"` an attempt to set any of them is a 422 rather than a
+silently ignored value. All three belong to `equipment_state` and change
+only through POST /moves (which sets `current_move_id`) and
+POST /moves/{id}/receipt (which sets current_location_id, status, and
+condition). Letting an admin poke them directly would desynchronise the move
 history from where the equipment actually is.
 
 Responses use `EquipmentRecordOut` — the row as stored, plus its
@@ -56,6 +57,7 @@ class EquipmentRecordOut(BaseModel):
     status: str | None
     current_location_id: UUID | None
     current_move_id: UUID | None
+    condition: str | None
     created_at: datetime
     updated_at: datetime
 

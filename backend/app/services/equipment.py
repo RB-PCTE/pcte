@@ -41,13 +41,13 @@ _INSERT_EQUIPMENT_QUERY = """
 _INSERT_STATE_QUERY = """
     INSERT INTO public.equipment_state (equipment_id, current_location_id, status)
     VALUES ($1, $2, 'available')
-    RETURNING current_location_id, current_move_id, status
+    RETURNING current_location_id, current_move_id, status, condition
 """
 
 _SELECT_QUERY = """
     SELECT
         e.*,
-        es.status, es.current_location_id, es.current_move_id
+        es.status, es.current_location_id, es.current_move_id, es.condition
     FROM public.equipment e
     LEFT JOIN public.equipment_state es ON es.equipment_id = e.id
     WHERE e.id = $1
@@ -96,6 +96,7 @@ def _build_equipment(row: asyncpg.Record | dict) -> dict:
         "status": row["status"],
         "current_location_id": row["current_location_id"],
         "current_move_id": row["current_move_id"],
+        "condition": row["condition"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
