@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import get_current_user
 from app.config import settings
 from app.db import connect_pools, close_pools
+from app.routers import state
 
 
 @asynccontextmanager
@@ -37,9 +38,10 @@ async def whoami(user: dict = Depends(get_current_user)):
     return user
 
 
-# Routers are registered here as they're built out in later steps:
-# from app.routers import state, equipment, moves, locations, corrections
-# app.include_router(state.router)
+app.include_router(state.router)
+
+# Remaining routers are registered here as they're built out in later steps:
+# from app.routers import equipment, moves, locations, corrections
 # app.include_router(equipment.router)
 # app.include_router(moves.router)
 # app.include_router(locations.router)
