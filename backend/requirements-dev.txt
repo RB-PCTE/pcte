@@ -1,0 +1,13 @@
+# Development/test dependencies. Kept separate from requirements.txt so pytest
+# doesn't ship into the production install the deploy host builds from.
+#
+#     pip install -r requirements-dev.txt
+#
+# httpx and asyncpg are already runtime deps (pulled in via the -r below) and
+# are all the integration tests need — no separate HTTP client, and no
+# pytest-asyncio: the only async work is the teardown's asyncpg connection,
+# which a plain sync fixture runs with asyncio.run().
+
+-r requirements.txt
+
+pytest>=8.0

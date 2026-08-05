@@ -1,0 +1,20 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# So `import app.config` resolves when pytest is run from backend/. Relative to
+# rootdir (this file's directory). The `app` package has no __init__.py — it's
+# an implicit namespace package — so it needs the directory on sys.path rather
+# than an installed distribution.
+pythonpath = ["."]
+
+# --strict-markers turns a typo'd marker into an error instead of a test that
+# silently escapes every -m filter.
+addopts = "-ra --strict-markers"
+
+markers = [
+    "integration: hits a running API and the real database; requires ADMIN_TOKEN and USER_TOKEN (deselect with -m 'not integration')",
+]
+
+# Deliberately no default `-m` filter here: a bare `pytest` should still collect
+# the integration tests and report them as skipped when tokens aren't set, so
+# it's obvious they exist and why they didn't run.
