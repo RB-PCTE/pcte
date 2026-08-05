@@ -703,81 +703,18 @@ tbody tr {
 }
 
 /* ── Moves Log Table ───────────────────────────────────────── */
-.moves-row--deleted {
-  opacity: 0.55;
-}
-
 .moves-note-meta {
   margin-top: var(--space-1);
   font-size: 11px;
   color: var(--color-text-secondary);
 }
 
-.moves-note-meta--deleted {
-  color: var(--color-danger);
-}
-
-.moves-corrections {
-  margin-top: var(--space-1);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
-.moves-corrections p {
-  margin: 0;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.moves-corrected-badge {
-  display: inline-flex;
-  margin-left: 6px;
-  padding: 2px 6px;
-  border-radius: var(--radius-pill);
-  font-size: 10px;
-  font-weight: 600;
-  background: rgba(245, 158, 11, 0.2);
-  color: #92400e;
-}
-
-/* Shipping cell in moves table */
-.moves-shipping-cell {
-  white-space: pre-line;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
 /* ── Correction Modal ──────────────────────────────────────── */
-.correction-grid {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-  margin: var(--space-3) 0;
-  align-items: center;
-}
-
-.correction-grid legend {
-  padding: 0 6px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
 /* ── Admin Panel ───────────────────────────────────────────── */
 .admin-panels-grid {
   display: grid;
   gap: var(--space-5);
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-}
-
-.copy-checklist {
-  display: grid;
-  gap: var(--space-3);
 }
 
 /* ── CSV Import ────────────────────────────────────────────── */
@@ -871,63 +808,7 @@ dialog::backdrop {
 }
 
 /* Larger dialogs */
-#condition-history-modal  { max-width: 640px; }
-#correction-modal         { max-width: 540px; }
-#correction-details-modal { max-width: 540px; }
-#mark-received-modal      { max-width: 540px; }
-
-.condition-history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.condition-history-list {
-  list-style: none;
-  margin: var(--space-3) 0 0;
-  padding: 0;
-  display: grid;
-  gap: var(--space-2);
-  max-height: 440px;
-  overflow-y: auto;
-}
-
-.condition-history-list li {
-  background: #f8fafc;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-/* Condition history entry layout */
-.condition-history-entry {
-  display: grid;
-  gap: var(--space-1);
-}
-.condition-history-meta {
-  display: flex;
-  gap: var(--space-2);
-  align-items: baseline;
-  flex-wrap: wrap;
-}
-.condition-history-meta strong { color: var(--color-text-primary); }
-.condition-history-date  { color: var(--color-text-muted); font-size: var(--font-size-xs); }
-.condition-history-by    { color: var(--color-text-muted); font-size: var(--font-size-xs); }
-.condition-history-checks { font-size: var(--font-size-xs); color: var(--color-text-secondary); }
-.condition-history-notes  { font-size: var(--font-size-xs); color: var(--color-text-secondary); font-style: italic; }
-.condition-history-empty  { color: var(--color-text-muted); font-size: var(--font-size-sm); }
-
-/* Correction detail entry layout */
-.correction-reason  { font-size: var(--font-size-sm); color: var(--color-text-primary); font-weight: 500; margin-bottom: var(--space-1); }
-.correction-changes { display: grid; gap: var(--space-1); margin-top: var(--space-1); }
-.correction-change  { display: flex; gap: var(--space-2); align-items: center; font-size: var(--font-size-xs); flex-wrap: wrap; }
-.correction-field   { font-weight: 500; color: var(--color-text-secondary); min-width: 110px; }
-.correction-from    { color: var(--color-text-muted); text-decoration: line-through; }
-.correction-arrow   { color: var(--color-text-muted); }
-.correction-to      { color: var(--color-text-primary); }
+#mark-received-modal { max-width: 540px; }
 
 /* ── Auth Panel ────────────────────────────────────────────── */
 .auth-card {

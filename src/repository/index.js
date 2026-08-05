@@ -1,11 +1,27 @@
-import { emit } from "../events.js";
-import { buildDefaultState, STATE_VERSION } from "../model.js";
+// src/repository/index.js — the app's single state store.
+//
+// Every mutation is: call one backend endpoint, then refetch the whole state
+// and emit it. There is no local draft, no optimistic patch, and no partial
+// update — the server is the only thing that decides what the state is, so
+// what the UI renders after a write is always what the database actually holds.
+//
+// This is the point of the step-7 rebuild. The previous version mutated a local
+// draft and re-upserted every table on every change, which is what produced the
+// blank-location and clobbered-status bugs.
 
-export function createRepository({ adapter }) {
-  let state = buildDefaultState(STATE_VERSION);
+import { emit } from "../events.js";
+import { buildDefaultState } from "../model.js";
+import { apiFetch, loadState } from "../api.js";
+
+/**
+ * @param {object} [deps]
+ * @param {{apiFetch: Function, loadState: Function}} [deps.api] - injectable for tests
+ */
+export function createRepository({ api = { apiFetch, loadState } } = {}) {
+  let state = buildDefaultState();
 
   async function hydrate() {
-    state = await adapter.load();
+    state = await api.loadState();
     return state;
   }
 
@@ -13,119 +29,84 @@ export function createRepository({ adapter }) {
     return state;
   }
 
-  async function persist() {
-    await adapter.save(state);
+  /**
+   * Run a write, then replace local state with the server's truth and notify
+   * the UI. Every mutation below funnels through here, so no caller can
+   * accidentally skip the refetch.
+   * @param {() => Promise<any>} write
+   * @returns {Promise<any>} whatever the endpoint returned
+   */
+  async function commit(write) {
+    const result = await write();
+    await hydrate();
     emit("state:changed", state);
+    return result;
   }
 
-  async function mutate(mutator) {
-    mutator(state);
-    await persist();
-    return state;
-  }
-
+  /**
+   * Create equipment. Admin-only server-side (403 otherwise).
+   * The backend also creates the equipment_state row, starting at
+   * `available` with `current_location_id = home_location_id`.
+   * @param {object} payload - EquipmentCreateIn shape
+   */
   function addEquipment(payload) {
-    return mutate((draft) => {
-      draft.equipment.push({ id: crypto.randomUUID(), ...payload });
-    });
+    return commit(() => api.apiFetch("/equipment", { method: "POST", body: payload }));
   }
 
+  /**
+   * Patch structural equipment fields. `status`, `current_location_id` and
+   * `condition` are owned by the move endpoints and are rejected here (422).
+   * @param {string} id
+   * @param {object} patch - EquipmentPatchIn shape
+   */
   function updateEquipment(id, patch) {
-    return mutate((draft) => {
-      const item = draft.equipment.find((entry) => entry.id === id);
-      if (item) Object.assign(item, patch);
-    });
+    return commit(() => api.apiFetch(`/equipment/${id}`, { method: "PATCH", body: patch }));
   }
 
-  function importEquipment(rows) {
-    return mutate((draft) => {
-      draft.equipment.push(...rows);
-    });
-  }
-
+  /**
+   * Open a move. `status_from`, `from_location_id` and `created_by` are
+   * server-derived and must not be sent — the request model forbids them.
+   * 409 if the equipment already has an unreceipted move.
+   * @param {object} payload - MoveCreateIn shape
+   */
   function recordMove(payload) {
-    return mutate((draft) => {
-      draft.moves.unshift({ id: crypto.randomUUID(), ...payload });
-      const item = draft.equipment.find((e) => e.id === payload.equipmentId);
-      if (item) {
-        // Keep local location in sync with the destination so the table and the
-        // next adapter.save() match what move_create wrote to the DB.
-        if (payload.toLocation) item.location = payload.toLocation;
-        if (payload.condition?.rating) {
-          item.conditionRating        = payload.condition.rating;
-          item.conditionLastCheckedAt = payload.condition.checkedAt;
-          item.conditionContentsOk    = payload.condition.contentsOk  ?? null;
-          item.conditionFunctionalOk  = payload.condition.functionalOk ?? null;
-          item.conditionLastNotes     = payload.condition.notes        ?? null;
-        }
-      }
-    });
+    return commit(() => api.apiFetch("/moves", { method: "POST", body: payload }));
   }
 
+  /**
+   * Confirm arrival. Applies the move's destination and status to the
+   * equipment and sets `equipment_state.condition` from `condition_result`.
+   * @param {string} moveId
+   * @param {{condition_result: string, condition_notes?: string|null}} receiptData
+   */
   function recordReceipt(moveId, receiptData) {
-    return mutate((draft) => {
-      const move = draft.moves.find((entry) => entry.id === moveId);
-      if (move) {
-        // On receipt the item has arrived — settle its location on the destination.
-        if (move.toLocation) {
-          const arrived = draft.equipment.find((e) => e.id === move.equipmentId);
-          if (arrived) arrived.location = move.toLocation;
-        }
-        move.receiptData = {
-          received_at:          receiptData.receivedAt,
-          condition_result:     receiptData.conditionResult  ?? null,
-          condition_notes:      receiptData.conditionNotes   ?? null,
-          condition_contents_ok:  receiptData.contentsOk    ?? null,
-          condition_functional_ok: receiptData.functionalOk ?? null,
-          received_by:          receiptData.receivedBy       ?? null,
-        };
-        if (receiptData.conditionResult) {
-          const item = draft.equipment.find((e) => e.id === move.equipmentId);
-          if (item) {
-            item.conditionRating        = receiptData.conditionResult;
-            item.conditionLastCheckedAt = new Date().toISOString();
-            item.conditionContentsOk    = receiptData.contentsOk   ?? null;
-            item.conditionFunctionalOk  = receiptData.functionalOk ?? null;
-            item.conditionLastNotes     = receiptData.conditionNotes ?? null;
-          }
-        }
-      }
-    });
+    return commit(() =>
+      api.apiFetch(`/moves/${moveId}/receipt`, { method: "POST", body: receiptData })
+    );
   }
 
-  function recordCalibration(payload) {
-    return recordMove({ type: "calibration", ...payload });
-  }
-
-  function recordSubscriptionUpdate(payload) {
-    return recordMove({ type: "subscription_updated", ...payload });
-  }
-
-  function addCorrection(payload) {
-    return mutate((draft) => {
-      draft.corrections = [...(draft.corrections || []), payload];
-    });
-  }
-
-  function archiveHistory() {
-    return mutate((draft) => {
-      draft.moves = draft.moves.map((entry) => ({ ...entry, archived: true }));
-    });
+  /**
+   * Record a calibration.
+   *
+   * This is a PATCH of the equipment row, not a move: there is no `calibration`
+   * member in the move_type enum and no calibration endpoint, so a calibration
+   * no longer produces a Moves-log entry the way it did pre-step-7.
+   *
+   * @param {string} equipmentId
+   * @param {{last_calibration_date: string, calibration_interval_months: number|null,
+   *          calibration_required: boolean}} payload
+   */
+  function recordCalibration(equipmentId, payload) {
+    return updateEquipment(equipmentId, payload);
   }
 
   return {
     hydrate,
     getState,
-    mutate,
-    persist,
     addEquipment,
     updateEquipment,
-    importEquipment,
     recordMove,
     recordReceipt,
     recordCalibration,
-    recordSubscriptionUpdate,
-    addCorrection,
-    archiveHistory,
   };
 }

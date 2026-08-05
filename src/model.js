@@ -1,92 +1,50 @@
-export const STATE_VERSION = 2;
+// src/model.js — app-level shape and filter vocabularies.
+//
+// The domain constants that used to live here (physicalLocations,
+// editableStatusOptions, moveTypeOptions, …) moved to src/enums.js in step 7a,
+// where they're defined once against the backend's real enum values instead of
+// being duplicated as display strings. What's left is the empty-state shape and
+// the two filter lists, which are UI vocabularies rather than domain values.
 
-export const physicalLocations = [
-  "Perth",
-  "Melbourne",
-  "Brisbane",
-  "Sydney",
-  "New Zealand",
+import {
+  EQUIPMENT_STATUS,
+  IN_TRANSIT_DISPLAY,
+  CALIBRATION_STATUS,
+  CALIBRATION_NOT_REQUIRED,
+  options,
+} from "./enums.js";
+
+/** Sentinel used by every filter <select> for "don't filter on this". */
+export const FILTER_ALL = "all";
+
+/**
+ * Status filter options. "In transit" is derived server-side from
+ * `current_move_id`, so it filters on `in_transit` rather than on `status` —
+ * see getFilteredEquipment.
+ */
+export const statusFilterOptions = [
+  { value: FILTER_ALL, label: "All statuses" },
+  ...options(EQUIPMENT_STATUS),
+  { value: "in_transit", label: IN_TRANSIT_DISPLAY },
 ];
 
-export const editableStatusOptions = [
-  "Available",
-  "On demo",
-  "On hire",
-  "In service / repair",
-  "Quarantined",
+/**
+ * Calibration filter options.
+ *
+ * `not_required` has no backend counterpart — the API sends
+ * `calibration: null` for items that don't need calibrating. It's a rendered
+ * state, and a useful thing to filter on, so it's a local filter value.
+ */
+export const calibrationFilterOptions = [
+  { value: FILTER_ALL, label: "All" },
+  ...options(CALIBRATION_STATUS),
+  { value: "not_required", label: CALIBRATION_NOT_REQUIRED },
 ];
 
-export const statusFilterOptions = [...editableStatusOptions, "In transit"];
-
-export const calibrationFilterOptions = ["All", "Overdue", "Due soon", "OK", "Unknown", "Not required"];
-export const subscriptionFilterOptions = ["All", "OK", "Due soon", "Overdue", "Unknown", "Not required"];
-
-export const moveConditionExemptStatuses = new Set(["In service / repair", "Quarantined"]);
-
-export const moveTypeOptions = [
-  { value: "all", label: "All types" },
-  { value: "move", label: "Move" },
-  { value: "calibration", label: "Calibration" },
-  { value: "subscription_updated", label: "Subscription" },
-  { value: "details_updated", label: "Details updated" },
-  { value: "condition_reference_updated", label: "Condition checklist" },
-  { value: "received", label: "Received" },
-];
-
-export function normalizeStatus(rawStatus, rawLocation) {
-  const status = typeof rawStatus === "string" ? rawStatus.trim() : "";
-  if (status && /calibration/i.test(status)) return "Quarantined";
-  if (editableStatusOptions.includes(status)) return status;
-  const location = typeof rawLocation === "string" ? rawLocation.trim().toLowerCase() : "";
-  if (location === "on hire") return "On hire";
-  return "Available";
-}
-
-export function getSeedDate({ months = 0, days = 0 } = {}) {
-  const date = new Date();
-  date.setMonth(date.getMonth() + months);
-  date.setDate(date.getDate() + days);
-  return formatDate(date);
-}
-
-function formatDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-export function buildDefaultState(schemaVersion = STATE_VERSION) {
-  return { schemaVersion, equipment: [], moves: [], corrections: [], locations: [] };
-}
-
-
-export function migrateStateIfNeeded(inputState) {
-  const parsed = inputState && typeof inputState === "object" ? inputState : {};
-  const equipment = Array.isArray(parsed.equipment)
-    ? parsed.equipment
-    : Array.isArray(parsed.items)
-      ? parsed.items
-      : [];
-  const moves = Array.isArray(parsed.moves)
-    ? parsed.moves
-    : Array.isArray(parsed.log)
-      ? parsed.log
-      : [];
-
-
-  return {
-    ...buildDefaultState(STATE_VERSION),
-    ...parsed,
-    stateVersion: Number.isInteger(parsed.stateVersion)
-      ? parsed.stateVersion
-      : Number.isInteger(parsed.schemaVersion)
-        ? parsed.schemaVersion
-        : STATE_VERSION,
-    schemaVersion: Number.isInteger(parsed.schemaVersion) ? parsed.schemaVersion : STATE_VERSION,
-    locations: Array.isArray(parsed.locations) && parsed.locations.length ? parsed.locations : [...physicalLocations],
-    equipment,
-    moves,
-    corrections: Array.isArray(parsed.corrections) ? parsed.corrections : [],
-  };
+/**
+ * The empty state the repository starts from, before the first hydrate.
+ * Matches what src/api.js loadState() returns.
+ */
+export function buildDefaultState() {
+  return { equipment: [], moves: [], locations: [] };
 }

@@ -1,195 +1,144 @@
 # `src/repository/`
 
-This directory contains the central state store for the entire application. It is the single place all data mutations go through. No UI module is ever allowed to modify `state` directly — they call repository methods, which persist changes and fire `"state:changed"` so every render function is notified.
+The app's single state store. Since Phase A step 7a it is a thin client over the FastAPI backend: every mutation calls one endpoint, refetches the whole state, and emits `"state:changed"`. No UI module modifies state directly.
+
+There is no local draft, no optimistic patch, and no `save()`. The previous version mutated an in-memory draft and re-upserted every table on each change, which is what produced the blank-location and clobbered-status bugs. The server is now the only thing that decides what the state is.
 
 ---
 
 ## `index.js`
 
-The repository wraps a storage adapter (Supabase in production, mock/localStorage in tests) and exposes named mutation methods. It holds one private `state` variable. Every mutation goes through `mutate()`, which saves to the adapter and fires `"state:changed"`.
+### `createRepository({ api })`
 
----
-
-### `createRepository({ adapter })`
-
-**Purpose:** Factory that creates and returns the repository object. Called once at startup in `main.js`.
+**Purpose:** Create the shared repository instance. Called once from `main.js`.
 
 **Parameters:**
 
-| Parameter | Type | Source | Description |
+| Parameter | Type | Default | Description |
 |---|---|---|---|
-| `adapter` | `object` | `~/src/supabaseClient.js → createSupabaseStorageAdapter()` | Storage adapter implementing `{ load(), save(), clear() }` |
+| `api` | `{apiFetch, loadState}` | the real `~/src/api.js` | Injection seam for tests |
 
-**Returns:** Repository object with all methods listed below.
+**Returns:** `object` with `hydrate`, `getState`, `addEquipment`, `updateEquipment`, `recordMove`, `recordReceipt`, `recordCalibration`.
 
 ---
 
 ### `hydrate()`
 
-**Purpose:** Load all data from the adapter (Supabase) into the in-memory `state`. Called once at startup before the first render.
+**Purpose:** Replace local state with `loadState()` — `GET /state` plus `GET /locations`. Does **not** emit; `main.js` emits after awaiting it, and `commit()` emits internally.
 
-**Parameters:** None
-
-**Returns:** `Promise<object>` — the loaded state object.
+**Returns:** `Promise<object>` — the new state.
 
 ---
 
 ### `getState()`
 
-**Purpose:** Return the current in-memory state without any async operations. Use inside `"state:changed"` handlers to read the latest data.
+**Purpose:** Return the current state snapshot synchronously.
 
-**Parameters:** None
-
-**Returns:** `object` — `{ schemaVersion, equipment[], moves[], corrections[], locations[] }`
+**Returns:** `object` — `{ equipment[], moves[], locations[] }`
 
 ---
 
-### `persist()`
+### `commit(write)` *(internal)*
 
-**Purpose:** Internal. Save the current `state` to the adapter, then fire `"state:changed"` to trigger all render functions. Called automatically by every mutation method — not called directly by UI code.
-
-**Parameters:** None
-
-**Returns:** `Promise<void>`
-
----
-
-### `mutate(mutatorFn)`
-
-**Purpose:** The safe, internal path for changing state. Accepts a function that edits the state directly, then calls `persist()`. All named mutation methods use this internally.
+**Purpose:** Run a write, then `hydrate()` and `emit("state:changed", state)`. Every mutation below funnels through it, so no caller can skip the refetch.
 
 **Parameters:**
 
-| Parameter | Type | Source | Description |
-|---|---|---|---|
-| `mutatorFn` | `Function` | Caller (UI module) | A function that receives the live `state` object and mutates it in place |
+| Parameter | Type | Description |
+|---|---|---|
+| `write` | `() => Promise<any>` | The endpoint call |
 
-**Returns:** `Promise<object>` — the state after mutation.
+**Returns:** `Promise<any>` — whatever the endpoint returned.
 
 ---
 
 ### `addEquipment(payload)`
 
-**Purpose:** Add a new piece of equipment to the tracker. Generates a UUID for the new item.
+**Purpose:** `POST /equipment`. Admin-only server-side (403 otherwise). The backend also creates the `equipment_state` row, starting at `available` with `current_location_id = home_location_id`.
 
 **Parameters:**
 
 | Parameter | Type | Source | Description |
 |---|---|---|---|
-| `payload` | `object` | `~/src/ui/admin.js → handleAddEquipmentSubmit()` | Equipment fields: `name`, `model`, `serialNumber`, `purchaseDate`, `location`, `status`, `calibrationRequired`, `calibrationIntervalMonths`, `lastCalibrationDate`, `subscriptionRequired`, `subscriptionRenewalDate`, `conditionReference` |
+| `payload` | `object` | `~/src/ui/admin.js → handleAddEquipmentSubmit()` | `EquipmentCreateIn` shape: `name`, `category`, `serial`, `home_location_id`, `notes`, `purchase_date`, `calibration_*` |
 
-**Returns:** `Promise<object>` — updated state.
+**Returns:** `Promise<object>` — the created `EquipmentRecordOut`.
+
+> `status` and `current_location_id` are **not** accepted on create.
 
 ---
 
 ### `updateEquipment(id, patch)`
 
-**Purpose:** Update any fields on an existing piece of equipment by merging a patch object.
+**Purpose:** `PATCH /equipment/{id}`. Structural fields only.
 
 **Parameters:**
 
 | Parameter | Type | Source | Description |
 |---|---|---|---|
-| `id` | `string` | `~/src/ui/admin.js → handleEditEquipmentSubmit()` | UUID of the equipment item to update |
-| `patch` | `object` | `~/src/ui/admin.js → handleEditEquipmentSubmit()` | Partial equipment object — only supplied keys are updated |
+| `id` | `string` | `~/src/ui/admin.js` | Equipment UUID |
+| `patch` | `object` | `~/src/ui/admin.js → handleEditEquipmentSubmit()` | `EquipmentPatchIn` shape |
 
-**Returns:** `Promise<object>` — updated state.
+**Returns:** `Promise<object>`
 
----
-
-### `importEquipment(rows)`
-
-**Purpose:** Bulk-add multiple equipment items at once, used by the CSV import panel.
-
-**Parameters:**
-
-| Parameter | Type | Source | Description |
-|---|---|---|---|
-| `rows` | `object[]` | `~/src/ui/admin.js → handleImportSubmit()` | Array of equipment objects (each pre-assigned a UUID by `parseCSV`) |
-
-**Returns:** `Promise<object>` — updated state.
+> `status`, `current_location_id`, `condition` and `purchase_date` are all absent from `EquipmentPatchIn`; sending any of them is a 422.
 
 ---
 
 ### `recordMove(payload)`
 
-**Purpose:** Add a new move entry to the moves log (prepended so newest is first). Also sets the equipment item's `location` to the destination (`payload.toLocation`) so the table and the next `save()` match the DB, and patches the item's condition fields immediately when condition data is present.
+**Purpose:** `POST /moves`. Opens a move — flags the equipment in-transit but does not move it; that happens on receipt.
 
 **Parameters:**
 
 | Parameter | Type | Source | Description |
 |---|---|---|---|
-| `payload` | `object` | `~/src/ui/operations.js → handleMoveSubmit()` | `{ equipmentId, type, timestamp, fromLocation, toLocation, notes, condition?: { rating, checkedAt, contentsOk, functionalOk, notes }, … }` |
+| `payload` | `object` | `~/src/ui/operations.js → handleMoveSubmit()` | `MoveCreateIn`: `equipment_id`, `to_location_id`, `move_type`, `status_to`, `notes`, `carrier`, `tracking_number`, `booked_at` |
 
-**Side effect:** When `payload.condition.rating` is truthy, patches `item.conditionRating`, `item.conditionLastCheckedAt`, `item.conditionContentsOk`, `item.conditionFunctionalOk`, and `item.conditionLastNotes` on the matching equipment item so the table re-renders instantly.
+**Returns:** `Promise<object>` — the created `MoveRecordOut`.
 
-**Returns:** `Promise<object>` — updated state.
+> `status_from`, `from_location_id` and `created_by` are derived server-side under a row lock and are **forbidden** in the request body. 409 if the equipment already has an unreceipted move.
 
 ---
 
 ### `recordReceipt(moveId, receiptData)`
 
-**Purpose:** Record that equipment has been physically received at its destination, including condition data. Settles the equipment item's `location` on the received move's `toLocation`, and also patches the item's condition fields immediately when condition data is present.
+**Purpose:** `POST /moves/{move_id}/receipt`. Applies the move's destination and status to the equipment and sets `equipment_state.condition` from `condition_result`.
 
 **Parameters:**
 
 | Parameter | Type | Source | Description |
 |---|---|---|---|
-| `moveId` | `string` | `~/src/ui/moves.js → handleMarkReceived()` | UUID of the move entry to update |
-| `receiptData` | `object` | `~/src/ui/moves.js → handleMarkReceived()` | `{ receivedAt, conditionResult, conditionNotes, receivedBy? }` — mapped to `move.receiptData` with snake_case keys to match the Supabase join shape |
+| `moveId` | `string` | `~/src/ui/modals.js` | Move UUID |
+| `receiptData` | `object` | `~/src/ui/modals.js` | `{ condition_result, condition_notes }` — `condition_result` is required and must be `pass` / `needs_attention` / `fail` |
 
-**Side effect:** When `receiptData.conditionResult` is truthy, patches `item.conditionRating`, `item.conditionLastCheckedAt`, and `item.conditionLastNotes` on the matching equipment item so the table re-renders instantly.
+**Returns:** `Promise<object>`
 
-**Returns:** `Promise<object>` — updated state.
+> `received_by` is the authenticated caller, set server-side. 409 if this isn't the equipment's active move.
 
 ---
 
-### `recordCalibration(payload)`
+### `recordCalibration(equipmentId, payload)`
 
-**Purpose:** Log a calibration event. Internally calls `recordMove` with `type: "calibration"`.
+**Purpose:** Record a calibration. Delegates to `updateEquipment` — this is a PATCH of the equipment row, **not** a move: there is no `calibration` member in the `move_type` enum and no calibration endpoint, so a calibration no longer produces a Moves-log entry the way it did before step 7a.
 
 **Parameters:**
 
 | Parameter | Type | Source | Description |
 |---|---|---|---|
-| `payload` | `object` | `~/src/ui/admin.js → handleCalibrationSubmit()` | `{ equipmentId, timestamp, lastCalibrationDate, calibrationIntervalMonths, calibrationRequired, toLocation, fromLocation }` |
+| `equipmentId` | `string` | `~/src/ui/admin.js → handleCalibrationSubmit()` | Equipment UUID |
+| `payload` | `object` | same | `{ last_calibration_date, calibration_interval_months, calibration_required }` |
 
-**Returns:** `Promise<object>` — updated state.
-
----
-
-### `recordSubscriptionUpdate(payload)`
-
-**Purpose:** Log a subscription update event. Internally calls `recordMove` with `type: "subscription_updated"`.
-
-**Parameters:**
-
-| Parameter | Type | Source | Description |
-|---|---|---|---|
-| `payload` | `object` | Internal call | Subscription event fields |
-
-**Returns:** `Promise<object>` — updated state.
+**Returns:** `Promise<object>`
 
 ---
 
-### `addCorrection(payload)`
+## Removed in step 7a
 
-**Purpose:** Store a non-destructive correction to a move record. The original move is never changed — the correction is applied on top at render time by `applyCorrectionsToMoves`.
-
-**Parameters:**
-
-| Parameter | Type | Source | Description |
-|---|---|---|---|
-| `payload` | `object` | `~/src/ui/modals.js → initCorrectionModal()` | `{ id, ts, targetType: "move", targetId, reason, changes: { field: { from, to } }, createdBy }` |
-
-**Returns:** `Promise<object>` — updated state.
-
----
-
-### `archiveHistory()`
-
-**Purpose:** Mark all existing moves as archived so they no longer appear in the main moves list. Admin-only action.
-
-**Parameters:** None
-
-**Returns:** `Promise<object>` — updated state.
+| Method | Why |
+|---|---|
+| `mutate` / `persist` | The draft-and-upsert pattern is gone; use the named methods. |
+| `addCorrection` | No corrections endpoint; the feature was removed. |
+| `importEquipment` | No bulk-create endpoint (`POST` and `PATCH` only). |
+| `recordSubscriptionUpdate` | No DB-B endpoint. |
+| `archiveHistory` | `moves.archived` no longer exists in the schema. |

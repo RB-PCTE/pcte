@@ -28,50 +28,58 @@ The app uses native ES modules via `<script type="module">`. Opening without a S
 
 `app.js` is a legacy shim that re-exports `src/main.js` for old bookmarks. Do not delete it.
 
+## Running the backend
+
+The frontend needs the FastAPI backend running. From `backend/`:
+
+```sh
+uvicorn app.main:app --reload
+```
+
+`src/config.js` points `API_BASE` at `http://localhost:8000`. Swagger UI is at `/docs`.
+
+Two things must line up or every request 401s:
+
+- The origin the frontend is served from must be in the backend's `ALLOWED_ORIGINS`.
+- The Supabase project in `src/supabaseClient.js` must be the same project the backend's `SUPABASE_JWKS_URL` points at — the backend validates the token's `iss` claim.
+
 ## Running tests
 
-Tests are plain JS scripts with no framework. Run them with Node:
+Backend tests are pytest, under `backend/tests/`:
 
 ```sh
-node tests/applyCorrectionsToMoves.test.js
-node tests/conditionPillLastCheck.test.js
+cd backend && pytest
 ```
 
-Each script throws on failure and prints a success message on pass. There is no test runner — add new tests as standalone scripts that follow the same pattern.
+The two standalone frontend test scripts were removed in step 7a — both tested logic (corrections overlay, the old condition-rating vocabulary) that no longer exists.
 
-## Deploying edge functions
+## Edge functions — retired
 
-The Supabase CLI (installed via Scoop on Windows) is used to deploy edge functions:
+`move_create` and `move_receipt` were replaced by `POST /moves` and `POST /moves/{id}/receipt` in step 7a. Nothing in the frontend references their URLs. Source stays in `supabase/functions/` and in git history until REBUILD_PLAN.md step 8 undeploys them.
 
-```sh
-supabase link --project-ref eugdravtvewpnwkkpkzl
-supabase functions deploy move_create
-supabase functions deploy move_receipt
-```
-
-Edge functions live in `supabase/functions/`. See `supabase/SCHEMA.md` for the full database schema reference.
+`supabase/SCHEMA.md` predates `migrations/001_db_simplification.sql` and is stale; the migrations are the schema reference.
 
 ---
 
 ## Architecture overview
 
-The app is a single-page equipment tracker backed by **Supabase as the primary data source**. The UI uses a **dark sidebar + main content** layout matching the Subscription Tracker design system.
+The app is a single-page equipment tracker backed by a **FastAPI backend** (`backend/`) over Supabase Postgres. The UI uses a **dark sidebar + main content** layout matching the Subscription Tracker design system.
 
-On startup the app loads all state from Supabase; all mutations are persisted back via the repository adapter. The UI re-renders entirely whenever `"state:changed"` is emitted.
+The backend is the only writer and the only place business logic lives. `GET /state` returns a ready-to-render view model — computed status, calibration health, age labels and in-transit flags all arrive already calculated. Supabase JS is used **only** for the auth session.
 
 ### Data flow
 
 ```
-index.html  ──loads──►  src/main.js        (startup: hydrate → listen → render)
+index.html  ──loads──►  src/main.js     (startup: auth → hydrate → listen → render)
                               │
-              ┌───────────────┼──────────────────────┐
-              ▼               ▼                      ▼
-        src/repository/   src/auth.js         src/supabaseClient.js
-        index.js                                     │
-              │                           ┌──────────┴──────────┐
-              ▼                           ▼                     ▼
-        mutate / persist           Database A              Database B
-              │                  Fleet Tracker         Subscription Tracker
+              ┌───────────────┼───────────────────┐
+              ▼               ▼                   ▼
+        src/repository/   src/auth.js       src/supabaseClient.js
+        index.js          (login/logout)    (auth session only)
+              │                                   │
+              ▼                                   ▼
+          src/api.js  ──HTTP──►  FastAPI  ──►  Supabase Postgres
+              │                 (backend/)
               ▼
         emit("state:changed")
               │
@@ -81,56 +89,64 @@ index.html  ──loads──►  src/main.js        (startup: hydrate → liste
 
 ### Startup sequence
 
-1. `createRepository({ adapter: createSupabaseStorageAdapter() })` — initialises with empty state
-2. `repository.hydrate()` calls `adapter.load()` which runs parallel Supabase queries
-3. `emit("state:changed", loadedState)` triggers all registered render functions
-4. Sidebar nav switching calls `loadActiveView()` to restore the last-used view
+1. `createRepository()` — initialises with the empty state from `buildDefaultState()`
+2. `supabase.auth.getSession()` fires `"auth:changed"`
+3. With a session, `repository.hydrate()` calls `loadState()` — `GET /state` + `GET /locations` in parallel
+4. `emit("state:changed", state)` triggers all registered render functions
+5. Sidebar nav switching calls `loadActiveView()` to restore the last-used view
+
+Without a session nothing is fetched: every endpoint requires a bearer token. Signing in re-fires `"auth:changed"` and loads the data then.
+
+### Mutation flow
+
+Every mutation is: call one endpoint → refetch the whole state → emit. No local draft, no optimistic patching, no whole-table upsert. This is what step 7a replaced.
 
 ### File structure
 
 ```
 src/
-├── main.js             Startup only — wires hydrate, state listener, nav switching
+├── main.js             Startup only — auth gate, hydrate, state listener, nav switching
+├── config.js           API_BASE — the one environment-dependent value
+├── api.js              apiFetch + loadState — the only module that calls the backend
+├── enums.js            Backend enum value ⇄ display label maps
 ├── events.js           pub/sub: on(event, handler) / emit(event, payload)
-├── model.js            Constants (statuses, locations, move types) + buildDefaultState
-├── supabaseClient.js   DB clients + all field mapping functions + storage adapter
+├── model.js            buildDefaultState + the two filter vocabularies
+├── supabaseClient.js   Supabase clients — auth session only, no data access
 ├── auth.js             Supabase login/logout + role check + dev mode toggle
 ├── preferences.js      loadActiveView / saveActiveView (localStorage)
 │
 ├── repository/
-│   └── index.js        Central state store — all mutations use mutate()
-│
-├── legacy/
-│   └── localStorage.js Old localStorage adapter, mock adapter, migration helpers
+│   └── index.js        State store — one endpoint per mutation, then refetch
 │
 └── ui/
-    ├── computed.js     Pure functions: getCalibrationInfo, getSubscriptionInfo,
-    │                   getEffectiveStatus, getAgeLabel (no DOM access)
+    ├── computed.js     Pure formatting + CSS-class selection (no DOM access)
     ├── filters.js      Filter state + getFilteredEquipment / getFilteredMoves
     ├── toast.js        showToast + toast container
-    ├── stats.js        Render 6 metric cards (Operations view header)
+    ├── stats.js        Render 4 metric cards (Operations view header)
     ├── operations.js   Equipment table, location summary cards, move form
     ├── moves.js        Moves log table + filter bar
-    ├── admin.js        Add/edit equipment, calibration, CSV import, auth panel
-    ├── modals.js       Condition history, correction, correction details dialogs
-    └── devtools.js     Diagnostics log + test buttons (hidden, admin only)
+    ├── admin.js        Add/edit equipment, calibration, auth panel
+    ├── modals.js       Mark-received dialog
+    └── devtools.js     Diagnostics log + API health check (hidden, admin only)
 ```
 
 ### Key modules
 
-**`src/main.js`** — Startup only. Creates the repository, calls `hydrate()`, registers the `"state:changed"` listener, and wires sidebar navigation. `BUILD_VERSION` near the top should be updated before each deployment.
+**`src/main.js`** — Startup only. Creates the repository, gates hydration on an auth session, registers the `"state:changed"` listener, and wires sidebar navigation. `BUILD_VERSION` near the top should be updated before each deployment.
 
-**`src/repository/index.js`** — Repository pattern over a storage adapter. All state mutations go through `mutate(draft => ...)`, which persists via `adapter.save()` and emits `"state:changed"`. Key methods: `addEquipment`, `updateEquipment`, `recordMove`, `recordReceipt`, `recordCalibration`, `addCorrection`, `archiveHistory`.
+**`src/api.js`** — `apiFetch(path, options)` attaches the Supabase bearer token and throws `ApiError` carrying the server's own message (including FastAPI's 422 field detail). `loadState()` runs `GET /state` and `GET /locations` in parallel.
 
-**`src/supabaseClient.js`** — Two Supabase clients (`supabase` for Database A, `subscriptionSupabase` for Database B), all DB↔app field mapping functions, `createSupabaseStorageAdapter()`, and `createSubscriptionRecord()`.
+**`src/enums.js`** — The single translation point between the backend's snake_case enum values and display labels. Nothing outside this file may hardcode or compare against a display string. CSS-class lookups key on the backend values, so labels are safe to reword.
 
-**`src/model.js`** — Canonical constants (`editableStatusOptions`, `physicalLocations`, `moveConditionExemptStatuses`, etc.), `buildDefaultState()`, and `migrateStateIfNeeded()`. `STATE_VERSION` is currently `2`.
+**`src/repository/index.js`** — One endpoint per mutation, then `hydrate()` and emit. Methods: `addEquipment`, `updateEquipment`, `recordMove`, `recordReceipt`, `recordCalibration`.
 
-**`src/auth.js`** — Wraps `supabase.auth.signInWithPassword` / `signOut`. Checks `profiles.role` for admin access. Handles dev mode activation (Shift+click build version ×3).
+**`src/supabaseClient.js`** — Two Supabase clients. Only the auth session is used; `subscriptionSupabase` (DB B) is currently unused.
 
-**`src/ui/computed.js`** — Pure functions with no DOM access. Import these anywhere calibration status, subscription status, or effective equipment status needs to be calculated.
+**`src/model.js`** — `buildDefaultState()`, `FILTER_ALL`, `statusFilterOptions`, `calibrationFilterOptions`.
 
-**`src/legacy/localStorage.js`** — Isolated legacy code. Contains the old localStorage adapter, mock adapter, migration flag helpers, and `safeParseState`. Not used in the main data flow — kept for reference and fallback.
+**`src/auth.js`** — Wraps `supabase.auth.signInWithPassword` / `signOut`. Checks `profiles.role` for admin access — the one remaining `supabase.from(...)` call, gating UI visibility only; the backend enforces admin access independently. Handles dev mode (Shift+click build version ×3).
+
+**`src/ui/computed.js`** — Pure functions, no DOM access. Formatting and CSS-class selection only; the domain calculations moved to the backend.
 
 ### CSS / design system
 
@@ -147,37 +163,47 @@ src/
 
 ### Databases
 
-Full schema documentation is in `supabase/SCHEMA.md`.
+The `migrations/` directory is the schema reference. `supabase/SCHEMA.md` predates `001_db_simplification.sql` and is stale.
 
-**Database A — Fleet Tracker** (`eugdravtvewpnwkkpkzl.supabase.co`)
-- `equipment` + `equipment_state` (1:1) — static data and dynamic state
-- `moves` + `move_shipping` + `move_receipts` — movement history
-- `locations` — location reference data
-- `corrections` — non-destructive audit trail
+**Database A — Fleet Tracker**
+- `equipment` + `equipment_state` (1:1) — static data and dynamic state (`status`, `current_location_id`, `current_move_id`, `condition`)
+- `moves` + `move_logistics` (1:1) — movement history; `move_logistics` replaced `move_shipping` + `move_receipts`
+- `locations` — reference data, with a `category` enum (`customer` / `warehouse` / `office`)
 - `profiles` — user roles (`role = 'admin'` gates admin features)
 
-**Database B — Subscription Tracker** (`ezsqpiwzcuczgqdqyuqx.supabase.co`)
-- Read: `subscriptions.renewal_date` matched via `serial_number` ↔ `equipment.serial`
-- Write: new row on equipment creation when subscription is required
+**Database B — Subscription Tracker** — no longer read by this app. The subscription UI was removed in step 7a; there is no backend endpoint covering DB B yet.
+
+### Enums (migrations 001–003)
+
+| Enum | Values |
+|---|---|
+| `equipment_status` | `available`, `on_demo`, `on_hire`, `in_service_repair`, `quarantined` |
+| `equipment_category` | `INDT`, `CNDT`, `geotech`, `GPR`, `lab` |
+| `location_category` | `customer`, `warehouse`, `office` |
+| `move_type` | `office_transfer`, `hire_out`, `hire_return`, `workshop`, `move` |
+| `condition_assessment` | `pass`, `needs_attention`, `fail` |
+
+All display labels live in `src/enums.js`. Never hardcode one elsewhere.
 
 ### State schema
 
 ```js
 {
-  schemaVersion: 2,
-  locations:   string[],          // active rows from locations table
-  equipment:   EquipmentItem[],   // equipment + equipment_state + DB B subscriptions
-  moves:       MoveEntry[],       // moves + move_receipts
-  corrections: CorrectionEntry[],
+  equipment: EquipmentOut[],   // GET /state — includes computed view-model fields
+  moves:     MoveOut[],        // GET /state — each with its move_logistics row
+  locations: LocationOut[],    // GET /locations — active AND inactive
 }
 ```
 
+Field names are the backend's own. `EquipmentOut` carries `age_label`, `calibration` (`null` when not required), `in_transit`, `location_display` and `condition` (`null` when never assessed) already computed.
+
 ### Key domain rules
 
-- **Editable statuses**: Available, On demo, On hire, In service / repair, Quarantined
-- **Computed status**: "In transit" is derived — never set directly
-- **Condition check exemptions**: moves to "In service / repair" or "Quarantined" skip the condition check
-- **Calibration**: overdue/due-soon computed at render time from `lastCalibrationDate + calibrationIntervalMonths` vs today
-- **Corrections**: non-destructive — stored in `state.corrections`, applied on top of moves at read time
-- **Subscriptions**: `subscriptionRenewalDate` sourced from DB B at load time — never written back from this app except on equipment creation
-- **Admin access**: gated by `profiles.role = 'admin'`; dev mode (Shift+click version ×3) bypasses this locally for testing
+- **In transit** is derived from `equipment_state.current_move_id` — server-side, never set directly
+- **Location and status change only on receipt.** `POST /moves` opens a move and flags it in transit; `POST /moves/{id}/receipt` applies the destination and status, and sets `condition`
+- **`status_from`, `from_location_id`, `created_by`, `received_by`** are server-derived; sending them is a 422
+- **Condition** is assessed at receipt only, never edited directly — it's absent from `EquipmentPatchIn`
+- **Shipping is required for office → office moves**, keyed on each location's `category`
+- **Calibration** health is computed server-side; `calibration: null` means not required
+- **One open move per item** — a second `POST /moves` returns 409
+- **Admin access**: `profiles.role = 'admin'`, enforced by the backend's `require_admin`; the frontend check only hides UI. Dev mode (Shift+click version ×3) affects local UI visibility only and does **not** grant API access

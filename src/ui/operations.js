@@ -1,196 +1,164 @@
 // src/ui/operations.js — Operations view: equipment table, location summary, move form.
 //
 // Public surface:
-//   renderOperationsView(state)          — called on every state:changed
-//   bindOperationsEvents({ repository, showToast }) — called once at startup
+//   renderOperationsView(state)                      — called on every state:changed
+//   bindOperationsEvents({ repository, showToast })  — called once at startup
 
 import {
   escapeHTML,
   formatDate,
-  formatDateTime,
-  getAgeLabel,
-  getCalibrationInfo,
-  getSubscriptionInfo,
-  getEffectiveStatus,
-  getEquipmentLocationDisplay,
-  getLatestConditionForItem,
-  conditionBadgeClass,
+  equipmentLabel,
+  statusDisplay,
   statusPillClass,
-  healthPillClass,
+  calibrationPillClass,
+  conditionBadgeClass,
 } from "./computed.js";
 
 import { getFilteredEquipment } from "./filters.js";
 import { renderStats } from "./stats.js";
 
 import {
-  editableStatusOptions,
+  FILTER_ALL,
   statusFilterOptions,
   calibrationFilterOptions,
-  subscriptionFilterOptions,
-  physicalLocations,
-  moveConditionExemptStatuses,
 } from "../model.js";
 
-import { supabase, getSupabaseLocationID } from "../supabaseClient.js";
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const MOVE_CREATE_ENDPOINT =
-  "https://eugdravtvewpnwkkpkzl.supabase.co/functions/v1/move_create";
+import {
+  EQUIPMENT_STATUS,
+  EQUIPMENT_CATEGORY,
+  MOVE_TYPE,
+  CONDITION,
+  CONDITION_NOT_ASSESSED,
+  CALIBRATION_STATUS,
+  CALIBRATION_NOT_REQUIRED,
+  display,
+  options,
+} from "../enums.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Set innerHTML of an element by ID safely. */
-function setHTML(id, html) {
-  const el = document.getElementById(id);
-  if (el) el.innerHTML = html;
-}
 
 /** Build an <option> string. */
 function opt(value, label, selected = false) {
   return `<option value="${escapeHTML(value)}"${selected ? " selected" : ""}>${escapeHTML(label)}</option>`;
 }
 
-/** Populate a <select> from an array, preserving the current value. */
-function populateSelect(id, options, current = "") {
+/** Populate a <select> from an array of option strings, preserving the current value. */
+function populateSelect(id, optionStrings, current = "") {
   const el = document.getElementById(id);
   if (!el) return;
   const prev = el.value || current;
-  el.innerHTML = options.join("");
+  el.innerHTML = optionStrings.join("");
   if ([...el.options].some((o) => o.value === prev)) el.value = prev;
+}
+
+/** Locations that can be selected as a destination or filtered on. */
+function activeLocations(state) {
+  return (state.locations ?? []).filter((l) => l.active);
 }
 
 // ── Filter dropdowns ──────────────────────────────────────────────────────────
 
 function renderFilterSelects(state) {
-  const locations = Array.isArray(state.locations) ? state.locations : [];
-
-  // Location filter
   populateSelect("location-filter", [
-    opt("All locations", "All locations"),
-    ...locations.map((l) => opt(l.name, l.name)),
+    opt(FILTER_ALL, "All locations"),
+    ...activeLocations(state).map((l) => opt(l.id, l.name)),
   ]);
 
-  // Status filter
-  populateSelect("status-filter", [
-    opt("All statuses", "All statuses"),
-    ...statusFilterOptions.map((s) => opt(s, s)),
-  ]);
+  populateSelect(
+    "status-filter",
+    statusFilterOptions.map((o) => opt(o.value, o.label))
+  );
 
-  // Calibration filter
-  populateSelect("calibration-filter", calibrationFilterOptions.map((s) => opt(s, s)));
-
-  // Subscription filter
-  populateSelect("subscription-filter", subscriptionFilterOptions.map((s) => opt(s, s)));
+  populateSelect(
+    "calibration-filter",
+    calibrationFilterOptions.map((o) => opt(o.value, o.label))
+  );
 }
 
 // ── Move form selects ─────────────────────────────────────────────────────────
 
 function renderMoveFormSelects(state) {
-  const equipment = Array.isArray(state.equipment) ? state.equipment : [];
-  const locations  = Array.isArray(state.locations)  ? state.locations  : [];
+  const equipment = state.equipment ?? [];
 
-  // Equipment dropdown
   populateSelect("move-equipment", [
     opt("", "Select equipment…"),
-    ...equipment.map((item) => {
-      const label = [item.name, item.model, item.serialNumber]
-        .filter(Boolean)
-        .join(" — ");
-      return opt(item.id, label);
-    }),
+    ...equipment.map((item) => opt(item.id, equipmentLabel(item))),
   ]);
 
-  // Destination dropdown (locations only, no "all" option)
   populateSelect("move-location", [
     opt("", "Select location…"),
-    ...locations.map((l) => opt(l.name, l.name)),
+    ...activeLocations(state).map((l) => opt(l.id, l.name)),
   ]);
 
-  // Status-after-move
-  populateSelect("move-status", [
-    opt("", "No change"),
-    ...editableStatusOptions.map((s) => opt(s, s)),
-  ]);
+  populateSelect(
+    "move-type",
+    options(MOVE_TYPE).map((o) => opt(o.value, o.label))
+  );
+
+  // status_to is required by POST /moves, so there is no "no change" option —
+  // the form defaults to Available, matching the pre-step-7 behaviour of
+  // sending "Available" when the field was left blank.
+  populateSelect(
+    "move-status",
+    options(EQUIPMENT_STATUS).map((o) => opt(o.value, o.label)),
+    "available"
+  );
 }
 
 // ── Equipment table ───────────────────────────────────────────────────────────
 
 function buildConditionCell(item) {
-  const cond = getLatestConditionForItem(item);
-  const rating   = cond?.grade ?? "Not checked";
-  const checkedAt = cond?.checkedAt ? formatDateTime(cond.checkedAt) : "—";
-  const cls = conditionBadgeClass(rating);
-  return `
-    <div class="status-with-meta">
-      <button
-        class="condition-badge ${cls}"
-        type="button"
-        data-action="view-condition-history"
-        data-equipment-id="${escapeHTML(item.id)}"
-        title="Last checked: ${escapeHTML(checkedAt)}"
-      >${escapeHTML(rating)}</button>
-      <small class="status-meta">Last checked: ${escapeHTML(checkedAt)}</small>
-    </div>`;
+  const label = display(CONDITION, item.condition, CONDITION_NOT_ASSESSED);
+  const cls = conditionBadgeClass(item.condition);
+  return `<span class="condition-badge ${cls}" title="Set when a move is receipted">${escapeHTML(label)}</span>`;
 }
 
-function buildTableRow(item, moves, now) {
-  const effectiveStatus  = getEffectiveStatus(item, moves);
-  const locationDisplay  = getEquipmentLocationDisplay(item, moves);
-  const calibInfo        = getCalibrationInfo(item, now);
-  const subInfo          = getSubscriptionInfo(item, now);
-  const ageLabel         = getAgeLabel(item.purchaseDate, now);
+function buildCalibrationCell(item) {
+  const info = item.calibration;
+  const label = info
+    ? display(CALIBRATION_STATUS, info.status, "Unknown")
+    : CALIBRATION_NOT_REQUIRED;
 
-  // Calibration cell
-  const calMeta = calibInfo.dueDate
-    ? `Due ${formatDate(calibInfo.dueDate)}`
-    : calibInfo.status === "Unknown" ? "No calibration date recorded" : "Not required";
-  const calCell = `<span class="pill ${healthPillClass(calibInfo.status)}" title="${escapeHTML(calMeta)}">${escapeHTML(calibInfo.status)}</span>`;
+  const meta = info?.due_date
+    ? `Due ${formatDate(info.due_date)}`
+    : info
+      ? "No calibration date recorded"
+      : "Not required";
 
-  // Subscription cell
-  const subMeta = subInfo.renewalDate
-    ? `Renewal ${formatDate(subInfo.renewalDate)}`
-    : subInfo.status === "Unknown" ? "No renewal date recorded" : "Not required";
-  const subDateLabel = subInfo.renewalDate ? formatDate(subInfo.renewalDate) : "";
-  const subCell = `
-    <div class="status-with-meta">
-      <span class="pill ${healthPillClass(subInfo.status)}" title="${escapeHTML(subMeta)}">${escapeHTML(subInfo.status)}</span>
-      ${subDateLabel ? `<small class="status-meta">${escapeHTML(subDateLabel)}</small>` : ""}
-    </div>`;
+  return `<span class="pill ${calibrationPillClass(info?.status ?? null)}" title="${escapeHTML(meta)}">${escapeHTML(label)}</span>`;
+}
 
+function buildTableRow(item) {
   return `
     <tr data-equipment-id="${escapeHTML(item.id)}">
       <td>
         <div class="status-with-meta">
           <strong>${escapeHTML(item.name)}</strong>
-          <small class="status-meta">${escapeHTML(ageLabel)}</small>
+          <small class="status-meta">${escapeHTML(item.age_label || "Unknown")}</small>
         </div>
       </td>
-      <td>${escapeHTML(item.model || "—")}</td>
-      <td>${escapeHTML(item.serialNumber || "—")}</td>
+      <td>${escapeHTML(display(EQUIPMENT_CATEGORY, item.category))}</td>
+      <td>${escapeHTML(item.serial || "—")}</td>
       <td>
-        <span class="pill ${statusPillClass(effectiveStatus)}">${escapeHTML(effectiveStatus)}</span>
+        <span class="pill ${statusPillClass(item)}">${escapeHTML(statusDisplay(item))}</span>
       </td>
-      <td>${escapeHTML(locationDisplay.text)}</td>
-      <td>${calCell}</td>
-      <td>${subCell}</td>
+      <td>${escapeHTML(item.location_display?.text ?? "Unknown")}</td>
+      <td>${buildCalibrationCell(item)}</td>
       <td>${buildConditionCell(item)}</td>
-      <td>${escapeHTML(item.lastMoved || "—")}</td>
     </tr>`;
 }
 
-function renderEquipmentTable(filteredEquipment, state, now) {
+function renderEquipmentTable(filteredEquipment) {
   const tbody = document.getElementById("equipment-table");
   if (!tbody) return;
 
   if (!filteredEquipment.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: var(--space-4); color: var(--color-text-muted);">No equipment matches the current filters.</td></tr>';
+    tbody.innerHTML =
+      '<tr><td colspan="7" style="text-align:center; padding: var(--space-4); color: var(--color-text-muted);">No equipment matches the current filters.</td></tr>';
     return;
   }
 
-  tbody.innerHTML = filteredEquipment
-    .map((item) => buildTableRow(item, state.moves, now))
-    .join("");
+  tbody.innerHTML = filteredEquipment.map(buildTableRow).join("");
 }
 
 // ── Location summary ──────────────────────────────────────────────────────────
@@ -199,8 +167,8 @@ function renderLocationSummary(state) {
   const container = document.getElementById("location-summary");
   if (!container) return;
 
-  const locations = Array.isArray(state.locations) ? state.locations : [];
-  const equipment  = Array.isArray(state.equipment)  ? state.equipment  : [];
+  const locations = activeLocations(state);
+  const equipment = state.equipment ?? [];
 
   if (!locations.length) {
     container.innerHTML = "";
@@ -209,17 +177,21 @@ function renderLocationSummary(state) {
 
   container.innerHTML = locations
     .map((location) => {
-      const items = equipment.filter((item) => item.location === location.name);
+      const items = equipment.filter((item) => item.current_location_id === location.id);
       const listItems = items.length
-        ? items.map((item) => `
+        ? items
+            .map(
+              (item) => `
             <li class="summary-item">
               <span class="summary-item-name">${escapeHTML(item.name)}</span>
-              <small class="summary-item-meta">${escapeHTML(item.lastMoved || "—")}</small>
-            </li>`).join("")
+              <small class="summary-item-meta">${escapeHTML(statusDisplay(item))}</small>
+            </li>`
+            )
+            .join("")
         : '<li class="summary-item summary-empty">No equipment here.</li>';
 
       return `
-        <article class="location-card" tabindex="0" data-location="${escapeHTML(location.name)}">
+        <article class="location-card" tabindex="0" data-location-id="${escapeHTML(location.id)}">
           <div class="location-card-header">
             <h4>${escapeHTML(location.name)}</h4>
             <span class="location-card-count">${items.length}</span>
@@ -232,111 +204,93 @@ function renderLocationSummary(state) {
 
 // ── Move form — conditional UI ────────────────────────────────────────────────
 
-/** True when the move is between two different physical offices (requires shipping). */
-function isInterOfficeMove(fromLocation, toLocation) {
-  const from = String(fromLocation ?? "").trim();
-  const to   = String(toLocation   ?? "").trim();
-  return (
-    from &&
-    to &&
-    from !== to &&
-    physicalLocations.includes(from) &&
-    physicalLocations.includes(to)
-  );
+/**
+ * True when the move runs between two different offices, which is what makes
+ * shipping details mandatory.
+ *
+ * Keyed on each location's `category` rather than the hardcoded name list this
+ * used before step 7a, so a new office added through the locations table gets
+ * the shipping requirement without a code change.
+ */
+function isInterOfficeMove(state, fromLocationId, toLocationId) {
+  if (!fromLocationId || !toLocationId || fromLocationId === toLocationId) return false;
+  const byId = new Map((state.locations ?? []).map((l) => [l.id, l]));
+  return byId.get(fromLocationId)?.category === "office" &&
+         byId.get(toLocationId)?.category === "office";
 }
 
-/** True when the destination status means a condition check isn't required. */
-function isConditionExempt(statusValue) {
-  return moveConditionExemptStatuses.has(statusValue);
+/** Derive a sensible default move type from the two locations. */
+function deriveMoveType(state, fromLocationId, toLocationId) {
+  const byId = new Map((state.locations ?? []).map((l) => [l.id, l]));
+  const to = byId.get(toLocationId);
+  const from = byId.get(fromLocationId);
+
+  if (to?.category === "customer") return "hire_out";
+  if (from?.category === "customer") return "hire_return";
+  if (isInterOfficeMove(state, fromLocationId, toLocationId)) return "office_transfer";
+  return "move";
 }
 
-/** Derive the edge-function move_type from from/to locations. */
-function deriveMoveType(fromLocation, toLocation) {
-  const to   = String(toLocation   ?? "").trim();
-  const from = String(fromLocation ?? "").trim();
-  if (to === "On hire")   return "hire_out";
-  if (from === "On hire") return "hire_return";
-  return "office_transfer";
+function selectedEquipment(state) {
+  const id = document.getElementById("move-equipment")?.value ?? "";
+  return (state.equipment ?? []).find((e) => e.id === id) ?? null;
 }
 
 /** Show or hide the shipping section based on the current form values. */
 function syncShippingSection(state) {
-  const equipmentId = document.getElementById("move-equipment")?.value ?? "";
-  const toLocation  = document.getElementById("move-location")?.value  ?? "";
-  const item = (state.equipment ?? []).find((e) => e.id === equipmentId);
   const section = document.getElementById("move-shipping-section");
   if (!section) return;
 
-  const required = isInterOfficeMove(item?.location, toLocation);
+  const item = selectedEquipment(state);
+  const toLocationId = document.getElementById("move-location")?.value ?? "";
+
+  const required = isInterOfficeMove(state, item?.current_location_id, toLocationId);
   section.classList.toggle("is-hidden", !required);
-
-  // Pre-fill ship date with today if blank
-  if (required) {
-    const shipDateEl = document.getElementById("move-shipping-ship-date");
-    if (shipDateEl && !shipDateEl.value) {
-      shipDateEl.value = formatDate(new Date());
-    }
-  }
+  if (!required) clearShippingValidation();
 }
 
-/** Show or hide the condition check section based on equipment + status selection. */
-function syncConditionSection(state) {
-  const equipmentId  = document.getElementById("move-equipment")?.value ?? "";
-  const statusValue  = document.getElementById("move-status")?.value    ?? "";
-  const section      = document.getElementById("move-condition-section");
-  const exemptNote   = document.getElementById("move-condition-exempt-note");
-  if (!section) return;
+/**
+ * Re-apply the derived move type — but only while the user hasn't chosen one
+ * themselves. `workshop` has no location heuristic that implies it, so without
+ * this guard picking it and then adjusting the destination would silently
+ * throw the choice away.
+ */
+let _moveTypeDirty = false;
 
-  const item = (state.equipment ?? []).find((e) => e.id === equipmentId);
-  if (!item) {
-    section.classList.add("is-hidden");
-    return;
-  }
+function syncMoveType(state) {
+  if (_moveTypeDirty) return;
+  const el = document.getElementById("move-type");
+  if (!el) return;
 
-  const effectiveStatus = statusValue || item.status;
-  const exempt = isConditionExempt(effectiveStatus);
+  const item = selectedEquipment(state);
+  const toLocationId = document.getElementById("move-location")?.value ?? "";
+  if (!item || !toLocationId) return;
 
-  section.classList.remove("is-hidden");
-  exemptNote?.classList.toggle("is-hidden", !exempt);
-
-  // Disable condition inputs when exempt
-  ["move-condition-rating", "move-contents-ok", "move-functional-ok"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.disabled = exempt;
-  });
-  const notesEl = document.getElementById("move-condition-notes");
-  if (notesEl) notesEl.disabled = exempt;
+  el.value = deriveMoveType(state, item.current_location_id, toLocationId);
 }
 
-// ── Move form — validation ─────────────────────────────────────────────────
+// ── Move form — validation ────────────────────────────────────────────────────
 
 function validateShipping() {
-  const carrier  = document.getElementById("move-shipping-carrier")?.value.trim()  ?? "";
-  const tracking = document.getElementById("move-shipping-tracking")?.value.trim() ?? "";
-  const validEl  = document.getElementById("move-shipping-validation");
-  const section  = document.getElementById("move-shipping-section");
-
+  const section = document.getElementById("move-shipping-section");
   if (section?.classList.contains("is-hidden")) return true;
 
-  const missing = [];
-  if (!carrier)  missing.push(document.getElementById("move-shipping-carrier"));
-  if (!tracking) missing.push(document.getElementById("move-shipping-tracking"));
+  const carrierEl = document.getElementById("move-shipping-carrier");
+  const trackingEl = document.getElementById("move-shipping-tracking");
 
-  missing.forEach((el) => {
-    el?.classList.add("field-input-error");
-    el?.setAttribute("aria-invalid", "true");
+  const missing = [];
+  if (!carrierEl?.value.trim()) missing.push(carrierEl);
+  if (!trackingEl?.value.trim()) missing.push(trackingEl);
+
+  [carrierEl, trackingEl].forEach((el) => {
+    if (!el) return;
+    const bad = missing.includes(el);
+    el.classList.toggle("field-input-error", bad);
+    if (bad) el.setAttribute("aria-invalid", "true");
+    else el.removeAttribute("aria-invalid");
   });
 
-  const invalid = document.querySelectorAll("#move-shipping-section .field-input-error");
-  // Clear errors on valid fields
-  document.querySelectorAll("#move-shipping-section input, #move-shipping-section select")
-    .forEach((el) => {
-      if (!missing.includes(el)) {
-        el.classList.remove("field-input-error");
-        el.removeAttribute("aria-invalid");
-      }
-    });
-
+  const validEl = document.getElementById("move-shipping-validation");
   if (validEl) {
     validEl.textContent = missing.length
       ? "Carrier and tracking number are required for inter-office moves."
@@ -348,13 +302,15 @@ function validateShipping() {
 }
 
 function clearShippingValidation() {
-  document.querySelectorAll("#move-shipping-section .field-input-error")
-    .forEach((el) => {
-      el.classList.remove("field-input-error");
-      el.removeAttribute("aria-invalid");
-    });
+  document.querySelectorAll("#move-shipping-section .field-input-error").forEach((el) => {
+    el.classList.remove("field-input-error");
+    el.removeAttribute("aria-invalid");
+  });
   const validEl = document.getElementById("move-shipping-validation");
-  if (validEl) { validEl.textContent = ""; validEl.classList.add("is-hidden"); }
+  if (validEl) {
+    validEl.textContent = "";
+    validEl.classList.add("is-hidden");
+  }
 }
 
 // ── Move form — submit ────────────────────────────────────────────────────────
@@ -364,11 +320,11 @@ let _isSaving = false;
 function setSubmitSaving(isSaving) {
   const btn = document.getElementById("move-submit");
   if (!btn) return;
-  btn.disabled   = isSaving;
+  btn.disabled = isSaving;
   btn.textContent = isSaving ? "Saving…" : "Record move";
 }
 
-function setSubmitStatus(message, type = "info") {
+function setSubmitStatus(message, type = "note") {
   const el = document.getElementById("move-submit-status");
   if (!el) return;
   el.textContent = message;
@@ -380,8 +336,8 @@ function resetMoveForm() {
   const form = document.getElementById("move-form");
   if (!form) return;
   form.reset();
+  _moveTypeDirty = false;
   document.getElementById("move-shipping-section")?.classList.add("is-hidden");
-  document.getElementById("move-condition-section")?.classList.add("is-hidden");
   clearShippingValidation();
   setSubmitStatus("");
 }
@@ -390,129 +346,68 @@ async function handleMoveSubmit(event, state, { showToast, repository }) {
   event.preventDefault();
   if (_isSaving) return;
 
-  const equipmentId = document.getElementById("move-equipment")?.value ?? "";
-  const toLocation  = document.getElementById("move-location")?.value  ?? "";
-  const statusValue = document.getElementById("move-status")?.value    ?? "";
-  const notes       = document.getElementById("move-notes")?.value.trim() ?? "";
-  const carrier     = document.getElementById("move-shipping-carrier")?.value.trim()  ?? "";
-  const tracking    = document.getElementById("move-shipping-tracking")?.value.trim() ?? "";
-  const shipDate    = document.getElementById("move-shipping-ship-date")?.value ?? "";
-  const etaDate     = document.getElementById("move-shipping-eta-date")?.value  ?? "";
-  const condRating  = document.getElementById("move-condition-rating")?.value   ?? "";
-  const contentsOk  = document.getElementById("move-contents-ok")?.value        ?? "";
-  const funcOk      = document.getElementById("move-functional-ok")?.value      ?? "";
-  const condNotes   = document.getElementById("move-condition-notes")?.value.trim() ?? "";
+  const item = selectedEquipment(state);
+  const toLocationId = document.getElementById("move-location")?.value ?? "";
+  const moveType = document.getElementById("move-type")?.value ?? "";
+  const statusTo = document.getElementById("move-status")?.value || "available";
+  const notes = document.getElementById("move-notes")?.value.trim() ?? "";
+  const carrier = document.getElementById("move-shipping-carrier")?.value.trim() ?? "";
+  const tracking = document.getElementById("move-shipping-tracking")?.value.trim() ?? "";
 
-  const item = (state.equipment ?? []).find((e) => e.id === equipmentId);
   if (!item) {
     showToast("Select a piece of equipment first.", "error");
     return;
   }
-  if (!toLocation) {
+  if (!toLocationId) {
     showToast("Select a destination.", "error");
     return;
   }
-
-  // Shipping validation
-  const shippingSection = document.getElementById("move-shipping-section");
-  const needsShipping   = !shippingSection?.classList.contains("is-hidden");
-  if (needsShipping && !validateShipping()) {
+  if (!moveType) {
+    showToast("Select a move type.", "error");
+    return;
+  }
+  if (!validateShipping()) {
     showToast("Add carrier and tracking number before saving.", "error");
     document.getElementById("move-shipping-carrier")?.focus();
     return;
   }
 
-  // Auth check
-  const { data: authData, error: authError } = await supabase.auth.getSession();
-  if (authError || !authData.session) {
-    showToast("Please sign in to record a move.", "error");
-    return;
-  }
+  const shippingRequired = !document
+    .getElementById("move-shipping-section")
+    ?.classList.contains("is-hidden");
+
+  // status_from, from_location_id and created_by are all derived server-side
+  // under a row lock. MoveCreateIn forbids unknown fields, so sending them
+  // would be a 422 rather than a silently ignored value.
+  const payload = {
+    equipment_id:   item.id,
+    to_location_id: toLocationId,
+    move_type:      moveType,
+    status_to:      statusTo,
+    notes:          notes || null,
+    carrier:         shippingRequired ? carrier : null,
+    tracking_number: shippingRequired ? tracking : null,
+    booked_at:       shippingRequired ? new Date().toISOString() : null,
+  };
 
   _isSaving = true;
   setSubmitSaving(true);
   setSubmitStatus("Submitting…");
 
   try {
-    const moveType = deriveMoveType(item.location, toLocation);
-
-    const payload = {
-      equipment_id:     equipmentId,
-      from_location_id: await getSupabaseLocationID(item.location),
-      to_location_id:   await getSupabaseLocationID(toLocation),
-      move_type:        moveType,
-      moved_at:         new Date().toISOString(),
-      notes:            notes || null,
-      carrier:          carrier  || null,
-      tracking_number:  tracking || null,
-      booked_at:        new Date().toISOString(),
-      status_from:      item.status || null,
-      status_to:        statusValue || "Available",
-      ...(condRating ? {
-        condition_rating:        condRating,
-        condition_contents_ok:   contentsOk === "Yes" ? true : contentsOk === "No" ? false : null,
-        condition_functional_ok: funcOk     === "Yes" ? true : funcOk     === "No" ? false : null,
-        condition_notes:         condNotes || null,
-      } : {}),
-    };
-
-    const res = await fetch(MOVE_CREATE_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type":  "application/json",
-        Authorization:   `Bearer ${authData.session.access_token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    let body = null;
-    try { body = await res.json(); } catch { /* empty body */ }
-
-    if (!res.ok) {
-      const msg = body?.error ?? body?.message ?? `HTTP ${res.status}`;
-      setSubmitStatus(`Error: ${msg}`, "error");
-      showToast(`Move failed: ${msg}`, "error");
-      return;
-    }
-
-    const moveId = body?.move?.id ?? body?.id ?? crypto.randomUUID();
-
-    // Record in local state so the table updates immediately
-    repository.recordMove({
-      id:              moveId,
-      equipmentId:     equipmentId,
-      equipmentSnapshot: { name: item.name, model: item.model, serialNumber: item.serialNumber },
-      type:            moveType,
-      fromLocation:    item.location,
-      toLocation:      toLocation,
-      statusFrom:      item.status || null,
-      statusTo:        statusValue || "Available",
-      condition: condRating ? {
-        rating:      condRating,
-        contentsOk:  contentsOk === "Yes" ? true : contentsOk === "No" ? false : null,
-        functionalOk: funcOk    === "Yes" ? true : funcOk    === "No" ? false : null,
-        notes:       condNotes,
-        checkedAt:   new Date().toISOString(),
-      } : null,
-      text:      `${item.name} moved to ${toLocation}`,
-      timestamp: new Date().toISOString(),
-    });
-
+    await repository.recordMove(payload);
     resetMoveForm();
-    setSubmitStatus(`Move recorded.`);
+    setSubmitStatus("Move recorded.");
     showToast("Move recorded.", "success");
 
-    // Briefly highlight the moved equipment row
-    const row = document.querySelector(`tr[data-equipment-id="${CSS.escape(equipmentId)}"]`);
+    const row = document.querySelector(`tr[data-equipment-id="${CSS.escape(item.id)}"]`);
     if (row) {
       row.classList.add("equipment-row-highlight");
       setTimeout(() => row.classList.remove("equipment-row-highlight"), 2000);
     }
-
   } catch (err) {
-    console.error("Move submit error:", err);
-    setSubmitStatus(`Error: ${err.message}`, "error");
-    showToast("Something went wrong. Check your connection.", "error");
+    setSubmitStatus(err.message, "error");
+    showToast(err.message, "error");
   } finally {
     _isSaving = false;
     setSubmitSaving(false);
@@ -523,17 +418,15 @@ async function handleMoveSubmit(event, state, { showToast, repository }) {
 
 /**
  * Re-render everything in the Operations view.
- * Called from main.js on every state:changed event.
  * @param {object} state - full app state from repository.getState()
  */
 export function renderOperationsView(state) {
   renderFilterSelects(state);
-  const now      = new Date();
   const filtered = getFilteredEquipment(state);
 
-  renderStats(filtered, state.moves, now);
+  renderStats(filtered);
   renderMoveFormSelects(state);
-  renderEquipmentTable(filtered, state, now);
+  renderEquipmentTable(filtered);
   renderLocationSummary(state);
 }
 
@@ -542,72 +435,56 @@ export function renderOperationsView(state) {
 /**
  * Wire all Operations view event listeners.
  * @param {{ repository: object, showToast: Function }} deps
+ * @returns {{ syncState(state): void }}
  */
 export function bindOperationsEvents({ repository, showToast }) {
-  // Hold a reference to latest state for event handlers
   let _state = { equipment: [], moves: [], locations: [] };
-  document.addEventListener("state:sync", (e) => { _state = e.detail ?? _state; });
 
   // Filter changes → re-render
-  ["search-input", "location-filter", "status-filter", "calibration-filter", "subscription-filter"]
-    .forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () =>
-        renderOperationsView(_state)
-      );
+  ["search-input", "location-filter", "status-filter", "calibration-filter"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () =>
+      renderOperationsView(_state)
+    );
+  });
+
+  // Equipment / destination change → re-derive the conditional sections
+  ["move-equipment", "move-location"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", () => {
+      syncShippingSection(_state);
+      syncMoveType(_state);
     });
-
-  // Equipment / location change → sync conditional sections
-  document.getElementById("move-equipment")?.addEventListener("change", () => {
-    syncShippingSection(_state);
-    syncConditionSection(_state);
-  });
-  document.getElementById("move-location")?.addEventListener("change", () => {
-    syncShippingSection(_state);
-  });
-  document.getElementById("move-status")?.addEventListener("change", () => {
-    syncConditionSection(_state);
   });
 
-  // Clear shipping errors when user types
+  // A manual move-type choice sticks for the rest of this form session.
+  document.getElementById("move-type")?.addEventListener("change", () => {
+    _moveTypeDirty = true;
+  });
+
+  // Clear shipping errors as the user types
   ["move-shipping-carrier", "move-shipping-tracking"].forEach((id) => {
     document.getElementById(id)?.addEventListener("input", clearShippingValidation);
   });
 
-  // Location summary card click → filter table to that location
+  // Location summary card click → filter the table to that location
   document.getElementById("location-summary")?.addEventListener("click", (e) => {
-    const card = e.target.closest("[data-location]");
+    const card = e.target.closest("[data-location-id]");
     if (!card) return;
     const locFilter = document.getElementById("location-filter");
     if (locFilter) {
-      locFilter.value = card.dataset.location;
+      locFilter.value = card.dataset.locationId;
       renderOperationsView(_state);
     }
   });
 
-  // Equipment table click → condition history button
-  document.getElementById("equipment-table")?.addEventListener("click", (e) => {
-    const btn = e.target.closest('[data-action="view-condition-history"]');
-    if (!btn) return;
-    document.dispatchEvent(
-      new CustomEvent("modal:condition-history", {
-        detail: { equipmentId: btn.dataset.equipmentId },
-      })
-    );
-  });
-
-  // Move form submit
   document.getElementById("move-form")?.addEventListener("submit", (e) =>
     handleMoveSubmit(e, _state, { showToast, repository })
   );
 
-  // Expose state sync so renderOperationsView can push state to handlers
   return {
-    /** Call this whenever state changes to keep event handlers current. */
     syncState(state) {
       _state = state;
-      document.dispatchEvent(new CustomEvent("state:sync", { detail: state }));
     },
   };
 }

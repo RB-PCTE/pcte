@@ -4,7 +4,7 @@
 
 import { on, emit } from "./events.js";
 import { createRepository } from "./repository/index.js";
-import { createSupabaseStorageAdapter, supabase } from "./supabaseClient.js";
+import { supabase } from "./supabaseClient.js";
 import { loadActiveView, saveActiveView } from "./preferences.js";
 import { renderOperationsView, bindOperationsEvents } from "./ui/operations.js";
 import { renderMovesView, bindMovesEvents } from "./ui/moves.js";
@@ -13,14 +13,17 @@ import { bindModalsEvents } from "./ui/modals.js";
 import { initDevtools } from "./ui/devtools.js";
 import { initAuth } from "./auth.js";
 import { showToast } from "./ui/toast.js";
+import { buildDefaultState } from "./model.js";
 
 // ── Build version ─────────────────────────────────────────────────────────────
 // Update this string before each deployment.
-export const BUILD_VERSION = "2026-05-08.v04  — Steps 13+14: legacy + devtools";
+export const BUILD_VERSION = "2026-08-05.v05  — Step 7a: FastAPI backend";
 
 // ── Repository ────────────────────────────────────────────────────────────────
 // Single shared repository instance used by all UI modules.
-export const repository = createRepository({ adapter: createSupabaseStorageAdapter() });
+// Reads and writes go to the FastAPI backend (src/api.js); Supabase is used
+// only for the auth session.
+export const repository = createRepository();
 
 // ── View navigation ───────────────────────────────────────────────────────────
 
@@ -113,23 +116,17 @@ function initBuildVersion() {
 // Stubs are left as comments so the build order is clear.
 
 function renderAll(state) {
-  // Step 7+8 ✅ operations view (includes stats + table + location summary)
-  renderOperationsView(state);
+  // Controllers get the state snapshot before rendering, so any handler that
+  // fires mid-render is already looking at the current data.
   _opsController?.syncState(state);
-
-  // Step 9 ✅ moves log
-  renderMovesView(state, { isAdmin: _isAdmin });
-  _movesController?.syncState(state, { isAdmin: _isAdmin });
-
-  // Step 10 ✅ admin view (add/edit equipment, calibration, CSV import)
-  renderAdminView(state);
+  _movesController?.syncState(state);
   _adminController?.syncState(state);
-
-  // Step 11 ✅ modals (event-driven — syncState keeps their internal state fresh)
   _modalsController?.syncState(state);
-
-  // Step 14 ✅ devtools (hidden unless admin/dev mode active)
   _devtoolsController?.syncState(state);
+
+  renderOperationsView(state);
+  renderMovesView(state);
+  renderAdminView(state);
 }
 
 on("state:changed", (newState) => {
@@ -151,10 +148,6 @@ supabase.auth.onAuthStateChange((_event, session) => {
 initNav();
 initBuildVersion();
 
-// Admin mode flag — updated by auth.js (Step 12) via "auth:admin-changed" event
-let _isAdmin = false;
-document.addEventListener("auth:admin-changed", (e) => { _isAdmin = Boolean(e.detail?.isAdmin); });
-
 // Bind event listeners; keep controllers for state sync
 let _opsController    = bindOperationsEvents({ repository, showToast });
 let _movesController  = bindMovesEvents({ repository, showToast });
@@ -165,15 +158,49 @@ let _devtoolsController = initDevtools();
 // Step 12 ✅ auth — login/logout, role check, dev mode passcode
 initAuth({ showToast });
 
+/**
+ * Load state from the API and render.
+ *
+ * Every endpoint requires a bearer token, so there is nothing to fetch until
+ * the user is signed in — signing in re-fires "auth:changed" and brings us
+ * back here. Signing out clears the state so the previous user's data doesn't
+ * stay on screen.
+ */
+let _loadedForUser = null;
+
+async function loadAndRender(session) {
+  const userId = session?.user?.id ?? null;
+
+  if (!userId) {
+    _loadedForUser = null;
+    emit("state:changed", buildDefaultState());
+    return;
+  }
+
+  // onAuthStateChange also fires on every silent token refresh. Refetching the
+  // whole state each time would be pointless traffic, so only load when the
+  // signed-in user actually changes.
+  if (userId === _loadedForUser) return;
+  _loadedForUser = userId;
+
+  try {
+    await repository.hydrate();
+    emit("state:changed", repository.getState());
+  } catch (err) {
+    _loadedForUser = null;
+    showToast(err.message, "error");
+  }
+}
+
+document.addEventListener("auth:changed", (e) => {
+  loadAndRender(e.detail?.session ?? null);
+});
+
 (async function init() {
-  // Fire the initial auth state immediately so auth.js can render the correct
-  // logged-in / logged-out state before data arrives.
+  // Fire the initial auth state so auth.js renders the correct logged-in /
+  // logged-out state; the listener above then loads data if there's a session.
   const { data } = await supabase.auth.getSession();
   document.dispatchEvent(
     new CustomEvent("auth:changed", { detail: { session: data?.session ?? null } })
   );
-
-  // Load all data from Supabase and trigger the first render.
-  await repository.hydrate();
-  emit("state:changed", repository.getState());
 })();
