@@ -1,6 +1,15 @@
 # Dependencies
 node_modules/
 
+# Python / FastAPI backend
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
 # Supabase CLI
 .supabase/
 supabase/.temp/
