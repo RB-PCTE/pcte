@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth import get_current_user
 from app.config import settings
 from app.db import connect_pools, close_pools
 
@@ -28,6 +29,12 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/auth/whoami")
+async def whoami(user: dict = Depends(get_current_user)):
+    """Manual JWT-auth smoke test. Remove once real routers (step 5+) exist."""
+    return user
 
 
 # Routers are registered here as they're built out in later steps:

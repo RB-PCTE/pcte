@@ -22,5 +22,11 @@ class Settings(BaseSettings):
         """Comma-separated ALLOWED_ORIGINS -> list, trimmed, empty entries dropped."""
         return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
+    @property
+    def supabase_issuer(self) -> str:
+        """Supabase issuer URL for JWT `iss` claim validation — derived from
+        SUPABASE_JWKS_URL rather than duplicated as a separate setting."""
+        return self.SUPABASE_JWKS_URL.removesuffix("/.well-known/jwks.json")
+
 
 settings = Settings()
