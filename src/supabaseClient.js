@@ -13,15 +13,15 @@
 
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-/*export const supabase = createClient(
+export const supabase = createClient(
   "https://eugdravtvewpnwkkpkzl.supabase.co",
   "sb_publishable_n2xhgXcQ1K2cEnk8g_JXsA_UKKBLhUH"
-);*/
+);
 
-export const supabase = createClient(
+/*export const supabase = createClient(
   "https://rerwspncbyaakirlxvbx.supabase.co",
   "sb_publishable_LjlGgrv2SOyOSibMq_2bCg_cEm6vJNt"
-);
+);*/
 
 export const subscriptionSupabase = createClient(
   "https://ezsqpiwzcuczgqdqyuqx.supabase.co",
